@@ -266,6 +266,21 @@ async def list_workflows():
         logger.error(f"Failed to list workflows: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/workflows/{workflow_name}")
+async def get_workflow(workflow_name: str):
+    """Get detailed definition of a specific workflow"""
+    try:
+        if workflow_name not in workflow_engine.workflows:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        return workflow_engine.workflows[workflow_name]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get workflow {workflow_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/workflows/execute", response_model=WorkflowExecutionResponse)
 async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: BackgroundTasks):
     """Execute a workflow for a document"""

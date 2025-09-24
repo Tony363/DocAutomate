@@ -146,8 +146,10 @@ class WorkflowEngine:
                 action_handler = self.action_registry[action_type]
                 result = await action_handler(resolved_config, run.state)
                 
-                # Store step result
-                run.state[f"steps.{step['id']}"] = result
+                # Store step result in nested structure for template access
+                if "steps" not in run.state:
+                    run.state["steps"] = {}
+                run.state["steps"][step['id']] = result
                 run.outputs[step['id']] = result
                 
                 # Check for step failure

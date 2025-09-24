@@ -137,7 +137,7 @@ class ActionExtractor:
     
     def _build_extraction_prompt(self, text: str, template: str) -> str:
         """Build the complete prompt for Claude"""
-        schema = ExtractedAction.schema_json(indent=2)
+        schema = json.dumps(ExtractedAction.model_json_schema(), indent=2)
         
         return f"""
 {template}

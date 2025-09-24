@@ -15,7 +15,7 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 - **📋 YAML-based Workflows**: Define complex automation workflows declaratively
 - **🌐 REST API**: Full-featured FastAPI with async processing
 - **✅ Pydantic Validation**: Structured, validated action extraction
-- **🔄 Async Processing**: Concurrent document processing with job queue
+- **🔄 Async Processing**: Background processing using FastAPI BackgroundTasks
 - **📊 State Management**: Track workflow execution status
 - **🔧 Extensible Action Registry**: Easy to add new action types
 - **📈 Background Processing**: Non-blocking document ingestion with queue management
@@ -139,18 +139,21 @@ http://localhost:8000
 ### Authentication
 Currently no authentication is required. For production deployment, implement JWT or API key authentication.
 
+**Security Note:** CORS is currently configured to allow all origins (`*`) for development. In production, restrict CORS origins to specific domains for security.
+
 ### Content Types
 - Request: `application/json` for JSON payloads, `multipart/form-data` for file uploads
 - Response: `application/json`
 
 ### Error Responses
-All endpoints return structured error responses:
+All endpoints return FastAPI standard error responses:
 ```json
 {
-  "detail": "Error message",
-  "status_code": 400|404|500
+  "detail": "Error message"
 }
 ```
+
+HTTP status codes indicate the error type (400 for client errors, 404 for not found, 500 for server errors).
 
 ---
 
@@ -264,11 +267,31 @@ curl -X GET "http://localhost:8000/documents/e2077163960199cc"
 }
 ```
 
+### 4. Extract Actions from Document
+
+**POST** `/documents/{document_id}/extract`
+
+Manually trigger action extraction for a specific document.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/documents/e2077163960199cc/extract" \
+  -H "accept: application/json"
+```
+
+**Response:**
+```json
+{
+  "message": "Action extraction queued",
+  "document_id": "e2077163960199cc"
+}
+```
+
 ---
 
 ## 🔄 Workflow Endpoints
 
-### 4. List Available Workflows
+### 5. List Available Workflows
 
 **GET** `/workflows`
 
@@ -312,7 +335,7 @@ curl -X GET "http://localhost:8000/workflows"
 }
 ```
 
-### 5. Get Workflow Definition
+### 6. Get Workflow Definition
 
 **GET** `/workflows/{workflow_name}`
 
@@ -349,7 +372,7 @@ curl -X GET "http://localhost:8000/workflows/process_invoice"
 }
 ```
 
-### 6. Execute Workflow
+### 7. Execute Workflow
 
 **POST** `/workflows/execute`
 
@@ -382,15 +405,17 @@ curl -X POST "http://localhost:8000/workflows/execute" \
 **Response:**
 ```json
 {
-  "run_id": "run_12345",
+  "run_id": "pending",
   "workflow_name": "process_invoice",
   "document_id": "e2077163960199cc",
-  "status": "running",
-  "message": "Workflow executed"
+  "status": "queued",
+  "message": "Workflow queued for execution"
 }
 ```
 
-### 7. List Workflow Runs
+**Note:** When `auto_execute=true`, the response will include a real `run_id` and status of "running".
+
+### 8. List Workflow Runs
 
 **GET** `/workflows/runs`
 
@@ -424,7 +449,7 @@ curl -X GET "http://localhost:8000/workflows/runs?workflow_name=process_invoice"
 }
 ```
 
-### 8. Get Workflow Run Status
+### 9. Get Workflow Run Status
 
 **GET** `/workflows/runs/{run_id}`
 
@@ -465,7 +490,7 @@ curl -X GET "http://localhost:8000/workflows/runs/run_12345"
 
 ## 🔧 System Endpoints
 
-### 9. Health Check
+### 10. Health Check
 
 **GET** `/health`
 
@@ -489,7 +514,7 @@ curl -X GET "http://localhost:8000/health"
 }
 ```
 
-### 10. API Information
+### 11. API Information
 
 **GET** `/`
 
@@ -637,14 +662,14 @@ steps:
     description: "Step description"
     config:
       # Step-specific configuration
-    on_error: "stop|continue|retry"
+    on_error: "stop|continue|retry"  # Planned feature - not yet implemented
 
 metadata:
   author: "Author Name"
   category: "workflow_category"
   tags: ["tag1", "tag2"]
   sla_hours: 24
-  retry_policy:
+  retry_policy:  # Planned feature - not yet implemented
     max_retries: 3
     backoff_seconds: 300
 ```
@@ -776,6 +801,8 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
+# Install production WSGI server
+RUN pip install gunicorn
 
 COPY . .
 EXPOSE 8000

@@ -8,7 +8,7 @@
     "file_path": "/home/tony/Desktop/DocAutomate/samples/sample_invoice.txt",
     "extension": ".txt"
   },
-  "ingested_at": "2025-09-24T21:31:17.246039",
+  "ingested_at": "2025-09-24T22:03:35.303531",
   "status": "pending",
   "extracted_actions": null,
   "workflow_runs": []

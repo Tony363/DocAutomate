@@ -8,6 +8,7 @@ import subprocess
 import json
 import tempfile
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import shlex
@@ -30,16 +31,16 @@ class ClaudeCLI:
     Uses subprocess to invoke Claude Code directly
     """
     
-    def __init__(self, timeout: int = 30, claude_cmd: str = "claude"):
+    def __init__(self, timeout: int = None, claude_cmd: str = None):
         """
         Initialize CLI wrapper
         
         Args:
-            timeout: Command timeout in seconds
-            claude_cmd: Path to claude executable (default: 'claude' in PATH)
+            timeout: Command timeout in seconds (default from CLAUDE_TIMEOUT env or 30)
+            claude_cmd: Path to claude executable (default from CLAUDE_CLI_PATH env or 'claude')
         """
-        self.timeout = timeout
-        self.claude_cmd = claude_cmd
+        self.timeout = timeout if timeout is not None else int(os.getenv("CLAUDE_TIMEOUT", "30"))
+        self.claude_cmd = claude_cmd if claude_cmd is not None else os.getenv("CLAUDE_CLI_PATH", "claude")
         
     def _run_command(self, cmd: List[str], input_text: Optional[str] = None) -> CLIResult:
         """
