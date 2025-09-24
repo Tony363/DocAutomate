@@ -141,7 +141,7 @@ ACTION REQUIRED:
         print(f"   Text length: {len(document.text)} characters")
     except Exception as e:
         print(f"   ❌ Ingestion failed: {e}")
-        return
+        return None, []
     
     # Test action extraction with Claude
     print("\n3. Extracting actions with Claude...")

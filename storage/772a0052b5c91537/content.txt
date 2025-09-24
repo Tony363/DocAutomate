@@ -1,0 +1,8 @@
+I'll help you read the contents of a file. However, you haven't specified which file you'd like me to read. Could you please provide the file path or name of the file you want me to read?
+
+For example:
+- `test_claude_integration.py`
+- `claude_cli.py`
+- Or any other file in your DocAutomate project
+
+What file would you like me to read?

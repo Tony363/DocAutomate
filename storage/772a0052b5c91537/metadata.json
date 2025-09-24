@@ -1,0 +1,15 @@
+{
+  "id": "772a0052b5c91537",
+  "filename": "sample_invoice.txt",
+  "content_type": "text/plain",
+  "text": "I'll help you read the contents of a file. However, you haven't specified which file you'd like me to read. Could you please provide the file path or name of the file you want me to read?\n\nFor example:\n- `test_claude_integration.py`\n- `claude_cli.py`\n- Or any other file in your DocAutomate project\n\nWhat file would you like me to read?",
+  "metadata": {
+    "size_bytes": 1261,
+    "file_path": "/home/tony/Desktop/DocAutomate/samples/sample_invoice.txt",
+    "extension": ".txt"
+  },
+  "ingested_at": "2025-09-24T21:07:14.617347",
+  "status": "pending",
+  "extracted_actions": null,
+  "workflow_runs": []
+}

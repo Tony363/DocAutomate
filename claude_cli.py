@@ -60,7 +60,7 @@ class ClaudeCLI:
             # Execute command
             result = subprocess.run(
                 cmd,
-                input=input_text.encode('utf-8') if input_text else None,
+                input=input_text if input_text else None,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
@@ -117,13 +117,22 @@ class ClaudeCLI:
         if not Path(file_path).exists():
             raise FileNotFoundError(f"File not found: {file_path}")
         
-        # Build command: claude read <file>
-        cmd = [self.claude_cmd, "read", file_path]
+        # For text files, read directly
+        if file_path.endswith(('.txt', '.md', '.json', '.yaml', '.yml')):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                logger.info(f"Successfully read text file: {file_path}")
+                return content
         
-        result = self._run_command(cmd)
+        # For other files, use Claude to process them
+        # Use --print flag and ask Claude to read the file
+        cmd = [self.claude_cmd, "--print"]
+        prompt = f"Please read and extract the text content from the file: {file_path}"
+        
+        result = self._run_command(cmd, input_text=prompt)
         
         if result.success:
-            logger.info(f"Successfully read document: {file_path}")
+            logger.info(f"Successfully read document via Claude: {file_path}")
             return result.output
         else:
             error_msg = f"Failed to read document: {result.error or 'Unknown error'}"
@@ -155,46 +164,32 @@ class ClaudeCLI:
         
         full_prompt += f"Text to analyze:\n---\n{text[:3000]}\n---\n"  # Limit text for safety
         
-        # Create temporary file for prompt (safer for large inputs)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
-            tmp.write(full_prompt)
-            tmp_path = tmp.name
+        # Use claude with --print flag for non-interactive output
+        # Pass the prompt via stdin
+        cmd = [self.claude_cmd, "--print"]
         
-        try:
-            # Use claude with appropriate flags
+        result = self._run_command(cmd, input_text=full_prompt)
+        
+        if result.success:
             if schema:
-                # Request JSON output
-                cmd = [self.claude_cmd, "--json", "--file", tmp_path]
+                try:
+                    # Parse JSON response
+                    return json.loads(result.output)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse JSON response: {e}")
+                    # Attempt to extract JSON from response
+                    import re
+                    json_match = re.search(r'\{.*\}', result.output, re.DOTALL)
+                    if json_match:
+                        return json.loads(json_match.group())
+                    else:
+                        return {"result": result.output, "error": "JSON parsing failed"}
             else:
-                # Regular text analysis
-                cmd = [self.claude_cmd, "--file", tmp_path]
-            
-            result = self._run_command(cmd)
-            
-            if result.success:
-                if schema:
-                    try:
-                        # Parse JSON response
-                        return json.loads(result.output)
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Failed to parse JSON response: {e}")
-                        # Attempt to extract JSON from response
-                        import re
-                        json_match = re.search(r'\{.*\}', result.output, re.DOTALL)
-                        if json_match:
-                            return json.loads(json_match.group())
-                        else:
-                            return {"result": result.output, "error": "JSON parsing failed"}
-                else:
-                    return {"result": result.output}
-            else:
-                error_msg = f"Analysis failed: {result.error or 'Unknown error'}"
-                logger.error(error_msg)
-                raise Exception(error_msg)
-                
-        finally:
-            # Clean up temp file
-            Path(tmp_path).unlink(missing_ok=True)
+                return {"result": result.output}
+        else:
+            error_msg = f"Analysis failed: {result.error or 'Unknown error'}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
     
     def execute_task(self, agent: str, action: str, params: Optional[Dict] = None) -> Dict:
         """
@@ -208,14 +203,14 @@ class ClaudeCLI:
         Returns:
             Task execution result as dictionary
         """
-        # Build base command
-        cmd = [self.claude_cmd, "--delegate", agent]
+        # Build base command with --print for non-interactive output
+        cmd = [self.claude_cmd, "--print"]
         
-        # Create prompt with action and parameters
+        # Create prompt with action and parameters, including agent delegation
         if params:
-            prompt = f"{action}\n\nParameters:\n{json.dumps(params, indent=2)}"
+            prompt = f"Use the Task tool to delegate to the {agent} agent: {action}\n\nParameters:\n{json.dumps(params, indent=2)}"
         else:
-            prompt = action
+            prompt = f"Use the Task tool to delegate to the {agent} agent: {action}"
         
         result = self._run_command(cmd, input_text=prompt)
         
@@ -255,7 +250,7 @@ class ClaudeCLI:
         else:
             full_message = message
         
-        cmd = [self.claude_cmd]
+        cmd = [self.claude_cmd, "--print"]
         result = self._run_command(cmd, input_text=full_message)
         
         if result.success:
