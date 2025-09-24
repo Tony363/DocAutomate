@@ -1,0 +1,15 @@
+{
+  "id": "e2077163960199cc",
+  "filename": "sample_invoice.txt",
+  "content_type": "text/plain",
+  "text": "\nINVOICE\n=======\n\nInvoice Number: INV-2024-001\nDate: January 15, 2024\nDue Date: February 15, 2024\n\nFrom:\nABC Corporation\n123 Business Street\nNew York, NY 10001\nTax ID: 12-3456789\n\nTo:\nXYZ Company\n456 Commerce Ave\nSan Francisco, CA 94102\n\nINVOICE DETAILS\n--------------\n\nDescription                      Quantity    Unit Price    Total\nSoftware Development Services    40 hours    $125.00       $5,000.00\nCloud Infrastructure Setup       1           $2,500.00     $2,500.00\nMonthly Support Package          1           $1,500.00     $1,500.00\n\n                                            Subtotal:      $9,000.00\n                                            Tax (10%):     $900.00\n                                            TOTAL DUE:     $9,900.00\n\nPayment Terms:\n- Net 30 days\n- 2% discount if paid within 10 days\n- Late payment subject to 1.5% monthly interest\n\nPlease remit payment to:\nBank: First National Bank\nAccount: 123456789\nRouting: 987654321\n\nFor questions about this invoice, please contact:\nEmail: billing@abccorp.com\nPhone: (555) 123-4567\n\nThank you for your business!\n\nREQUIRED ACTIONS:\n1. Review and approve this invoice for payment\n2. Schedule payment before the due date (February 15, 2024)\n3. Send payment confirmation to billing@abccorp.com\n",
+  "metadata": {
+    "size_bytes": 1261,
+    "file_path": "/home/tony/Desktop/DocAutomate/samples/sample_invoice.txt",
+    "extension": ".txt"
+  },
+  "ingested_at": "2025-09-24T19:41:05.729755",
+  "status": "pending",
+  "extracted_actions": null,
+  "workflow_runs": []
+}

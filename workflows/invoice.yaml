@@ -1,0 +1,163 @@
+name: "process_invoice"
+description: "Process incoming invoices for payment and approval"
+version: "1.0.0"
+
+parameters:
+  - name: "invoice_id"
+    type: "string"
+    required: true
+    description: "Unique invoice identifier"
+  
+  - name: "vendor_name"
+    type: "string"
+    required: true
+    description: "Name of the vendor/supplier"
+  
+  - name: "amount"
+    type: "float"
+    required: true
+    description: "Total invoice amount"
+  
+  - name: "currency"
+    type: "string"
+    required: false
+    default: "USD"
+    description: "Currency code"
+  
+  - name: "due_date"
+    type: "string"
+    required: false
+    description: "Payment due date (ISO format)"
+
+steps:
+  - id: "validate_vendor"
+    type: "api_call"
+    description: "Validate vendor exists in system"
+    config:
+      url: "https://api.company.com/vendors/validate"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        vendor_name: "{{ vendor_name }}"
+    on_error: "stop"
+  
+  - id: "check_threshold"
+    type: "conditional"
+    description: "Check if approval is needed based on amount"
+    config:
+      condition: "{{ amount > 10000 }}"
+      if_true:
+        type: "mcp_task"
+        config:
+          agent_name: "approval-agent"
+          action: "request_approval"
+          params:
+            invoice_id: "{{ invoice_id }}"
+            amount: "{{ amount }}"
+            vendor: "{{ vendor_name }}"
+            approvers: ["finance_manager", "department_head"]
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            approval_status: "auto_approved"
+            approval_note: "Below threshold, automatically approved"
+  
+  - id: "create_payment_record"
+    type: "api_call"
+    description: "Create payment record in finance system"
+    config:
+      url: "https://api.company.com/payments"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ${FINANCE_API_TOKEN}"
+      body:
+        invoice_id: "{{ invoice_id }}"
+        vendor_id: "{{ steps.validate_vendor.response.vendor_id }}"
+        amount: "{{ amount }}"
+        currency: "{{ currency }}"
+        due_date: "{{ due_date }}"
+        approval_status: "{{ steps.check_threshold.approval_status | default('pending') }}"
+  
+  - id: "schedule_payment"
+    type: "mcp_task"
+    description: "Schedule payment for due date"
+    config:
+      agent_name: "finance-agent"
+      action: "schedule_payment"
+      params:
+        payment_id: "{{ steps.create_payment_record.response.payment_id }}"
+        vendor_id: "{{ steps.validate_vendor.response.vendor_id }}"
+        amount: "{{ amount }}"
+        currency: "{{ currency }}"
+        scheduled_date: "{{ due_date | default('2024-12-31') }}"
+  
+  - id: "notify_stakeholders"
+    type: "parallel"
+    description: "Send notifications to relevant parties"
+    config:
+      tasks:
+        - type: "send_email"
+          config:
+            to: "accounts_payable@company.com"
+            subject: "Invoice {{ invoice_id }} Processed"
+            body: |
+              Invoice Details:
+              - Invoice ID: {{ invoice_id }}
+              - Vendor: {{ vendor_name }}
+              - Amount: {{ currency }} {{ amount }}
+              - Status: Processing complete
+              - Payment ID: {{ steps.create_payment_record.response.payment_id }}
+              - Scheduled Date: {{ due_date | default('TBD') }}
+        
+        - type: "webhook"
+          config:
+            url: "https://slack.company.com/webhooks/finance"
+            method: "POST"
+            body:
+              text: "Invoice {{ invoice_id }} from {{ vendor_name }} for {{ currency }} {{ amount }} has been processed and scheduled for payment."
+              channel: "#finance-notifications"
+        
+        - type: "api_call"
+          config:
+            url: "https://api.company.com/audit/log"
+            method: "POST"
+            body:
+              event_type: "invoice_processed"
+              invoice_id: "{{ invoice_id }}"
+              vendor: "{{ vendor_name }}"
+              amount: "{{ amount }}"
+              timestamp: "{{ __timestamp__ }}"
+              workflow_run_id: "{{ __run_id__ }}"
+  
+  - id: "generate_report"
+    type: "claude_analyze"
+    description: "Generate processing summary"
+    config:
+      prompt: |
+        Summarize the invoice processing for:
+        - Invoice: {{ invoice_id }}
+        - Vendor: {{ vendor_name }}
+        - Amount: {{ currency }} {{ amount }}
+        - Processing steps completed: {{ steps | length }}
+      data:
+        invoice_details:
+          id: "{{ invoice_id }}"
+          vendor: "{{ vendor_name }}"
+          amount: "{{ amount }}"
+        processing_results:
+          vendor_validation: "{{ steps.validate_vendor.status }}"
+          approval_status: "{{ steps.check_threshold.approval_status | default('pending') }}"
+          payment_scheduled: "{{ steps.schedule_payment.status }}"
+
+# Workflow metadata
+metadata:
+  author: "DocAutomate Framework"
+  category: "finance"
+  tags: ["invoice", "payment", "approval"]
+  sla_hours: 24
+  retry_policy:
+    max_retries: 3
+    backoff_seconds: 300

@@ -1,0 +1,42 @@
+# Core Dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic[email]
+
+# Document Processing
+PyYAML==6.0.1
+jinja2==3.1.2
+
+# Async Support
+aiohttp==3.9.1
+asyncio==3.4.3
+aiofiles==23.2.1
+
+# API & Web
+python-multipart==0.0.6
+httpx==0.25.2
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+
+# Optional: Production deployment
+gunicorn==21.2.0
+redis==5.0.1  # For future job queue upgrade
+celery==5.3.4  # For future task queue upgrade
+
+# Optional: Enhanced document processing
+pypdf==3.17.1  # For actual PDF processing
+Pillow==10.1.0  # For image processing
+python-docx==1.1.0  # For Word documents
+openpyxl==3.1.2  # For Excel files
+
+# Optional: Database support
+sqlalchemy==2.0.23  # For future database integration
+alembic==1.12.1  # For database migrations
