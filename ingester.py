@@ -113,17 +113,29 @@ class DocumentIngester:
     
     async def _extract_text(self, file_path: Path) -> str:
         """
-        Extract text from document
-        In production, this would use Claude's Read tool
+        Extract text from document using Claude Code Read tool
         """
-        # Simplified implementation for demo
-        if file_path.suffix in ['.txt', '.md']:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        else:
-            # Simulate extraction for other formats
-            # In reality, would use: claude_read_tool(file_path)
-            return f"[Extracted text from {file_path.name}]\\n\\nThis is where the actual document content would appear after processing with Claude's Read tool."
+        try:
+            # Try to use Claude Code for all document types
+            from claude_cli import AsyncClaudeCLI
+            cli = AsyncClaudeCLI()
+            
+            logger.info(f"Using Claude Code to read: {file_path}")
+            text = await cli.read_document_async(str(file_path))
+            logger.info(f"Successfully extracted {len(text)} characters from {file_path.name}")
+            return text
+            
+        except (ImportError, FileNotFoundError) as e:
+            # Fallback if Claude Code is not available
+            logger.warning(f"Claude Code not available, using fallback: {e}")
+            
+            if file_path.suffix in ['.txt', '.md']:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            else:
+                # Return placeholder for unsupported formats without Claude
+                logger.warning(f"Cannot extract from {file_path.suffix} without Claude Code")
+                return f"[Document: {file_path.name}]\\n\\nClaude Code is required to extract text from {file_path.suffix} files. Please ensure Claude Code is installed."
     
     async def _store_document(self, doc: Document):
         """Store document metadata and content"""

@@ -252,21 +252,39 @@ class WorkflowEngine:
             }
     
     async def _execute_mcp_task(self, config: Dict, state: Dict) -> Dict:
-        """Execute a task via MCP/Claude agent"""
-        # In production, this would interface with Claude's Task agent system
+        """Execute a task via MCP/Claude agent using CLI"""
         agent_name = config.get('agent_name')
         action = config.get('action')
         params = config.get('params', {})
         
-        logger.info(f"Executing MCP task: {agent_name}.{action} with params: {params}")
-        
-        # Simulated execution
-        return {
-            'status': 'success',
-            'agent': agent_name,
-            'action': action,
-            'result': f"Executed {action} successfully"
-        }
+        try:
+            # Use Claude Code CLI for real task execution
+            from claude_cli import AsyncClaudeCLI
+            cli = AsyncClaudeCLI()
+            
+            logger.info(f"Executing MCP task via Claude Code: {agent_name}.{action}")
+            
+            # Execute task through Claude Code
+            result = await cli.execute_task_async(
+                agent=agent_name,
+                action=action,
+                params=params
+            )
+            
+            logger.info(f"MCP task completed: {result.get('status', 'unknown')}")
+            return result
+            
+        except (ImportError, Exception) as e:
+            # Fallback if Claude Code is not available
+            logger.warning(f"Claude Code task execution failed, using fallback: {e}")
+            
+            return {
+                'status': 'simulated',
+                'agent': agent_name,
+                'action': action,
+                'result': f"Simulated execution of {action} (Claude Code required for real execution)",
+                'warning': 'Claude Code not available - task was simulated'
+            }
     
     async def _execute_send_email(self, config: Dict, state: Dict) -> Dict:
         """Send an email notification"""
@@ -350,19 +368,66 @@ class WorkflowEngine:
         return await self._execute_api_call(config, state)
     
     async def _execute_claude_analyze(self, config: Dict, state: Dict) -> Dict:
-        """Use Claude to analyze data"""
+        """Use Claude to analyze data via CLI"""
         prompt = config.get('prompt')
         data = config.get('data')
         
-        logger.info(f"Claude analysis requested: {prompt[:100]}...")
-        
-        # In production, this would call Claude API
-        # Simulated response
-        return {
-            'status': 'success',
-            'analysis': f"Analysis complete for: {prompt[:50]}...",
-            'insights': ["Insight 1", "Insight 2", "Insight 3"]
-        }
+        try:
+            # Use Claude Code CLI for real analysis
+            from claude_cli import AsyncClaudeCLI
+            cli = AsyncClaudeCLI()
+            
+            logger.info(f"Claude analysis requested: {prompt[:100]}...")
+            
+            # Prepare data for analysis
+            if isinstance(data, dict):
+                data_text = json.dumps(data, indent=2)
+            else:
+                data_text = str(data)
+            
+            # Define schema for structured analysis
+            analysis_schema = {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string"},
+                    "insights": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "recommendations": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "confidence": {"type": "number"}
+                }
+            }
+            
+            # Call Claude for analysis
+            result = await cli.analyze_text_async(
+                text=data_text,
+                prompt=prompt,
+                schema=analysis_schema
+            )
+            
+            return {
+                'status': 'success',
+                'analysis': result
+            }
+            
+        except (ImportError, Exception) as e:
+            # Fallback if Claude Code is not available
+            logger.warning(f"Claude Code analysis failed, using fallback: {e}")
+            
+            return {
+                'status': 'simulated',
+                'analysis': {
+                    'summary': f"Analysis simulation for: {prompt[:50]}...",
+                    'insights': ["Claude Code required for real analysis"],
+                    'recommendations': ["Install Claude Code for full functionality"],
+                    'confidence': 0.0
+                },
+                'warning': 'Claude Code not available - analysis was simulated'
+            }
     
     def get_run_status(self, run_id: str) -> Optional[WorkflowRun]:
         """Get status of a workflow run"""

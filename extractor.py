@@ -162,49 +162,92 @@ Response (JSON array only):
     
     async def _call_claude_api(self, prompt: str) -> str:
         """
-        Call Claude API for extraction
-        In production, this would use actual Claude API
+        Call Claude via CLI for extraction
         """
-        # Simulated response for demo
-        simulated_response = """[
+        try:
+            # Use Claude Code CLI for real extraction
+            from claude_cli import AsyncClaudeCLI
+            cli = AsyncClaudeCLI()
+            
+            # Define the expected schema for extraction
+            extraction_schema = {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "action_type": {"type": "string"},
+                        "workflow_name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "parameters": {"type": "object"},
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "value": {},
+                                    "confidence": {"type": "number"},
+                                    "location": {"type": "string"}
+                                }
+                            }
+                        },
+                        "confidence_score": {"type": "number"},
+                        "confidence_level": {"type": "string"},
+                        "priority": {"type": "integer"},
+                        "deadline": {"type": "string"}
+                    }
+                }
+            }
+            
+            # Extract the text portion from the prompt
+            import re
+            text_match = re.search(r'Document text:\n---\n(.+?)\n---', prompt, re.DOTALL)
+            if text_match:
+                document_text = text_match.group(1)
+            else:
+                document_text = prompt
+            
+            # Call Claude with structured extraction request
+            logger.info("Calling Claude Code for action extraction")
+            result = await cli.analyze_text_async(
+                text=document_text,
+                prompt="Extract all actionable items from this document. Include invoice processing, approval requests, payments, scheduling, and any other actions needed. Return as a JSON array.",
+                schema=extraction_schema
+            )
+            
+            # Convert result to JSON string if it's a dict
+            if isinstance(result, dict):
+                # If result has a 'result' key, use that
+                if 'result' in result:
+                    return json.dumps(result['result'])
+                else:
+                    return json.dumps([result])  # Wrap single result in array
+            elif isinstance(result, list):
+                return json.dumps(result)
+            else:
+                return str(result)
+                
+        except (ImportError, Exception) as e:
+            # Fallback to simulated response if Claude Code is not available
+            logger.warning(f"Claude Code extraction failed, using fallback: {e}")
+            
+            # Return a basic simulated response
+            simulated_response = """[
   {
     "action_type": "invoice_processing",
     "workflow_name": "process_invoice",
-    "description": "Process invoice #INV-2024-001 for ABC Corp",
+    "description": "Process document (Claude Code required for full extraction)",
     "parameters": {
-      "invoice_number": "INV-2024-001",
-      "vendor_name": "ABC Corp",
-      "amount": 5000.00,
-      "currency": "USD",
-      "due_date": "2024-02-15"
+      "status": "pending_claude_extraction"
     },
-    "entities": [
-      {
-        "name": "invoice_number",
-        "value": "INV-2024-001",
-        "confidence": 0.95,
-        "location": "header"
-      },
-      {
-        "name": "vendor_name",
-        "value": "ABC Corp",
-        "confidence": 0.92,
-        "location": "header"
-      },
-      {
-        "name": "amount",
-        "value": 5000.00,
-        "confidence": 0.98,
-        "location": "summary"
-      }
-    ],
-    "confidence_score": 0.92,
-    "confidence_level": "high",
-    "priority": 2,
-    "deadline": "2024-02-15T00:00:00Z"
+    "entities": [],
+    "confidence_score": 0.0,
+    "confidence_level": "low",
+    "priority": 5,
+    "deadline": null
   }
 ]"""
-        return simulated_response
+            return simulated_response
     
     def _parse_claude_response(self, raw_response: str) -> List[ExtractedAction]:
         """Parse and validate Claude's response"""

@@ -1,11 +1,13 @@
 # DocAutomate Framework
 
-Enterprise-ready document ingestion and action automation framework built on top of Claude Code capabilities.
+Enterprise-ready document ingestion and action automation framework with **full Claude Code integration** via command-line interface.
 
 ## Features
 
-- **Multi-format Document Ingestion**: PDF, images, text, Word documents
-- **Intelligent Action Extraction**: Uses Claude's NLP to identify actionable items
+- **Claude Code Integration**: Real document processing using Claude Code CLI
+- **Multi-format Document Ingestion**: PDF, images, text via Claude Read tool
+- **Intelligent Action Extraction**: Claude's NLP for actionable item identification
+- **Task Agent Execution**: Direct integration with Claude Task agents
 - **YAML-based Workflows**: Define complex automation workflows declaratively
 - **REST API**: Full-featured API for integration
 - **Pydantic Validation**: Structured, validated action extraction
@@ -13,13 +15,41 @@ Enterprise-ready document ingestion and action automation framework built on top
 - **State Management**: Track workflow execution status
 - **Extensible Action Registry**: Easy to add new action types
 
+## Claude Code Integration
+
+DocAutomate now features **full integration with Claude Code** via command-line interface:
+
+- **Document Reading**: Uses `claude read` command for PDF/image text extraction
+- **Action Extraction**: Calls Claude via CLI for intelligent NLP analysis
+- **Task Execution**: Delegates to Claude Task agents via `claude --delegate`
+- **Analysis**: Uses Claude for document summarization and insights
+
+### How It Works
+
+1. **CLI Wrapper** (`claude_cli.py`): Subprocess wrapper for Claude commands
+2. **Automatic Detection**: Falls back gracefully if Claude Code not available
+3. **Real Processing**: When Claude is available, all processing is real, not simulated
+
 ## Quick Start
+
+### Prerequisites
+
+```bash
+# Install Claude Code (if not already installed)
+# Visit: https://claude.ai/code
+
+# Verify Claude Code is installed
+claude --version
+```
 
 ### Installation
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# Test Claude integration
+python test_claude_integration.py
 ```
 
 ### Running the API
@@ -107,12 +137,36 @@ steps:
 - `GET /workflows` - List available workflows
 - `GET /workflows/runs/{id}` - Get workflow run status
 
-## Integration with Claude Code
+## Real Claude Code Integration
 
-This framework leverages Claude Code's existing capabilities:
-- **Read Tool**: For PDF and image processing
-- **Task Agents**: For complex workflow orchestration
-- **MCP Servers**: For extensible functionality
+This framework now has **REAL integration** with Claude Code:
+
+### Integrated Components
+
+| Component | Simulated (Before) | Real (Now) | Claude Command |
+|-----------|-------------------|------------|----------------|
+| Document Reading | Placeholder text | Actual PDF/image extraction | `claude read <file>` |
+| Action Extraction | Hardcoded JSON | Claude NLP analysis | `claude --json` with prompts |
+| Task Execution | Logged only | Real Task agent calls | `claude --delegate <agent>` |
+| Analysis | Mock insights | Claude analysis | `claude` with structured prompts |
+
+### Integration Points
+
+1. **ingester.py** (lines 119-126): Uses `claude read` for document extraction
+2. **extractor.py** (lines 168-228): Calls Claude CLI for action extraction
+3. **workflow.py** (lines 254-285): Executes Task agents via CLI
+4. **workflow.py** (lines 352-395): Uses Claude for analysis
+
+### Testing Integration
+
+```bash
+# Run integration test to verify Claude Code is working
+python test_claude_integration.py
+
+# Output will show:
+# ✅ Claude Code Integration: ACTIVE (if installed)
+# ⚠️ Claude Code Integration: SIMULATED (if not installed)
+```
 
 ## Future Enhancements
 
