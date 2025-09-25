@@ -1,0 +1,221 @@
+# Add Section Remediation Template  
+# Purpose: Add missing required sections to documentation
+
+template:
+  id: add-section
+  name: Section Addition Template
+  version: 1.0.0
+  purpose: Add missing sections that are required for documentation completeness
+  
+  applicable_to:
+    issue_types: [completeness, structure]
+    severity_range: [medium, high, critical]
+    document_types: [markdown, html, docx]
+  
+  inputs:
+    required:
+      section_title: string  # Title of the section to add
+      section_type: string  # Type: overview|requirements|api|examples|security|testing
+      parent_section: string  # Where to add this section
+      content_requirements: array  # What must be included
+    optional:
+      template_content: string  # Pre-filled content template
+      subsections: array  # Required subsections
+      examples_needed: integer  # Number of examples required
+  
+  generation:
+    method: insert
+    
+    patterns:
+      overview_section: |
+        ## {section_title}
+        
+        This section provides an overview of {topic}.
+        
+        ### Key Concepts
+        {content_placeholder}
+        
+        ### Getting Started
+        {getting_started_placeholder}
+        
+        ### Common Use Cases
+        {use_cases_placeholder}
+      
+      requirements_section: |
+        ## {section_title}
+        
+        ### System Requirements
+        - Operating System: {os_requirements}
+        - Runtime: {runtime_requirements}
+        - Dependencies: {dependencies}
+        
+        ### Prerequisites
+        {prerequisites_list}
+        
+        ### Installation
+        ```bash
+        {installation_commands}
+        ```
+      
+      api_section: |
+        ## {section_title}
+        
+        ### Endpoints
+        {endpoints_list}
+        
+        ### Authentication
+        {auth_details}
+        
+        ### Request/Response Format
+        {format_details}
+        
+        ### Error Codes
+        {error_codes_table}
+      
+      security_section: |
+        ## {section_title}
+        
+        ### Security Considerations
+        {security_overview}
+        
+        ### Authentication & Authorization
+        {auth_details}
+        
+        ### Data Protection
+        {data_protection_measures}
+        
+        ### Vulnerability Disclosure
+        {disclosure_policy}
+      
+      testing_section: |
+        ## {section_title}
+        
+        ### Test Coverage
+        {coverage_metrics}
+        
+        ### Running Tests
+        ```bash
+        {test_commands}
+        ```
+        
+        ### Test Categories
+        - Unit Tests: {unit_test_details}
+        - Integration Tests: {integration_test_details}
+        - E2E Tests: {e2e_test_details}
+      
+      examples_section: |
+        ## {section_title}
+        
+        ### Basic Example
+        ```{language}
+        {basic_example_code}
+        ```
+        
+        ### Advanced Example
+        ```{language}
+        {advanced_example_code}
+        ```
+        
+        ### Common Patterns
+        {patterns_list}
+    
+    selection_logic: |
+      section_type_to_pattern = {
+        'overview': 'overview_section',
+        'requirements': 'requirements_section',
+        'api': 'api_section',
+        'security': 'security_section',
+        'testing': 'testing_section',
+        'examples': 'examples_section'
+      }
+      return section_type_to_pattern.get(section_type, 'overview_section')
+  
+  output_constraints:
+    max_length: 5000
+    style_guide: technical-documentation
+    format: markdown
+    rules:
+      - Section must be complete and self-contained
+      - Include all required subsections
+      - Provide concrete examples where applicable
+      - Maintain consistent formatting with existing document
+  
+  validators:
+    - type: structural
+      rules:
+        - Section properly integrated into TOC
+        - Heading hierarchy maintained
+        - Cross-references valid
+    
+    - type: content
+      rules:
+        - All required content present
+        - Examples compile/run successfully
+        - No placeholder text remaining
+    
+    - type: completeness
+      rules:
+        - All content_requirements addressed
+        - Minimum examples provided
+        - Required subsections present
+  
+  examples:
+    - context: Missing Security Section
+      before: |
+        # API Documentation
+        ## Overview
+        ## Endpoints
+        ## Examples
+      after: |
+        # API Documentation
+        ## Overview
+        ## Endpoints
+        
+        ## Security Considerations
+        
+        ### Authentication & Authorization
+        All API requests require authentication using Bearer tokens.
+        Tokens are obtained through the OAuth 2.0 flow.
+        
+        ### Data Protection
+        - All data transmitted over HTTPS
+        - PII is encrypted at rest using AES-256
+        - Regular security audits performed quarterly
+        
+        ### Vulnerability Disclosure
+        Report security issues to security@example.com
+        
+        ## Examples
+    
+    - context: Missing Testing Documentation
+      before: |
+        ## Installation
+        ## Configuration
+        ## Usage
+      after: |
+        ## Installation
+        ## Configuration
+        
+        ## Testing
+        
+        ### Test Coverage
+        Current coverage: 85% (target: 90%)
+        
+        ### Running Tests
+        ```bash
+        npm test          # Run all tests
+        npm run test:unit # Run unit tests only
+        npm run test:e2e  # Run end-to-end tests
+        ```
+        
+        ### Test Categories
+        - Unit Tests: Cover individual functions and components
+        - Integration Tests: Verify component interactions
+        - E2E Tests: Validate complete user workflows
+        
+        ## Usage
+  
+  metrics:
+    average_application_time: 5s
+    success_rate: 0.92
+    user_satisfaction: 4.5/5

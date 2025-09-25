@@ -1,0 +1,138 @@
+name: "document_orchestration"
+description: "Complete document processing orchestration workflow using Claude Code"
+version: "2.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for tracking"
+  
+  - name: "workflow_type"
+    type: "string"
+    required: false
+    default: "full"
+    description: "Type of orchestration (full, analysis_only, remediation_only)"
+  
+  - name: "agents"
+    type: "array"
+    required: false
+    description: "List of agents to use for analysis"
+    
+  - name: "models"
+    type: "array"
+    required: false
+    description: "List of models for consensus validation"
+
+steps:
+  - id: "prepare_document"
+    type: "data_transform"
+    description: "Prepare document for processing"
+    config:
+      transformations:
+        document_ready: true
+        processing_started_at: "{{ now() }}"
+  
+  - id: "multi_agent_analysis"
+    type: "parallel"
+    description: "Run parallel multi-agent analysis using Claude Code"
+    config:
+      tasks:
+        - type: "claude_delegate"
+          config:
+            agent: "general-purpose"
+            task: "Analyze document structure, identify major sections, quality issues, and completeness gaps for document {{ document_id }}"
+            
+        - type: "claude_delegate"
+          config:
+            agent: "technical-writer"
+            task: "Review document {{ document_id }} for clarity, terminology consistency, and documentation quality"
+            
+        - type: "claude_delegate"
+          config:
+            agent: "requirements-analyst"
+            task: "Validate requirements coverage and completeness in document {{ document_id }}"
+            
+        - type: "claude_delegate"
+          config:
+            agent: "security-engineer"
+            task: "Identify security vulnerabilities and compliance gaps in document {{ document_id }}"
+            
+        - type: "claude_delegate"
+          config:
+            agent: "quality-engineer"
+            task: "Assess test coverage and quality metrics for document {{ document_id }}"
+  
+  - id: "synthesize_findings"
+    type: "claude_consensus"
+    description: "Synthesize findings with multi-model consensus"
+    config:
+      analysis_data: "{{ steps.multi_agent_analysis.results }}"
+      document_id: "{{ document_id }}"
+      models: "{{ models or ['gpt-5', 'claude-opus-4.1', 'gpt-4.1'] }}"
+  
+  - id: "check_workflow_type"
+    type: "conditional"
+    description: "Check if remediation is needed"
+    config:
+      condition: "{{ workflow_type in ['full', 'remediation_only'] }}"
+      if_true:
+        type: "claude_remediate"
+        config:
+          document_id: "{{ document_id }}"
+          issues: "{{ steps.synthesize_findings.consensus.issues }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            remediation_skipped: true
+  
+  - id: "validate_quality"
+    type: "claude_thinkdeep"
+    description: "Deep quality validation using Claude thinkdeep"
+    config:
+      prompt: "Perform comprehensive quality validation for document {{ document_id }}. Analyze improvements, remaining issues, and overall quality score."
+      model: "gpt-5"
+      data: "{{ steps.check_workflow_type }}"
+  
+  - id: "generate_report"
+    type: "data_transform"
+    description: "Generate orchestration report"
+    config:
+      transformations:
+        document_id: "{{ document_id }}"
+        workflow_type: "{{ workflow_type }}"
+        analysis_completed: true
+        agents_used: "{{ agents or 5 }}"
+        consensus_score: "{{ steps.synthesize_findings.agreement_score }}"
+        quality_score: "{{ steps.validate_quality.analysis.quality_score or 0 }}"
+        issues_found: "{{ steps.synthesize_findings.consensus.issues | length }}"
+        issues_resolved: "{{ steps.check_workflow_type.issues_resolved | length or 0 }}"
+        completed_at: "{{ now() }}"
+  
+  - id: "send_notification"
+    type: "send_email"
+    description: "Notify stakeholders of orchestration completion"
+    config:
+      to: "document-team@company.com"
+      subject: "Document Orchestration Complete: {{ document_id }}"
+      body: |
+        Document orchestration workflow has completed for {{ document_id }}.
+        
+        Workflow Type: {{ workflow_type }}
+        
+        Results:
+        - Agents Used: {{ agents or 5 }}
+        - Consensus Score: {{ steps.synthesize_findings.agreement_score }}%
+        - Quality Score: {{ steps.validate_quality.analysis.quality_score or 0 }}%
+        - Issues Found: {{ steps.synthesize_findings.consensus.issues | length }}
+        - Issues Resolved: {{ steps.check_workflow_type.issues_resolved | length or 0 }}
+        
+        View full report at: /orchestrate/runs/{{ document_id }}
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "orchestration"
+  tags: ["orchestration", "multi-agent", "consensus", "remediation", "claude-code"]
+  sla_hours: 2
+  requires_claude: true

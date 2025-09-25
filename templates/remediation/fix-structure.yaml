@@ -1,0 +1,147 @@
+# Fix Structure Remediation Template
+# Purpose: Reorganize content for better information architecture
+
+template:
+  id: fix-structure
+  name: Structure Improvement Template
+  version: 1.0.0
+  purpose: Reorganize and restructure content for improved clarity and navigation
+  
+  applicable_to:
+    issue_types: [structure, consistency]
+    severity_range: [low, medium, high]
+    document_types: [markdown, html, docx]
+  
+  inputs:
+    required:
+      structure_issue: string  # Type of structure problem
+      affected_sections: array  # Sections that need reorganization
+      target_structure: object  # Desired structure hierarchy
+    optional:
+      heading_corrections: array  # Heading level fixes
+      toc_updates: boolean  # Update table of contents
+      cross_references: array  # References to update
+  
+  generation:
+    method: rewrite
+    
+    patterns:
+      fix_heading_hierarchy: |
+        {% for section in affected_sections %}
+        {% set level = section.correct_level %}
+        {'#' * level} {section.title}
+        
+        {section.content}
+        {% endfor %}
+      
+      reorganize_sections: |
+        {% for section in target_structure.sections %}
+        ## {section.title}
+        
+        {% if section.introduction %}
+        {section.introduction}
+        {% endif %}
+        
+        {% for subsection in section.subsections %}
+        ### {subsection.title}
+        {subsection.content}
+        {% endfor %}
+        {% endfor %}
+      
+      create_toc: |
+        ## Table of Contents
+        
+        {% for section in target_structure.sections %}
+        {loop.index}. [{section.title}](#{section.anchor})
+        {% for subsection in section.subsections %}
+           {loop.index}. [{subsection.title}](#{subsection.anchor})
+        {% endfor %}
+        {% endfor %}
+      
+      fix_information_flow: |
+        {% for section in target_structure.logical_flow %}
+        ## {section.title}
+        
+        {% if section.prerequisites %}
+        > **Prerequisites**: {section.prerequisites | join(', ')}
+        {% endif %}
+        
+        {section.content}
+        
+        {% if section.next_steps %}
+        **Next Steps**: {section.next_steps | join(' → ')}
+        {% endif %}
+        {% endfor %}
+    
+    selection_logic: |
+      issue_type_to_pattern = {
+        'heading_hierarchy': 'fix_heading_hierarchy',
+        'section_order': 'reorganize_sections',
+        'missing_toc': 'create_toc',
+        'poor_flow': 'fix_information_flow'
+      }
+      return issue_type_to_pattern.get(structure_issue, 'reorganize_sections')
+  
+  output_constraints:
+    style_guide: structured-documentation
+    format: markdown
+    rules:
+      - Maintain all original content
+      - Preserve code examples and important details
+      - Ensure logical progression of information
+      - Fix all broken cross-references
+  
+  validators:
+    - type: structural
+      rules:
+        - No heading level skips (H1->H3)
+        - All sections accessible from TOC
+        - Consistent heading style
+    
+    - type: content
+      rules:
+        - No content lost during reorganization
+        - All cross-references valid
+        - Links functional
+  
+  examples:
+    - context: Fix Heading Hierarchy
+      before: |
+        # Main Title
+        ### Subsection (wrong level)
+        ## Section
+        #### Deep Section (wrong level)
+      after: |
+        # Main Title
+        ## Section
+        ### Subsection
+        #### Deep Section
+    
+    - context: Reorganize for Better Flow
+      before: |
+        ## Advanced Usage
+        Complex examples here...
+        
+        ## Installation
+        How to install...
+        
+        ## Basic Usage
+        Simple examples...
+      after: |
+        ## Installation
+        How to install...
+        
+        ## Basic Usage
+        Simple examples...
+        
+        ## Advanced Usage
+        > **Prerequisites**: Complete Basic Usage section
+        
+        Complex examples here...
+        
+        **Next Steps**: See API Reference → Best Practices
+  
+  metrics:
+    average_application_time: 8s
+    success_rate: 0.88
+    user_satisfaction: 4.3/5

@@ -21,6 +21,7 @@ from ingester import DocumentIngester, Document
 from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
 from workflow_matcher import WorkflowMatcher
+from services.claude_service import claude_service
 
 # Set up logging with more detail
 import uuid
@@ -98,6 +99,41 @@ class WorkflowRunStatusResponse(BaseModel):
     current_step: Optional[str]
     outputs: Dict[str, Any]
     error: Optional[str]
+
+class OrchestrationRequest(BaseModel):
+    document_id: str
+    workflow_type: str = "full"  # full, analysis_only, remediation_only
+    agents: Optional[List[str]] = None
+    models: Optional[List[str]] = None
+    config: Optional[Dict[str, Any]] = None
+
+class OrchestrationResponse(BaseModel):
+    orchestration_id: str
+    document_id: str
+    status: str
+    message: str
+    results: Optional[Dict[str, Any]] = None
+
+class AnalysisRequest(BaseModel):
+    document_id: str
+    agents: Optional[List[str]] = None
+    parallel: bool = True
+
+class ConsensusRequest(BaseModel):
+    document_id: str
+    analysis_data: Dict[str, Any]
+    models: Optional[List[str]] = None
+
+class RemediationRequest(BaseModel):
+    document_id: str
+    issues: List[Dict[str, Any]]
+    template: Optional[str] = None
+
+class ValidationRequest(BaseModel):
+    document_id: str
+    original_content: str
+    remediated_content: str
+    validation_type: str = "quality"  # quality, security, compliance
 
 # Background task for processing document
 async def process_document_background(document: Document, request_id: str = None):
@@ -619,6 +655,229 @@ async def get_workflow_run_status(run_id: str):
         logger.error(f"Failed to get workflow run status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Orchestration Endpoints
+
+@app.post("/orchestrate/workflow", response_model=OrchestrationResponse)
+async def orchestrate_workflow(request: OrchestrationRequest, background_tasks: BackgroundTasks):
+    """Execute complete document orchestration workflow using Claude Code"""
+    request_id = generate_request_id()
+    orchestration_id = f"orch_{request_id}"
+    
+    logger.info(f"[{request_id}] Orchestration requested for document {request.document_id}, type: {request.workflow_type}")
+    
+    try:
+        # Get document
+        document = document_ingester.get_document(request.document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Prepare orchestration task
+        async def run_orchestration():
+            try:
+                logger.info(f"[{orchestration_id}] Starting orchestration workflow")
+                
+                # Get document metadata
+                metadata = document.metadata or {}
+                metadata["document_id"] = document.id
+                metadata["content_type"] = document.content_type
+                
+                # Run orchestration through Claude service
+                results = await claude_service.orchestrate_workflow(
+                    document_id=document.id,
+                    document_content=document.text,
+                    document_metadata=metadata,
+                    workflow_config=request.config
+                )
+                
+                logger.info(f"[{orchestration_id}] Orchestration completed with quality score: {results.get('final_quality_score', 0)}")
+                
+                # Store results (you might want to persist this)
+                document.metadata = document.metadata or {}
+                document.metadata["orchestration_results"] = results
+                await document_ingester._store_document(document)
+                
+            except Exception as e:
+                logger.error(f"[{orchestration_id}] Orchestration failed: {e}")
+        
+        # Queue orchestration
+        background_tasks.add_task(run_orchestration)
+        
+        return OrchestrationResponse(
+            orchestration_id=orchestration_id,
+            document_id=request.document_id,
+            status="queued",
+            message="Orchestration workflow queued for execution"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{request_id}] Failed to start orchestration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/{document_id}/analyze")
+async def analyze_document(document_id: str, request: AnalysisRequest):
+    """Perform multi-agent analysis on document using Claude Code"""
+    request_id = generate_request_id()
+    
+    logger.info(f"[{request_id}] Analysis requested for document {document_id}")
+    
+    try:
+        # Get document
+        document = document_ingester.get_document(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Perform multi-agent analysis
+        metadata = {"document_id": document_id, "content_type": document.content_type}
+        results = await claude_service.multi_agent_analysis(
+            document_content=document.text,
+            document_metadata=metadata,
+            agents=request.agents
+        )
+        
+        # Convert results to serializable format
+        analysis_results = {}
+        for agent, result in results.items():
+            analysis_results[agent] = {
+                "success": result.success,
+                "confidence": result.confidence,
+                "analysis": result.analysis
+            }
+        
+        return {
+            "document_id": document_id,
+            "analysis": analysis_results,
+            "agent_count": len(results),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{request_id}] Analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/{document_id}/synthesize")
+async def synthesize_issues(document_id: str, request: ConsensusRequest):
+    """Synthesize issues with multi-model consensus using Claude Code"""
+    request_id = generate_request_id()
+    
+    logger.info(f"[{request_id}] Synthesis requested for document {document_id}")
+    
+    try:
+        # Convert analysis data to proper format
+        from services.claude_service import AnalysisResult
+        analysis_results = {}
+        for agent, data in request.analysis_data.items():
+            analysis_results[agent] = AnalysisResult(
+                success=data.get("success", True),
+                analysis=data.get("analysis", {}),
+                agent_used=agent,
+                confidence=data.get("confidence", 0.5)
+            )
+        
+        # Perform consensus validation
+        consensus = await claude_service.consensus_validation(
+            analysis_results=analysis_results,
+            document_id=document_id,
+            models=request.models
+        )
+        
+        return {
+            "document_id": document_id,
+            "consensus": consensus.consensus,
+            "agreement_score": consensus.agreement_score,
+            "models_used": consensus.models_used,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Synthesis failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/{document_id}/remediate")
+async def remediate_document(document_id: str, request: RemediationRequest):
+    """Generate remediated document using Claude Code"""
+    request_id = generate_request_id()
+    
+    logger.info(f"[{request_id}] Remediation requested for document {document_id}")
+    
+    try:
+        # Get document
+        document = document_ingester.get_document(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Generate remediation
+        remediation = await claude_service.generate_remediation(
+            document_content=document.text,
+            issues=request.issues,
+            document_id=document_id
+        )
+        
+        if remediation.success:
+            # Store remediated content (you might want to save this to a file)
+            output_dir = Path(f"docs/generated/{document_id}")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            output_file = output_dir / "remediated_document.md"
+            output_file.write_text(remediation.remediated_content)
+            
+            return {
+                "document_id": document_id,
+                "remediation_path": str(output_file),
+                "issues_resolved": remediation.issues_resolved,
+                "quality_score": remediation.quality_score,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise Exception("Remediation failed")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{request_id}] Remediation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/{document_id}/validate")
+async def validate_document(document_id: str, request: ValidationRequest):
+    """Perform quality validation on document using Claude Code"""
+    request_id = generate_request_id()
+    
+    logger.info(f"[{request_id}] Validation requested for document {document_id}")
+    
+    try:
+        # Perform quality validation
+        validation = await claude_service.quality_validation(
+            remediated_content=request.remediated_content,
+            original_content=request.original_content,
+            document_id=document_id
+        )
+        
+        return {
+            "document_id": document_id,
+            "validation": validation,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Validation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/orchestrate/runs/{orchestration_id}")
+async def get_orchestration_status(orchestration_id: str):
+    """Get status of an orchestration run"""
+    # This would typically query a database or cache
+    # For now, return a placeholder
+    return {
+        "orchestration_id": orchestration_id,
+        "status": "running",
+        "message": "Orchestration in progress",
+        "steps_completed": ["analysis", "consensus"],
+        "current_step": "remediation"
+    }
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -628,7 +887,8 @@ async def health_check():
             "ingester": "operational",
             "extractor": "operational",
             "workflow_engine": "operational",
-            "api": "operational"
+            "api": "operational",
+            "claude_service": "operational"
         }
     }
 
