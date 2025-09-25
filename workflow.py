@@ -15,9 +15,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from jinja2 import Template
 import aiohttp
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # Import SuperClaude Framework components
 from agent_providers import agent_registry, AgentProvider
