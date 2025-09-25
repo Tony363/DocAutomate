@@ -304,7 +304,7 @@ Use multi-model consensus with models: {', '.join(models)}
         
         # Execute consensus using Zen MCP
         try:
-            result = await self.cli.use_mcp_server(
+            result = await self.cli.use_mcp_server_async(
                 prompt=prompt,
                 mcp=SuperClaudeMCP.ZEN,
                 additional_flags=["--consensus", "--model", models[0]]
@@ -371,7 +371,7 @@ Return the complete remediated document.
         
         try:
             # Use task management mode for systematic remediation
-            result = await self.cli.execute_with_mode(
+            result = await self.cli.execute_with_mode_async(
                 prompt=prompt,
                 mode=SuperClaudeMode.TASK_MANAGE,
                 context={
@@ -443,7 +443,7 @@ Use deep analysis with thinkdeep mode.
         
         try:
             # Use Zen MCP with thinkdeep for comprehensive validation
-            result = await self.cli.use_mcp_server(
+            result = await self.cli.use_mcp_server_async(
                 prompt=prompt,
                 mcp=SuperClaudeMCP.ZEN,
                 additional_flags=["--thinkdeep", "--model", "gpt-5"]
@@ -588,14 +588,14 @@ Use deep analysis with thinkdeep mode.
         try:
             if agent:
                 # Use specific agent
-                result = await self.cli.delegate_to_agent(
+                result = await self.cli.delegate_to_agent_async(
                     prompt=task_description,
                     agent=agent,
                     task_manage=True
                 )
             else:
                 # Auto-route to best agent
-                result = await self.cli.delegate_to_agent(
+                result = await self.cli.delegate_to_agent_async(
                     prompt=task_description,
                     agent=None,
                     task_manage=True
