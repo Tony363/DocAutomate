@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import asyncio
 import logging
+import os
 from pathlib import Path
 import tempfile
 import shutil
@@ -20,9 +21,20 @@ from ingester import DocumentIngester, Document
 from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging with more detail
+import uuid
+from datetime import datetime
+
+logging.basicConfig(
+    level=logging.DEBUG if os.getenv("DEBUG") else logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Request tracking
+def generate_request_id():
+    """Generate unique request ID for tracking"""
+    return str(uuid.uuid4())[:8]
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -86,39 +98,64 @@ class WorkflowRunStatusResponse(BaseModel):
     error: Optional[str]
 
 # Background task for processing document
-async def process_document_background(document: Document):
+async def process_document_background(document: Document, request_id: str = None):
     """Background task to extract actions from document"""
+    request_id = request_id or generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] Starting background processing for document {document.id}")
+    logger.debug(f"[{request_id}] Document details: filename={document.filename}, size={len(document.text) if document.text else 0} chars")
+    
     try:
         # Extract actions
+        logger.info(f"[{request_id}] Extracting actions from document {document.id}")
         actions = await action_extractor.extract_actions(
             document.text,
             document_type='general'
         )
+        
+        logger.info(f"[{request_id}] Extracted {len(actions)} actions from document {document.id}")
+        
+        # Log each extracted action
+        for i, action in enumerate(actions):
+            logger.debug(f"[{request_id}] Action {i+1}: type={action.action_type}, workflow={action.workflow_name}, confidence={action.confidence_score:.2f}")
         
         # Update document with extracted actions
         document.extracted_actions = [action.dict() for action in actions]
         document.status = "processed"
         
         # Save updated document
+        logger.debug(f"[{request_id}] Saving processed document {document.id}")
         await document_ingester._store_document(document)
         
-        logger.info(f"Processed document {document.id}: {len(actions)} actions extracted")
+        processing_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"[{request_id}] Successfully processed document {document.id} in {processing_time:.2f}s: {len(actions)} actions extracted")
         
         # Auto-execute workflows if configured
+        auto_executed_count = 0
         for action in actions:
             if action.confidence_score >= 0.85:  # High confidence threshold for auto-execution
                 try:
+                    logger.info(f"[{request_id}] Auto-executing workflow {action.workflow_name} (confidence: {action.confidence_score:.2f})")
                     run = await workflow_engine.execute_workflow(
                         workflow_name=action.workflow_name,
                         document_id=document.id,
                         initial_parameters=action.parameters
                     )
-                    logger.info(f"Auto-executed workflow {action.workflow_name}: {run.run_id}")
+                    auto_executed_count += 1
+                    logger.info(f"[{request_id}] Auto-executed workflow {action.workflow_name}: run_id={run.run_id}")
                 except Exception as e:
-                    logger.error(f"Failed to auto-execute workflow: {e}")
+                    logger.error(f"[{request_id}] Failed to auto-execute workflow {action.workflow_name}: {e}")
+                    logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
+        
+        if auto_executed_count > 0:
+            logger.info(f"[{request_id}] Auto-executed {auto_executed_count} workflows for document {document.id}")
         
     except Exception as e:
-        logger.error(f"Failed to process document {document.id}: {e}")
+        processing_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Failed to process document {document.id} after {processing_time:.2f}s: {e}")
+        logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
+        
         document.status = "failed"
         await document_ingester._store_document(document)
 
@@ -147,24 +184,49 @@ async def upload_document(
     auto_process: bool = True
 ):
     """Upload a document for processing"""
+    request_id = generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] Document upload started: filename={file.filename}, content_type={file.content_type}, auto_process={auto_process}")
+    
+    tmp_path = None
     try:
+        # Get file size
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)  # Reset to beginning
+        logger.info(f"[{request_id}] File size: {file_size} bytes ({file_size / 1024:.2f} KB)")
+        
         # Save uploaded file to temp location
+        logger.debug(f"[{request_id}] Saving uploaded file to temporary location")
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
             tmp_path = tmp_file.name
+            logger.debug(f"[{request_id}] Temporary file created: {tmp_path}")
         
         # Ingest document
+        logger.info(f"[{request_id}] Starting document ingestion for: {file.filename}")
+        ingestion_start = datetime.now()
         document = await document_ingester.ingest_file(tmp_path)
+        ingestion_time = (datetime.now() - ingestion_start).total_seconds()
+        logger.info(f"[{request_id}] Document ingested in {ingestion_time:.2f}s: id={document.id}, status={document.status}")
         
         # Clean up temp file
+        logger.debug(f"[{request_id}] Cleaning up temporary file: {tmp_path}")
         Path(tmp_path).unlink()
+        tmp_path = None  # Mark as cleaned
         
         # Process in background if requested
         if auto_process:
-            background_tasks.add_task(process_document_background, document)
+            logger.info(f"[{request_id}] Queuing document {document.id} for background processing")
+            background_tasks.add_task(process_document_background, document, request_id)
             message = "Document uploaded and queued for processing"
         else:
+            logger.info(f"[{request_id}] Document {document.id} uploaded without auto-processing")
             message = "Document uploaded successfully"
+        
+        upload_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"[{request_id}] Document upload completed in {upload_time:.2f}s: {file.filename} -> {document.id}")
         
         return DocumentUploadResponse(
             document_id=document.id,
@@ -175,7 +237,16 @@ async def upload_document(
         )
         
     except Exception as e:
-        logger.error(f"Failed to upload document: {e}")
+        upload_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Failed to upload document after {upload_time:.2f}s: {file.filename}")
+        logger.error(f"[{request_id}] Error details: {e}")
+        logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
+        
+        # Clean up temp file if it exists
+        if tmp_path and Path(tmp_path).exists():
+            logger.debug(f"[{request_id}] Cleaning up temporary file after error: {tmp_path}")
+            Path(tmp_path).unlink()
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents", response_model=List[DocumentStatusResponse])
@@ -284,30 +355,48 @@ async def get_workflow(workflow_name: str):
 @app.post("/workflows/execute", response_model=WorkflowExecutionResponse)
 async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: BackgroundTasks):
     """Execute a workflow for a document"""
+    request_id = generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] Workflow execution requested: workflow={request.workflow_name}, document={request.document_id}, auto={request.auto_execute}")
+    logger.debug(f"[{request_id}] Parameters: {request.parameters}")
+    
     try:
         # Validate document exists
+        logger.debug(f"[{request_id}] Validating document {request.document_id}")
         document = document_ingester.get_document(request.document_id)
         if not document:
+            logger.warning(f"[{request_id}] Document not found: {request.document_id}")
             raise HTTPException(status_code=404, detail="Document not found")
         
         # Validate workflow exists
         if request.workflow_name not in workflow_engine.workflows:
+            logger.warning(f"[{request_id}] Workflow not found: {request.workflow_name}")
             raise HTTPException(status_code=404, detail="Workflow not found")
         
         # Execute workflow
         if request.auto_execute:
             # Execute immediately
+            logger.info(f"[{request_id}] Executing workflow immediately: {request.workflow_name}")
+            exec_start = datetime.now()
+            
             run = await workflow_engine.execute_workflow(
                 workflow_name=request.workflow_name,
                 document_id=request.document_id,
                 initial_parameters=request.parameters
             )
             
+            exec_time = (datetime.now() - exec_start).total_seconds()
+            logger.info(f"[{request_id}] Workflow executed in {exec_time:.2f}s: run_id={run.run_id}, status={run.status.value}")
+            
             # Update document with workflow run
             if document.workflow_runs is None:
                 document.workflow_runs = []
             document.workflow_runs.append(run.run_id)
             await document_ingester._store_document(document)
+            
+            total_time = (datetime.now() - start_time).total_seconds()
+            logger.info(f"[{request_id}] Workflow execution completed in {total_time:.2f}s")
             
             return WorkflowExecutionResponse(
                 run_id=run.run_id,
@@ -318,18 +407,32 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
             )
         else:
             # Queue for background execution
+            logger.info(f"[{request_id}] Queueing workflow for background execution: {request.workflow_name}")
+            
             async def execute_in_background():
-                run = await workflow_engine.execute_workflow(
-                    workflow_name=request.workflow_name,
-                    document_id=request.document_id,
-                    initial_parameters=request.parameters
-                )
-                if document.workflow_runs is None:
-                    document.workflow_runs = []
-                document.workflow_runs.append(run.run_id)
-                await document_ingester._store_document(document)
+                bg_request_id = f"{request_id}-bg"
+                logger.info(f"[{bg_request_id}] Background workflow execution started: {request.workflow_name}")
+                
+                try:
+                    run = await workflow_engine.execute_workflow(
+                        workflow_name=request.workflow_name,
+                        document_id=request.document_id,
+                        initial_parameters=request.parameters
+                    )
+                    
+                    if document.workflow_runs is None:
+                        document.workflow_runs = []
+                    document.workflow_runs.append(run.run_id)
+                    await document_ingester._store_document(document)
+                    
+                    logger.info(f"[{bg_request_id}] Background workflow completed: run_id={run.run_id}")
+                except Exception as e:
+                    logger.error(f"[{bg_request_id}] Background workflow failed: {e}")
+                    logger.debug(f"[{bg_request_id}] Stack trace:", exc_info=True)
             
             background_tasks.add_task(execute_in_background)
+            
+            logger.info(f"[{request_id}] Workflow queued successfully")
             
             return WorkflowExecutionResponse(
                 run_id="pending",
@@ -342,7 +445,9 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to execute workflow: {e}")
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Failed to execute workflow after {total_time:.2f}s: {e}")
+        logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/workflows/runs")
@@ -411,4 +516,6 @@ async def health_check():
 # Run the API
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    port = 8001  # Using 8001 since 8000 is in use
+    print(f"Starting DocAutomate API on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

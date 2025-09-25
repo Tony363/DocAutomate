@@ -1,0 +1,6 @@
+I'm unable to access the file at `/tmp/tmpcczsudsv.pdf` as it requires your permission. Could you please:
+
+1. Grant permission when prompted, or
+2. Provide the PDF file in a location within the current working directory (like `/home/tony/Desktop/DocAutomate/`)
+
+Alternatively, you can copy the PDF to the current directory and I can read it from there.

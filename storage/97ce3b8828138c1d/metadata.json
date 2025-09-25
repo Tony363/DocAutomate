@@ -1,0 +1,15 @@
+{
+  "id": "97ce3b8828138c1d",
+  "filename": "tmp4ea5zu09.pdf",
+  "content_type": "application/pdf",
+  "text": "I need permission to read the PDF file. Once granted, I'll be able to extract and display the text content from the PDF for you.",
+  "metadata": {
+    "size_bytes": 28397,
+    "file_path": "/tmp/tmp4ea5zu09.pdf",
+    "extension": ".pdf"
+  },
+  "ingested_at": "2025-09-24T23:40:56.922123",
+  "status": "processed",
+  "extracted_actions": [],
+  "workflow_runs": []
+}

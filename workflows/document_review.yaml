@@ -1,0 +1,90 @@
+name: "document_review"
+description: "Review and process legal documents including NDAs, contracts, and agreements"
+version: "1.0.0"
+
+parameters:
+  - name: "document_type"
+    type: "string"
+    required: false
+    default: "general"
+    description: "Type of document (nda, contract, legal, etc)"
+  
+  - name: "original_action_type"
+    type: "string"
+    required: false
+    description: "Original action type identified by Claude"
+    
+  - name: "parties"
+    type: "array"
+    required: false
+    description: "Parties involved in the agreement"
+    
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for tracking"
+
+steps:
+  - id: "validate_document"
+    type: "claude_analyze"
+    description: "Validate document structure and extract key terms"
+    config:
+      prompt: "Extract key terms, parties, obligations, and deadlines from this {{ document_type }} document. Focus on actionable items and compliance requirements."
+      data: "{{ document_content }}"
+      
+  - id: "check_compliance"
+    type: "conditional"
+    description: "Check if document meets compliance requirements"
+    config:
+      condition: "{{ document_type in ['nda', 'contract', 'legal'] }}"
+      if_true:
+        type: "mcp_task"
+        config:
+          agent_name: "legal-review"
+          action: "validate_legal_terms"
+          params:
+            document_type: "{{ document_type }}"
+            original_action: "{{ original_action_type }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            status: "standard_review"
+          
+  - id: "route_for_approval"
+    type: "api_call"
+    description: "Route document for appropriate approval based on type"
+    config:
+      url: "https://api.company.com/documents/review"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        document_type: "{{ document_type }}"
+        action_required: "{{ original_action_type }}"
+        validation_results: "{{ steps.validate_document.analysis }}"
+        
+  - id: "notification"
+    type: "send_email"
+    description: "Notify relevant parties about document review status"
+    config:
+      to: "legal-team@company.com"
+      subject: "Document Review Required: {{ document_type }} - {{ document_id }}"
+      body: |
+        A new {{ document_type }} document has been submitted for review.
+        
+        Document ID: {{ document_id }}
+        Action Type: {{ original_action_type }}
+        Status: Pending Review
+        
+        Key findings from initial analysis:
+        {{ steps.validate_document.analysis.summary }}
+        
+        Please review and approve at your earliest convenience.
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "legal"
+  tags: ["nda", "contract", "legal", "review", "compliance"]
+  sla_hours: 24

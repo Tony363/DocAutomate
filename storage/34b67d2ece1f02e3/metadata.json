@@ -1,0 +1,15 @@
+{
+  "id": "34b67d2ece1f02e3",
+  "filename": "tmpcczsudsv.pdf",
+  "content_type": "application/pdf",
+  "text": "I'm unable to access the file at `/tmp/tmpcczsudsv.pdf` as it requires your permission. Could you please:\n\n1. Grant permission when prompted, or\n2. Provide the PDF file in a location within the current working directory (like `/home/tony/Desktop/DocAutomate/`)\n\nAlternatively, you can copy the PDF to the current directory and I can read it from there.",
+  "metadata": {
+    "size_bytes": 28397,
+    "file_path": "/tmp/tmpcczsudsv.pdf",
+    "extension": ".pdf"
+  },
+  "ingested_at": "2025-09-24T22:58:42.930142",
+  "status": "processed",
+  "extracted_actions": [],
+  "workflow_runs": []
+}

@@ -1,0 +1,72 @@
+# Extracted Text Content from NDA-Tony-yoobroo.pdf
+
+## NON-DISCLOSURE AGREEMENT
+
+**Agreement Date:** June 30th, 2025 ("Effective Date")
+
+**Parties:**
+- **Company:** YOOBROO, INC., a Delaware corporation
+  - Address: 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028
+- **Recipient:** TONY LIU (individual)
+
+## KEY SECTIONS:
+
+### 1. DEFINITION OF CONFIDENTIAL INFORMATION
+Includes:
+- Business plans, product roadmaps, marketing strategies, and financial information
+- Technical data (source code, APIs, database schemas, system architecture, MVP-related documents)
+- Customer data, user information, and transaction records
+- Any other non-public information marked as or reasonably understood to be confidential
+
+### 2. EXCEPTIONS
+Confidential Information does not include information that:
+- Is or becomes publicly available without breach
+- Was lawfully known to Recipient prior to disclosure (with written evidence)
+- Is independently developed without using Company's Confidential Information
+- Is disclosed by a third party without restriction
+- Is required to be disclosed by law (with prompt written notice to Company)
+
+### 3. OBLIGATIONS OF RECIPIENT
+- Use Confidential Information solely for performing services under MVP Development Agreement
+- Not disclose to third parties without prior written consent
+- Take reasonable security measures (secure storage, encrypted devices)
+- Notify Company immediately of any unauthorized use or disclosure
+
+### 4. RETURN OR DESTRUCTION OF CONFIDENTIAL INFORMATION
+Within 5 days of termination or request:
+- Return all Confidential Information to Company, OR
+- Destroy information and certify destruction in writing (except where legally required to retain)
+
+### 5. TERM
+- Obligations remain in effect during Development Agreement and for 5 years thereafter (until June 30, 2030)
+- Trade secret obligations continue until information no longer constitutes a trade secret
+
+### 6. PENALTIES FOR BREACH
+- Liability for all losses (lost revenue, legal fees, reputational damage)
+- Company may seek injunctive relief and other legal remedies
+
+### 7. NO LICENSE OR OWNERSHIP
+- No rights granted to Recipient
+- Confidential Information remains Company's exclusive property
+
+### 8. GOVERNING LAW AND DISPUTE RESOLUTION
+- Governed by Delaware law
+- Binding arbitration in Los Angeles County, California
+- American Arbitration Association's Commercial Arbitration Rules
+- English language, one arbitrator
+- Prevailing party entitled to attorney's fees and costs
+
+### 9. MISCELLANEOUS
+- Entire Agreement supersedes prior negotiations
+- Amendments require written signatures from both parties
+- Severability clause
+- Assignment requires Company's written consent
+- Electronic signatures acceptable (DocuSign)
+
+### 10. EXECUTION
+**Signatures Required:**
+- Kai Lei (Founder & Chief Executive Officer)
+- Yuzheng Fu (coFounder Officer)
+- Tony Liu (Recipient)
+
+**Note:** Document includes disclaimer that it is for informational purposes only and parties should consult qualified legal counsel.

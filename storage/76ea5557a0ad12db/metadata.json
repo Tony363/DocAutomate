@@ -1,0 +1,15 @@
+{
+  "id": "76ea5557a0ad12db",
+  "filename": "tmpr_o3kkkd.txt",
+  "content_type": "text/plain",
+  "text": "NON-DISCLOSURE AGREEMENT\n\nThis Non-Disclosure Agreement (\"Agreement\") is entered into as of January 15, 2024,\nbetween Tony (the \"Disclosing Party\") and Yoobroo Inc. (the \"Receiving Party\").\n\nWHEREAS, the Disclosing Party possesses certain confidential and proprietary information;\n\nThe Receiving Party agrees to:\n- Request file access permission before accessing any confidential documents  \n- Maintain strict confidentiality of all disclosed information\n- Not disclose any confidential information to third parties\n\nThis Agreement requires signatures from both parties to be legally binding.\n\n_______________________        _______________________\nTony (Disclosing Party)         Yoobroo Inc. (Receiving Party)",
+  "metadata": {
+    "size_bytes": 711,
+    "file_path": "/tmp/tmpr_o3kkkd.txt",
+    "extension": ".txt"
+  },
+  "ingested_at": "2025-09-24T23:21:19.334087",
+  "status": "processed",
+  "extracted_actions": [],
+  "workflow_runs": []
+}

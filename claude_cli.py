@@ -9,12 +9,18 @@ import json
 import tempfile
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import shlex
 import asyncio
 from dataclasses import dataclass
 
+# Configure logging with more detail
+logging.basicConfig(
+    level=logging.DEBUG if os.getenv("DEBUG") else logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -36,69 +42,116 @@ class ClaudeCLI:
         Initialize CLI wrapper
         
         Args:
-            timeout: Command timeout in seconds (default from CLAUDE_TIMEOUT env or 30)
+            timeout: Command timeout in seconds (default from CLAUDE_TIMEOUT env or 120)
             claude_cmd: Path to claude executable (default from CLAUDE_CLI_PATH env or 'claude')
         """
-        self.timeout = timeout if timeout is not None else int(os.getenv("CLAUDE_TIMEOUT", "30"))
+        # Increased default timeout from 30 to 120 seconds for complex operations
+        self.timeout = timeout if timeout is not None else int(os.getenv("CLAUDE_TIMEOUT", "120"))
         self.claude_cmd = claude_cmd if claude_cmd is not None else os.getenv("CLAUDE_CLI_PATH", "claude")
         
-    def _run_command(self, cmd: List[str], input_text: Optional[str] = None) -> CLIResult:
+        logger.info(f"Initialized ClaudeCLI with timeout={self.timeout}s, command='{self.claude_cmd}'")
+        
+    def _run_command(self, cmd: List[str], input_text: Optional[str] = None, 
+                    retries: int = 2, retry_delay: int = 5) -> CLIResult:
         """
-        Execute Claude Code command and return result
+        Execute Claude Code command with retry logic and extensive logging
         
         Args:
             cmd: Command and arguments as list
             input_text: Optional text to pipe to stdin
+            retries: Number of retry attempts for timeout errors
+            retry_delay: Delay between retries in seconds
             
         Returns:
             CLIResult with output, error, and status
         """
-        try:
-            # Log the command for debugging (without sensitive data)
-            safe_cmd = ' '.join(cmd[:3]) + ' ...' if len(cmd) > 3 else ' '.join(cmd)
-            logger.info(f"Running: {safe_cmd}")
-            
-            # Execute command
-            result = subprocess.run(
-                cmd,
-                input=input_text if input_text else None,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                check=False  # Don't raise on non-zero exit
-            )
-            
-            return CLIResult(
-                success=(result.returncode == 0),
-                output=result.stdout.strip(),
-                error=result.stderr.strip() if result.stderr else None,
-                exit_code=result.returncode
-            )
-            
-        except subprocess.TimeoutExpired:
-            logger.error(f"Command timed out after {self.timeout}s: {safe_cmd}")
-            return CLIResult(
-                success=False,
-                output="",
-                error=f"Command timed out after {self.timeout} seconds",
-                exit_code=-1
-            )
-        except FileNotFoundError:
-            logger.error(f"Claude command not found: {self.claude_cmd}")
-            return CLIResult(
-                success=False,
-                output="",
-                error=f"Claude command not found. Please ensure Claude Code is installed and '{self.claude_cmd}' is in PATH",
-                exit_code=-1
-            )
-        except Exception as e:
-            logger.error(f"Command failed: {e}")
-            return CLIResult(
-                success=False,
-                output="",
-                error=str(e),
-                exit_code=-1
-            )
+        # Log the command for debugging (without sensitive data)
+        safe_cmd = ' '.join(cmd[:3]) + ' ...' if len(cmd) > 3 else ' '.join(cmd)
+        input_preview = (input_text[:100] + '...') if input_text and len(input_text) > 100 else input_text
+        
+        for attempt in range(retries + 1):
+            try:
+                start_time = time.time()
+                
+                logger.info(f"[Attempt {attempt + 1}/{retries + 1}] Executing: {safe_cmd}")
+                logger.debug(f"Full command: {' '.join(cmd)}")
+                if input_text:
+                    logger.debug(f"Input text preview: {input_preview}")
+                    logger.debug(f"Input text size: {len(input_text)} characters")
+                
+                # Execute command
+                result = subprocess.run(
+                    cmd,
+                    input=input_text if input_text else None,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                    check=False  # Don't raise on non-zero exit
+                )
+                
+                elapsed = time.time() - start_time
+                logger.info(f"Command completed in {elapsed:.2f}s with exit code {result.returncode}")
+                
+                if result.returncode == 0:
+                    # Log the full output for debugging JSON issues
+                    if len(result.stdout) < 500:
+                        logger.debug(f"Full output: {result.stdout}")
+                    else:
+                        logger.debug(f"Output preview (first 500 chars): {result.stdout[:500]}...")
+                    logger.debug(f"Output length: {len(result.stdout)} characters")
+                else:
+                    logger.warning(f"Command returned non-zero exit code: {result.returncode}")
+                    if result.stderr:
+                        logger.error(f"Error output: {result.stderr}")
+                
+                return CLIResult(
+                    success=(result.returncode == 0),
+                    output=result.stdout.strip(),
+                    error=result.stderr.strip() if result.stderr else None,
+                    exit_code=result.returncode
+                )
+                
+            except subprocess.TimeoutExpired as e:
+                elapsed = self.timeout
+                logger.error(f"[Attempt {attempt + 1}/{retries + 1}] Command timed out after {self.timeout}s: {safe_cmd}")
+                logger.debug(f"Partial stdout: {e.stdout if e.stdout else 'None'}")
+                logger.debug(f"Partial stderr: {e.stderr if e.stderr else 'None'}")
+                
+                if attempt < retries:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"All retry attempts exhausted. Command failed after {retries + 1} attempts")
+                    return CLIResult(
+                        success=False,
+                        output="",
+                        error=f"Command timed out after {self.timeout} seconds (tried {retries + 1} times)",
+                        exit_code=-1
+                    )
+                    
+            except FileNotFoundError:
+                logger.error(f"Claude command not found: {self.claude_cmd}")
+                logger.info(f"Please check if Claude Code is installed and in PATH")
+                logger.debug(f"Current PATH: {os.environ.get('PATH', 'Not set')}")
+                return CLIResult(
+                    success=False,
+                    output="",
+                    error=f"Claude command not found. Please ensure Claude Code is installed and '{self.claude_cmd}' is in PATH",
+                    exit_code=-1
+                )
+                
+            except Exception as e:
+                logger.error(f"Unexpected error executing command: {e}")
+                logger.debug(f"Exception type: {type(e).__name__}")
+                import traceback
+                logger.debug(f"Stack trace:\n{traceback.format_exc()}")
+                return CLIResult(
+                    success=False,
+                    output="",
+                    error=str(e),
+                    exit_code=-1
+                )
     
     def read_document(self, file_path: str) -> str:
         """
@@ -114,31 +167,65 @@ class ClaudeCLI:
         Raises:
             Exception: If document reading fails
         """
+        start_time = time.time()
+        logger.info(f"Starting document read for: {file_path}")
+        
         # Verify file exists
-        if not Path(file_path).exists():
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            logger.error(f"File not found: {file_path}")
             raise FileNotFoundError(f"File not found: {file_path}")
         
+        # Get file info for logging
+        file_size = file_path_obj.stat().st_size
+        file_ext = file_path_obj.suffix.lower()
+        logger.info(f"File details: size={file_size} bytes, extension={file_ext}")
+        
         # For text files, read directly
-        if file_path.endswith(('.txt', '.md', '.json', '.yaml', '.yml')):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                logger.info(f"Successfully read text file: {file_path}")
+        if file_ext in ('.txt', '.md', '.json', '.yaml', '.yml'):
+            logger.info(f"Reading text file directly: {file_path}")
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                elapsed = time.time() - start_time
+                logger.info(f"Successfully read text file in {elapsed:.2f}s: {file_path} ({len(content)} characters)")
                 return content
+            except Exception as e:
+                logger.error(f"Failed to read text file: {e}")
+                raise
         
         # For other files, use Claude to process them
+        logger.info(f"Using Claude Code to process non-text file: {file_path}")
+        
         # Use --print flag and ask Claude to read the file
         cmd = [self.claude_cmd, "--print"]
         prompt = f"Please read and extract the text content from the file: {file_path}"
         
-        result = self._run_command(cmd, input_text=prompt)
-        
-        if result.success:
-            logger.info(f"Successfully read document via Claude: {file_path}")
-            return result.output
+        # Increase timeout for larger files
+        adjusted_timeout = max(120, file_size // 10000)  # At least 120s, add 1s per 10KB
+        if adjusted_timeout > self.timeout:
+            logger.info(f"Adjusting timeout from {self.timeout}s to {adjusted_timeout}s for large file")
+            original_timeout = self.timeout
+            self.timeout = adjusted_timeout
         else:
-            error_msg = f"Failed to read document: {result.error or 'Unknown error'}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
+            original_timeout = None
+        
+        try:
+            result = self._run_command(cmd, input_text=prompt)
+            
+            if result.success:
+                elapsed = time.time() - start_time
+                logger.info(f"Successfully read document via Claude in {elapsed:.2f}s: {file_path}")
+                logger.debug(f"Extracted {len(result.output)} characters from {file_path}")
+                return result.output
+            else:
+                error_msg = f"Failed to read document: {result.error or 'Unknown error'}"
+                logger.error(f"{error_msg} (file: {file_path})")
+                raise Exception(error_msg)
+        finally:
+            # Restore original timeout if it was adjusted
+            if original_timeout is not None:
+                self.timeout = original_timeout
     
     def analyze_text(self, text: str, prompt: str, schema: Optional[Dict] = None) -> Dict:
         """
@@ -178,13 +265,32 @@ class ClaudeCLI:
                     return json.loads(result.output)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse JSON response: {e}")
+                    logger.debug(f"Raw output that failed to parse: {result.output[:200]}")
                     # Attempt to extract JSON from response
                     import re
+                    # First try to find a JSON array
+                    array_match = re.search(r'\[.*\]', result.output, re.DOTALL)
+                    if array_match:
+                        try:
+                            extracted = json.loads(array_match.group())
+                            logger.info(f"Successfully extracted JSON array from response")
+                            return extracted
+                        except json.JSONDecodeError:
+                            logger.warning("Found array pattern but it's not valid JSON")
+                    
+                    # Then try to find a JSON object
                     json_match = re.search(r'\{.*\}', result.output, re.DOTALL)
                     if json_match:
-                        return json.loads(json_match.group())
-                    else:
-                        return {"result": result.output, "error": "JSON parsing failed"}
+                        try:
+                            extracted = json.loads(json_match.group())
+                            logger.info(f"Successfully extracted JSON object from response")
+                            return extracted
+                        except json.JSONDecodeError:
+                            logger.warning("Found object pattern but it's not valid JSON")
+                    
+                    # No JSON found, return the plain text with error indicator
+                    logger.warning(f"No valid JSON found in response. Returning plain text.")
+                    return {"result": result.output, "error": "JSON parsing failed"}
             else:
                 return {"result": result.output}
         else:
