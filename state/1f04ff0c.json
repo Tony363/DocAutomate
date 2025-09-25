@@ -1,0 +1,70 @@
+{
+  "run_id": "1f04ff0c",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "agreement_type": "MVP Development Agreement",
+    "month": "September",
+    "year": "2025",
+    "original_action_type": "date_required",
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "general"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "Missing date field requirement identified for document processing workflow",
+          "insights": [
+            "Field type is 'date' based on explicit field_name parameter",
+            "Context indicates this is a required field ('date_required')",
+            "Date reference to September 2025 suggests potential future date validation needs",
+            "No party specified indicates this may be a general document date field"
+          ],
+          "recommendations": [
+            "Implement date field with standard date picker input format (MM/DD/YYYY or YYYY-MM-DD)",
+            "Add validation rules: required field, valid date format, potentially restrict to reasonable date ranges",
+            "Set priority level as HIGH since it's marked as required",
+            "Consider adding date range validation if business logic requires dates within specific timeframes"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T22:02:54.901595",
+  "completed_at": "2025-09-25T22:03:16.297215",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "Missing date field requirement identified for document processing workflow",
+        "insights": [
+          "Field type is 'date' based on explicit field_name parameter",
+          "Context indicates this is a required field ('date_required')",
+          "Date reference to September 2025 suggests potential future date validation needs",
+          "No party specified indicates this may be a general document date field"
+        ],
+        "recommendations": [
+          "Implement date field with standard date picker input format (MM/DD/YYYY or YYYY-MM-DD)",
+          "Add validation rules: required field, valid date format, potentially restrict to reasonable date ranges",
+          "Set priority level as HIGH since it's marked as required",
+          "Consider adding date range validation if business logic requires dates within specific timeframes"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
