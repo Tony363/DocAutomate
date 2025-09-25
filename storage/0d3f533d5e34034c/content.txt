@@ -1,0 +1,59 @@
+Here's the extracted text content from the NDA document:
+
+# NON-DISCLOSURE AGREEMENT
+
+**Parties:**
+- **Company:** YOOBROO, INC. (Delaware corporation)
+  - Address: 1718 N Las Palmas Ave Apt 204, Los Angeles, CA 90028
+- **Recipient:** TONY LIU (individual)
+- **Effective Date:** June 30, 2025
+
+## Key Terms:
+
+### 1. Confidential Information Includes:
+- Business plans, product roadmaps, marketing strategies, financial information
+- Technical data (source code, APIs, database schemas, system architecture, MVP documents)
+- Customer data, user information, transaction records
+- Any non-public information marked as confidential
+
+### 2. Exceptions:
+Information that is:
+- Publicly available without breach
+- Previously known to Recipient with written proof
+- Independently developed without using Company's information
+- Disclosed by third party without restriction
+- Required by law to disclose (with prompt notice)
+
+### 3. Recipient Obligations:
+- Use information solely for MVP Development Agreement services
+- Not disclose to third parties without written consent
+- Use reasonable security measures (secure storage, encryption)
+- Notify Company immediately of any unauthorized use/disclosure
+
+### 4. Return/Destruction:
+Within 5 days upon termination or request:
+- Return all Confidential Information, or
+- Destroy and certify destruction (unless legally required to retain)
+
+### 5. Term:
+- During Development Agreement term
+- Plus 5 years thereafter (until June 30, 2030)
+- Trade secrets protected until no longer qualifying as trade secrets
+
+### 6. Penalties for Breach:
+- Liable for all losses (lost revenue, legal fees, reputational damage)
+- Company may seek injunctive relief plus other remedies
+
+### 7. Governing Law:
+- Delaware law governs
+- Binding arbitration in Los Angeles County
+- AAA Commercial Arbitration Rules
+- Prevailing party entitled to attorney's fees
+
+### 8. Execution:
+Requires signatures from:
+- Kai Lei (Founder & CEO)
+- Yuzheng Fu (Co-Founder)
+- Tony Liu (Recipient)
+
+**Note:** Document includes disclaimer that it's for informational purposes only and parties should consult legal counsel.
