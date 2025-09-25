@@ -21,6 +21,8 @@ logging.basicConfig(
 )
 
 # Import modules to test
+sys.path.append(str(Path(__file__).parent.parent))
+
 from claude_cli import ClaudeCLI, AsyncClaudeCLI
 from ingester import DocumentIngester
 from extractor import ActionExtractor

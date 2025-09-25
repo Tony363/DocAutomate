@@ -107,8 +107,29 @@ async def process_document_background(document: Document, request_id: str = None
     logger.debug(f"[{request_id}] Document details: filename={document.filename}, size={len(document.text) if document.text else 0} chars")
     
     try:
+        # First validate that we have actual content to process
+        if not document.text or len(document.text) < 50:
+            logger.error(f"[{request_id}] Document {document.id} has insufficient text content ({len(document.text) if document.text else 0} chars)")
+            document.status = "failed"
+            document.error = "Insufficient text content extracted"
+            await document_ingester._store_document(document)
+            return
+        
+        # Check for extraction error patterns
+        error_phrases = ['i need your permission', 'please grant permission', 'permission to read', 
+                        'allow access', 'grant access', 'claude code is required']
+        text_lower = document.text.lower()
+        
+        for phrase in error_phrases:
+            if phrase in text_lower:
+                logger.error(f"[{request_id}] Document {document.id} contains extraction error: '{phrase}'")
+                document.status = "extraction_failed"
+                document.error = f"Text extraction failed - permission or processing error detected"
+                await document_ingester._store_document(document)
+                return
+        
         # Extract actions
-        logger.info(f"[{request_id}] Extracting actions from document {document.id}")
+        logger.info(f"[{request_id}] Extracting actions from document {document.id} ({len(document.text)} chars)")
         actions = await action_extractor.extract_actions(
             document.text,
             document_type='general'
@@ -120,9 +141,9 @@ async def process_document_background(document: Document, request_id: str = None
         for i, action in enumerate(actions):
             logger.debug(f"[{request_id}] Action {i+1}: type={action.action_type}, workflow={action.workflow_name}, confidence={action.confidence_score:.2f}")
         
-        # Update document with extracted actions
+        # Update document with extracted actions - only mark as processed if extraction was successful
         document.extracted_actions = [action.dict() for action in actions]
-        document.status = "processed"
+        document.status = "processed" if len(document.text) > 100 else "partial"
         
         # Save updated document
         logger.debug(f"[{request_id}] Saving processed document {document.id}")

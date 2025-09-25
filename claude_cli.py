@@ -12,10 +12,17 @@ import os
 import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
-import shlex
 import asyncio
 from dataclasses import dataclass
 from enum import Enum
+import hashlib
+from datetime import datetime
+import pty
+import select
+import fcntl
+import termios
+import PyPDF2
+from io import BytesIO
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -83,10 +90,147 @@ class ClaudeCLI:
         self.timeout = timeout if timeout is not None else int(os.getenv("CLAUDE_TIMEOUT", "120"))
         self.claude_cmd = claude_cmd if claude_cmd is not None else os.getenv("CLAUDE_CLI_PATH", "claude")
         
-        logger.info(f"Initialized ClaudeCLI with timeout={self.timeout}s, command='{self.claude_cmd}'")
+        # Permission management configuration
+        self.auto_grant_permissions = os.getenv("CLAUDE_AUTO_GRANT_FILE_ACCESS", "true").lower() == "true"
+        allowed_dirs = os.getenv("CLAUDE_ALLOWED_DIRECTORIES", "")
+        self.allowed_directories = [d.strip() for d in allowed_dirs.split(",") if d.strip()] if allowed_dirs else []
         
+        logger.info(f"Initialized ClaudeCLI with timeout={self.timeout}s, command='{self.claude_cmd}'")
+        logger.info(f"Permission settings: auto_grant={self.auto_grant_permissions}, allowed_dirs={len(self.allowed_directories)}")
+        
+        # Initialize audit logging
+        self.audit_log_enabled = os.getenv("CLAUDE_AUDIT_LOG", "true").lower() == "true"
+        self.audit_log_file = os.getenv("CLAUDE_AUDIT_LOG_FILE", "logs/claude_audit.log")
+        if self.audit_log_enabled:
+            self._ensure_audit_log_dir()
+    
+    def _ensure_audit_log_dir(self):
+        """Ensure audit log directory exists"""
+        audit_dir = Path(self.audit_log_file).parent
+        audit_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _log_file_access(self, file_path: str, operation: str, status: str, details: Dict[str, Any] = None):
+        """Log file access for audit trail"""
+        if not self.audit_log_enabled:
+            return
+        
+        audit_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "operation": operation,
+            "file_path": file_path,
+            "file_hash": hashlib.sha256(str(file_path).encode()).hexdigest()[:16],
+            "status": status,
+            "pid": os.getpid(),
+            "details": details or {}
+        }
+        
+        try:
+            with open(self.audit_log_file, "a") as f:
+                f.write(json.dumps(audit_entry) + "\n")
+        except Exception as e:
+            logger.warning(f"Failed to write audit log: {e}")
+        
+    def _run_command_pty(self, cmd: List[str], input_text: Optional[str] = None) -> CLIResult:
+        """
+        Execute Claude Code command using PTY for interactive permission handling
+        
+        Args:
+            cmd: Command and arguments as list
+            input_text: Optional text to pipe to stdin
+            
+        Returns:
+            CLIResult with output, error, and status
+        """
+        try:
+            # Create a pseudo-terminal
+            master_fd, slave_fd = pty.openpty()
+            
+            # Start the process
+            process = subprocess.Popen(
+                cmd,
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                preexec_fn=os.setsid
+            )
+            
+            os.close(slave_fd)
+            
+            # Make the master fd non-blocking
+            flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
+            fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+            
+            output = []
+            start_time = time.time()
+            permission_prompted = False
+            
+            # Send initial input if provided
+            if input_text:
+                os.write(master_fd, (input_text + "\n").encode())
+            
+            while True:
+                # Check for timeout
+                if time.time() - start_time > self.timeout:
+                    process.kill()
+                    os.close(master_fd)
+                    return CLIResult(
+                        success=False,
+                        output="",
+                        error="Command timed out",
+                        exit_code=-1
+                    )
+                
+                # Check if process is still running
+                if process.poll() is not None:
+                    break
+                
+                # Try to read output
+                readable, _, _ = select.select([master_fd], [], [], 0.1)
+                if readable:
+                    try:
+                        data = os.read(master_fd, 1024).decode('utf-8', errors='ignore')
+                        output.append(data)
+                        
+                        # Check for permission prompt and auto-respond
+                        if not permission_prompted and any(phrase in data.lower() for phrase in 
+                            ['permission', 'allow', 'grant', 'access', 'yes/no', 'y/n']):
+                            logger.info("Permission prompt detected, auto-responding 'yes'")
+                            os.write(master_fd, b"yes\n")
+                            permission_prompted = True
+                            
+                    except OSError:
+                        break
+            
+            # Get final output
+            try:
+                remaining = os.read(master_fd, 10240).decode('utf-8', errors='ignore')
+                output.append(remaining)
+            except:
+                pass
+            
+            os.close(master_fd)
+            exit_code = process.returncode
+            
+            full_output = ''.join(output).strip()
+            
+            return CLIResult(
+                success=(exit_code == 0),
+                output=full_output,
+                error=None if exit_code == 0 else f"Exit code: {exit_code}",
+                exit_code=exit_code
+            )
+            
+        except Exception as e:
+            logger.error(f"PTY execution failed: {e}")
+            return CLIResult(
+                success=False,
+                output="",
+                error=str(e),
+                exit_code=-1
+            )
+    
     def _run_command(self, cmd: List[str], input_text: Optional[str] = None, 
-                    retries: int = 2, retry_delay: int = 5) -> CLIResult:
+                    retries: int = 2, retry_delay: int = 5, use_pty: bool = False) -> CLIResult:
         """
         Execute Claude Code command with retry logic and extensive logging
         
@@ -95,10 +239,14 @@ class ClaudeCLI:
             input_text: Optional text to pipe to stdin
             retries: Number of retry attempts for timeout errors
             retry_delay: Delay between retries in seconds
+            use_pty: Use PTY for interactive commands
             
         Returns:
             CLIResult with output, error, and status
         """
+        # Use PTY for interactive commands if requested
+        if use_pty:
+            return self._run_command_pty(cmd, input_text)
         # Log the command for debugging (without sensitive data)
         safe_cmd = ' '.join(cmd[:3]) + ' ...' if len(cmd) > 3 else ' '.join(cmd)
         input_preview = (input_text[:100] + '...') if input_text and len(input_text) > 100 else input_text
@@ -187,6 +335,35 @@ class ClaudeCLI:
                     exit_code=-1
                 )
     
+    def _extract_pdf_fallback(self, file_path: str) -> str:
+        """
+        Fallback PDF extraction using PyPDF2
+        
+        Args:
+            file_path: Path to PDF file
+            
+        Returns:
+            Extracted text from PDF
+        """
+        try:
+            logger.info(f"Using PyPDF2 fallback for PDF extraction: {file_path}")
+            
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text_parts = []
+                
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text_parts.append(page.extract_text())
+                
+                full_text = '\n'.join(text_parts)
+                logger.info(f"PyPDF2 extracted {len(full_text)} characters from {file_path}")
+                return full_text
+                
+        except Exception as e:
+            logger.error(f"PyPDF2 extraction failed: {e}")
+            raise
+    
     def read_document(self, file_path: str) -> str:
         """
         Use Claude Code Read tool to extract text from document
@@ -228,14 +405,70 @@ class ClaudeCLI:
                 logger.error(f"Failed to read text file: {e}")
                 raise
         
-        # For other files, use Claude to process them
+        # For PDF files, try Claude first with PTY, then fallback to PyPDF2
+        if file_ext == '.pdf':
+            logger.info(f"Processing PDF file: {file_path}")
+            
+            # Try Claude with PTY for interactive permission handling
+            cmd = [self.claude_cmd, "--print"]
+            prompt = f"Please read and extract the text content from the file: {file_path}"
+            
+            logger.info(f"Attempting Claude Code extraction with PTY for: {file_path}")
+            result = self._run_command(cmd, input_text=prompt, use_pty=True)
+            
+            if result.success:
+                # Validate the extracted content
+                if (len(result.output) > 100 and 
+                    not any(phrase in result.output.lower() for phrase in 
+                           ['permission', 'grant', 'access', 'allow', 'i need your permission'])):
+                    logger.info(f"Claude successfully extracted {len(result.output)} characters")
+                    
+                    # Audit log successful extraction
+                    self._log_file_access(file_path, "file_read", "success", {
+                        "method": "claude_pty",
+                        "output_length": len(result.output),
+                        "file_size": file_size
+                    })
+                    
+                    return result.output
+                else:
+                    logger.warning(f"Claude extraction appears to have failed (permission issue or short output)")
+            
+            # If Claude fails, use PyPDF2 fallback
+            logger.info(f"Claude extraction failed, using PyPDF2 fallback for: {file_path}")
+            try:
+                pdf_text = self._extract_pdf_fallback(file_path)
+                
+                # Audit log fallback extraction
+                self._log_file_access(file_path, "file_read", "success", {
+                    "method": "pypdf2_fallback",
+                    "output_length": len(pdf_text),
+                    "file_size": file_size
+                })
+                
+                return pdf_text
+            except Exception as e:
+                logger.error(f"Both Claude and PyPDF2 extraction failed for {file_path}: {e}")
+                
+                # Audit log failure
+                self._log_file_access(file_path, "file_read", "failed", {
+                    "error": str(e),
+                    "methods_tried": ["claude_pty", "pypdf2"]
+                })
+                
+                raise Exception(f"PDF extraction failed for {file_path}: {e}")
+        
+        # For other non-text files, use Claude to process them
         logger.info(f"Using Claude Code to process non-text file: {file_path}")
         
-        # Use --print flag and ask Claude to read the file
         cmd = [self.claude_cmd, "--print"]
         prompt = f"Please read and extract the text content from the file: {file_path}"
         
-        # Increase timeout for larger files
+        # Use PTY for better interactive handling
+        logger.info(f"Using Claude Code with PTY for: {file_path}")
+        result = self._run_command(cmd, input_text=prompt, use_pty=True)
+        
+        # Increase timeout for larger files if needed
         adjusted_timeout = max(120, file_size // 10000)  # At least 120s, add 1s per 10KB
         if adjusted_timeout > self.timeout:
             logger.info(f"Adjusting timeout from {self.timeout}s to {adjusted_timeout}s for large file")
@@ -245,17 +478,62 @@ class ClaudeCLI:
             original_timeout = None
         
         try:
-            result = self._run_command(cmd, input_text=prompt)
+            if not result.success:
+                # Try again with standard subprocess as fallback
+                logger.info(f"PTY failed, trying standard subprocess for: {file_path}")
+                result = self._run_command(cmd, input_text=prompt, use_pty=False)
             
             if result.success:
                 elapsed = time.time() - start_time
                 logger.info(f"Successfully read document via Claude in {elapsed:.2f}s: {file_path}")
                 logger.debug(f"Extracted {len(result.output)} characters from {file_path}")
+                
+                # Log successful file access for audit trail
+                logger.info(f"File access granted and processed: {file_path} ({len(result.output)} chars)")
+                
+                # Audit log successful file processing
+                self._log_file_access(file_path, "file_read", "success", {
+                    "processing_time": elapsed,
+                    "output_length": len(result.output),
+                    "file_size": file_size
+                })
+                
                 return result.output
             else:
-                error_msg = f"Failed to read document: {result.error or 'Unknown error'}"
-                logger.error(f"{error_msg} (file: {file_path})")
-                raise Exception(error_msg)
+                # Enhanced error handling for permission-related issues
+                error_msg = result.error or 'Unknown error'
+                
+                # Detect common permission-related error patterns
+                if any(keyword in error_msg.lower() for keyword in ['permission', 'access', 'denied', 'unauthorized']):
+                    logger.error(f"Permission-related error for {file_path}: {error_msg}")
+                    logger.info("Try setting CLAUDE_AUTO_GRANT_FILE_ACCESS=true or run Claude interactively first")
+                    
+                    # Audit log permission failure
+                    self._log_file_access(file_path, "file_read", "permission_denied", {
+                        "error": error_msg,
+                        "auto_grant_enabled": self.auto_grant_permissions
+                    })
+                    
+                    raise PermissionError(f"File access permission required: {error_msg}")
+                elif 'timeout' in error_msg.lower():
+                    logger.error(f"Timeout during file processing - may indicate permission prompt waiting: {file_path}")
+                    
+                    # Audit log timeout failure
+                    self._log_file_access(file_path, "file_read", "timeout", {
+                        "error": error_msg,
+                        "timeout_seconds": self.timeout
+                    })
+                    
+                    raise TimeoutError(f"File processing timeout (possible permission issue): {error_msg}")
+                else:
+                    logger.error(f"Failed to read document: {error_msg} (file: {file_path})")
+                    
+                    # Audit log general failure
+                    self._log_file_access(file_path, "file_read", "error", {
+                        "error": error_msg
+                    })
+                    
+                    raise Exception(f"Document processing failed: {error_msg}")
         finally:
             # Restore original timeout if it was adjusted
             if original_timeout is not None:

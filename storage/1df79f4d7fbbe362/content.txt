@@ -1,0 +1,53 @@
+Here is the extracted text content from the NDA document:
+
+## NON-DISCLOSURE AGREEMENT
+
+**Parties:**
+- **Company**: YOOBROO, INC. (Delaware corporation)
+  - Address: 1718 N Las Palmas Ave Apt 204, Los Angeles, CA 90028
+- **Recipient**: TONY LIU (individual)
+- **Effective Date**: June 30, 2025
+
+**Key Terms:**
+
+**1. Confidential Information includes:**
+- Business plans, product roadmaps, marketing strategies, financial information
+- Technical data (source code, APIs, database schemas, system architecture, MVP docs)
+- Customer data, user information, transaction records
+- Any non-public information marked as or reasonably understood to be confidential
+
+**2. Exceptions** - Information that:
+- Is/becomes publicly available without breach
+- Was lawfully known prior to disclosure
+- Is independently developed without using Confidential Information
+- Is disclosed by third party without restriction
+- Is required by law to be disclosed
+
+**3. Recipient Obligations:**
+- Use information solely for MVP Development Agreement services
+- Not disclose to third parties without written consent
+- Use reasonable security measures (secure storage, encryption)
+- Notify Company immediately of unauthorized use/disclosure
+
+**4. Return/Destruction:**
+- Within 5 days of termination or request: return all information or destroy and certify
+
+**5. Term:**
+- Effective during Development Agreement and 5 years after (until June 30, 2030)
+- Trade secrets protected until no longer qualifying as trade secrets
+
+**6. Penalties:**
+- Liability for all losses from intentional/grossly negligent breach
+- Company may seek injunctive relief plus other remedies
+
+**7. Governance:**
+- Governed by Delaware law
+- Disputes resolved through binding arbitration in Los Angeles County
+- AAA Commercial Arbitration Rules
+
+**Signatories:**
+- Kai Lei (Founder & CEO)
+- Yuzheng Fu (Co-Founder)
+- Tony Liu (Recipient)
+
+**Platform:** Yoobroo - Swipe Shop Trade (www.yoobroo.com) - e-commerce and trading platform
