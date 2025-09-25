@@ -1,0 +1,15 @@
+{
+  "id": "8b0edbc1f753c402",
+  "filename": "NDA-Tony-yoobroo.pdf",
+  "content_type": "application/pdf",
+  "text": "Here's the extracted text content from the NDA document:\n\n## NON-DISCLOSURE AGREEMENT\n\n**Date:** June 30, 2025 (\"Effective Date\")\n\n**Parties:**\n- **Company:** YOOBROO, INC., a Delaware corporation\n  - Address: 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028\n- **Recipient:** TONY LIU (individual)\n  - Address: [To be filled in]\n\n**Purpose:** Protect confidential information in connection with Recipient's engagement as a contractor to develop a Minimum Viable Product (MVP) for Yoobroo - Swipe Shop Trade (www.yoobroo.com)\n\n### Key Sections:\n\n**1. Confidential Information Includes:**\n- Business plans, product roadmaps, marketing strategies, financial information\n- Technical data (source code, APIs, database schemas, system architecture, MVP documents)\n- Customer data, user information, transaction records\n- Any non-public information marked/understood as confidential\n\n**2. Exceptions:**\n- Publicly available information (without breach)\n- Previously known to Recipient (with written records)\n- Independently developed\n- Third-party disclosure without restriction\n- Required by law (with prompt notice)\n\n**3. Recipient Obligations:**\n- Use only for MVP Development Agreement purposes (dated September ___, 2025)\n- No disclosure to third parties without written consent\n- Implement reasonable security measures\n- Immediate notification of unauthorized use\n\n**4. Return/Destruction:**\n- Within 5 days upon termination or request\n- Return all materials or destroy with written certification\n\n**5. Term:**\n- Effective during Development Agreement\n- Continues for 5 years after (until June 30, 2030)\n- Trade secrets protected until no longer qualifying\n\n**6. Penalties:**\n- Liability for all losses from breach (lost revenue, legal fees, reputational damage)\n- Injunctive relief available\n\n**7. No License/Ownership:**\n- No rights granted to Recipient\n- Information remains Company property\n\n**8. Governing Law:**\n- Delaware law applies\n- Binding arbitration in Los Angeles County, California\n- AAA Commercial Arbitration Rules\n- Prevailing party entitled to attorney's fees\n\n**9. Miscellaneous:**\n- Entire agreement clause\n- Written amendments only\n- Severability provision\n- No assignment without consent (Recipient)\n- Electronic signatures accepted\n\n**10. Signatures:**\n- Kai Lei (Founder & CEO)\n- Yuzheng Fu (Co-Founder)\n- Tony Liu (Recipient)\n\n**Note:** Document includes disclaimer recommending legal counsel consultation.",
+  "metadata": {
+    "size_bytes": 28397,
+    "file_path": "/home/tony/Desktop/DocAutomate/docs/NDA-Tony-yoobroo.pdf",
+    "extension": ".pdf"
+  },
+  "ingested_at": "2025-09-25T03:57:43.184747",
+  "status": "pending",
+  "extracted_actions": null,
+  "workflow_runs": []
+}

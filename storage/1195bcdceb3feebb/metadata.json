@@ -1,0 +1,30 @@
+{
+  "id": "1195bcdceb3feebb",
+  "filename": "tmph4a7e7z5.pdf",
+  "content_type": "application/pdf",
+  "text": "I'm having difficulty accessing the PDF file directly. The system is requesting permissions that need to be granted. Could you please approve the file reading request so I can extract the text content from the PDF? \n\nAlternatively, if you have access to the PDF content, you could share the text with me directly.",
+  "metadata": {
+    "size_bytes": 28397,
+    "file_path": "/tmp/tmph4a7e7z5.pdf",
+    "extension": ".pdf"
+  },
+  "ingested_at": "2025-09-25T03:09:12.631908",
+  "status": "processed",
+  "extracted_actions": [
+    {
+      "action_type": "approval_request",
+      "workflow_name": "approve_file_access",
+      "description": "Approve file reading request for PDF access",
+      "parameters": {
+        "file_type": "PDF",
+        "permission_type": "read"
+      },
+      "entities": [],
+      "confidence_score": 0.95,
+      "confidence_level": "high",
+      "priority": 1,
+      "deadline": null
+    }
+  ],
+  "workflow_runs": []
+}
