@@ -11,10 +11,11 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import shlex
 import asyncio
 from dataclasses import dataclass
+from enum import Enum
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -23,6 +24,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class SuperClaudeMode(str, Enum):
+    """SuperClaude Framework behavioral modes"""
+    BRAINSTORM = "brainstorm"
+    TASK_MANAGE = "task-manage"
+    ORCHESTRATE = "orchestrate"
+    TOKEN_EFFICIENT = "uc"
+    INTROSPECT = "introspect"
+    LOOP = "loop"
+
+class SuperClaudeAgent(str, Enum):
+    """SuperClaude Framework specialized agents"""
+    GENERAL_PURPOSE = "general-purpose"
+    ROOT_CAUSE_ANALYST = "root-cause-analyst"
+    REFACTORING_EXPERT = "refactoring-expert"
+    TECHNICAL_WRITER = "technical-writer"
+    PERFORMANCE_ENGINEER = "performance-engineer"
+    SECURITY_ENGINEER = "security-engineer"
+    FRONTEND_ARCHITECT = "frontend-architect"
+    BACKEND_ARCHITECT = "backend-architect"
+    FINANCE_ENGINEER = "finance-engineer"
+    QUALITY_ENGINEER = "quality-engineer"
+
+class SuperClaudeMCP(str, Enum):
+    """SuperClaude Framework MCP servers"""
+    SEQUENTIAL = "sequential"
+    MAGIC = "magic"
+    PLAYWRIGHT = "playwright"
+    MORPHLLM = "morphllm"
+    CONTEXT7 = "context7"
+    SERENA = "serena"
+    ZEN = "zen"
+
 @dataclass
 class CLIResult:
     """Result from CLI command execution"""
@@ -30,6 +63,7 @@ class CLIResult:
     output: str
     error: Optional[str] = None
     exit_code: int = 0
+    metadata: Optional[Dict[str, Any]] = None
 
 class ClaudeCLI:
     """
@@ -383,6 +417,275 @@ class ClaudeCLI:
         else:
             logger.warning(f"Claude Code not found or not accessible: {result.error}")
             return False
+    
+    # SuperClaude Framework Integration Methods
+    
+    def execute_with_mode(self, 
+                         prompt: str, 
+                         mode: Union[SuperClaudeMode, str], 
+                         context: Optional[Dict[str, Any]] = None) -> CLIResult:
+        """
+        Execute command with SuperClaude behavioral mode
+        
+        Args:
+            prompt: Command or query to execute
+            mode: SuperClaude behavioral mode (brainstorm, task-manage, etc.)
+            context: Optional context data
+            
+        Returns:
+            CLI execution result with metadata
+        """
+        mode_str = mode.value if isinstance(mode, SuperClaudeMode) else mode
+        
+        # Build command with mode flag
+        cmd = [self.claude_cmd, f"--{mode_str}", "--print"]
+        
+        # Prepare full prompt with context
+        full_prompt = prompt
+        if context:
+            full_prompt = f"Context: {json.dumps(context, indent=2)}\n\nTask: {prompt}"
+        
+        logger.info(f"Executing with {mode_str} mode: {prompt[:50]}...")
+        
+        result = self._run_command(cmd, input_text=full_prompt)
+        
+        # Add metadata about the mode used
+        if result.metadata is None:
+            result.metadata = {}
+        result.metadata["mode"] = mode_str
+        result.metadata["context_provided"] = bool(context)
+        
+        return result
+    
+    def delegate_to_agent(self, 
+                         prompt: str, 
+                         agent: Union[SuperClaudeAgent, str] = None,
+                         task_manage: bool = False,
+                         quality_loop: bool = False) -> CLIResult:
+        """
+        Delegate task to specialized SuperClaude agent
+        
+        Args:
+            prompt: Task description
+            agent: Specific agent to use (if None, auto-routes)
+            task_manage: Enable task management mode
+            quality_loop: Enable quality improvement loop
+            
+        Returns:
+            CLI execution result with agent metadata
+        """
+        # Build command flags
+        cmd = [self.claude_cmd, "--delegate"]
+        
+        if task_manage:
+            cmd.append("--task-manage")
+        if quality_loop:
+            cmd.append("--loop")
+        
+        cmd.append("--print")
+        
+        # Prepare prompt with agent specification
+        if agent:
+            agent_str = agent.value if isinstance(agent, SuperClaudeAgent) else agent
+            full_prompt = f"Use the {agent_str} agent for this task: {prompt}"
+        else:
+            full_prompt = f"Auto-route to best agent: {prompt}"
+        
+        logger.info(f"Delegating to agent {agent or 'auto'}: {prompt[:50]}...")
+        
+        result = self._run_command(cmd, input_text=full_prompt)
+        
+        # Add metadata
+        if result.metadata is None:
+            result.metadata = {}
+        result.metadata["delegation"] = True
+        result.metadata["requested_agent"] = agent.value if isinstance(agent, SuperClaudeAgent) else agent
+        result.metadata["task_manage"] = task_manage
+        result.metadata["quality_loop"] = quality_loop
+        
+        return result
+    
+    def use_mcp_server(self, 
+                      prompt: str, 
+                      mcp: Union[SuperClaudeMCP, str],
+                      additional_flags: List[str] = None) -> CLIResult:
+        """
+        Execute task using specific MCP server
+        
+        Args:
+            prompt: Task description
+            mcp: MCP server to use
+            additional_flags: Additional command flags
+            
+        Returns:
+            CLI execution result with MCP metadata
+        """
+        mcp_str = mcp.value if isinstance(mcp, SuperClaudeMCP) else mcp
+        
+        # Build command with MCP server flag
+        cmd = [self.claude_cmd, f"--{mcp_str}"]
+        
+        if additional_flags:
+            cmd.extend(additional_flags)
+        
+        cmd.append("--print")
+        
+        logger.info(f"Using {mcp_str} MCP server: {prompt[:50]}...")
+        
+        result = self._run_command(cmd, input_text=prompt)
+        
+        # Add metadata
+        if result.metadata is None:
+            result.metadata = {}
+        result.metadata["mcp_server"] = mcp_str
+        result.metadata["additional_flags"] = additional_flags or []
+        
+        return result
+    
+    def brainstorm_document_processing(self, 
+                                     document_content: str, 
+                                     document_meta: Dict[str, Any]) -> CLIResult:
+        """
+        Use brainstorming mode to determine document processing approach
+        
+        Args:
+            document_content: Document text content
+            document_meta: Document metadata (type, source, etc.)
+            
+        Returns:
+            Brainstorming result with processing recommendations
+        """
+        context = {
+            "document_type": document_meta.get("content_type", "unknown"),
+            "document_size": len(document_content),
+            "source": document_meta.get("source", "unknown"),
+            "metadata": document_meta
+        }
+        
+        prompt = f"""Analyze this document and determine the best processing approach:
+        
+Document Type: {context['document_type']}
+Size: {context['document_size']} characters
+Source: {context['source']}
+
+Please recommend:
+1. What type of document this is
+2. What actions should be taken
+3. Which agents would be most suitable
+4. What workflow should be used
+
+Document content preview (first 500 chars):
+{document_content[:500]}..."""
+        
+        return self.execute_with_mode(prompt, SuperClaudeMode.BRAINSTORM, context)
+    
+    def generate_code_for_document(self, 
+                                 document_data: Dict[str, Any],
+                                 generation_type: str = "analysis",
+                                 language: str = "python") -> CLIResult:
+        """
+        Generate code for document analysis/processing
+        
+        Args:
+            document_data: Extracted document data
+            generation_type: Type of code to generate (analysis, visualization, automation)
+            language: Programming language for generated code
+            
+        Returns:
+            Generated code result
+        """
+        prompt = f"""Generate {language} code for {generation_type} of this document data:
+
+Data: {json.dumps(document_data, indent=2)}
+
+Please generate:
+1. Complete working {language} script
+2. Include necessary imports and dependencies
+3. Add comments explaining the logic
+4. Include error handling
+5. Make the code production-ready
+
+Focus on: {generation_type}"""
+        
+        context = {
+            "document_data": document_data,
+            "generation_type": generation_type,
+            "language": language
+        }
+        
+        # Use task management for code generation
+        return self.execute_with_mode(prompt, SuperClaudeMode.TASK_MANAGE, context)
+    
+    def orchestrate_parallel_processing(self, 
+                                      documents: List[Dict[str, Any]],
+                                      processing_hints: Dict[str, Any] = None) -> CLIResult:
+        """
+        Orchestrate parallel processing of multiple documents
+        
+        Args:
+            documents: List of document metadata and content
+            processing_hints: Hints for processing optimization
+            
+        Returns:
+            Orchestration plan result
+        """
+        context = {
+            "document_count": len(documents),
+            "document_types": [doc.get("content_type") for doc in documents],
+            "processing_hints": processing_hints or {}
+        }
+        
+        prompt = f"""Plan parallel processing for {len(documents)} documents:
+
+Document types: {', '.join(set(context['document_types']))}
+
+Please create:
+1. Optimal processing strategy
+2. Resource allocation plan
+3. Parallel execution approach
+4. Quality assurance checkpoints
+5. Error handling strategy
+
+Processing hints: {json.dumps(processing_hints or {}, indent=2)}"""
+        
+        return self.execute_with_mode(prompt, SuperClaudeMode.ORCHESTRATE, context)
+    
+    def quality_improvement_loop(self, 
+                                initial_result: Dict[str, Any],
+                                quality_threshold: float = 0.85,
+                                max_iterations: int = 3) -> CLIResult:
+        """
+        Run quality improvement loop on processing results
+        
+        Args:
+            initial_result: Initial processing result to improve
+            quality_threshold: Minimum quality score target
+            max_iterations: Maximum improvement iterations
+            
+        Returns:
+            Improved result with quality metadata
+        """
+        context = {
+            "initial_quality": initial_result.get("quality_score", 0.0),
+            "threshold": quality_threshold,
+            "max_iterations": max_iterations
+        }
+        
+        prompt = f"""Improve the quality of this processing result:
+
+Initial Result: {json.dumps(initial_result, indent=2)}
+
+Current Quality Score: {context['initial_quality']}
+Target Quality Score: {quality_threshold}
+
+Please:
+1. Identify quality issues
+2. Suggest specific improvements
+3. Provide enhanced version
+4. Validate the improvements
+5. Calculate new quality score"""
+        
+        return self.execute_with_mode(prompt, SuperClaudeMode.LOOP, context)
 
 # Async wrapper for better integration
 class AsyncClaudeCLI(ClaudeCLI):

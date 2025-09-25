@@ -1,0 +1,164 @@
+name: "excel_automation"
+description: "Automated Excel processing with data analysis and visualization"
+version: "1.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Source document ID"
+  
+  - name: "document_content"
+    type: "string"
+    required: true
+    description: "Extracted document content"
+  
+  - name: "extracted_data"
+    type: "object"
+    required: true
+    description: "Structured data extracted from document"
+  
+  - name: "output_filename"
+    type: "string"
+    required: false
+    default: "automated_report.xlsx"
+    description: "Output Excel filename"
+
+steps:
+  - id: "intelligent_routing"
+    type: "intelligent_routing"
+    description: "Route to best agent for Excel processing"
+    config:
+      document_meta:
+        document_id: "{{ document_id }}"
+        content_type: "financial"
+        extracted_data: "{{ extracted_data }}"
+      mode: "automatic"
+
+  - id: "generate_analysis_code"
+    type: "code_generation"
+    description: "Generate Python code for data analysis"
+    config:
+      type: "analysis"
+      language: "python"
+      libraries: ["pandas", "numpy"]
+      data: "{{ extracted_data }}"
+      execute: false
+
+  - id: "generate_excel_code"
+    type: "code_generation"
+    description: "Generate Excel manipulation code"
+    config:
+      type: "excel_manipulation"
+      language: "python"
+      data: "{{ extracted_data }}"
+      output_filename: "{{ output_filename }}"
+      execute: true
+
+  - id: "agent_task"
+    type: "agent_task"
+    description: "Use SuperClaude agent for enhanced processing"
+    config:
+      agent_name: "{{ steps.intelligent_routing.selected_agent }}"
+      document_id: "{{ document_id }}"
+      context:
+        document_content: "{{ document_content }}"
+        extracted_data: "{{ extracted_data }}"
+        document_meta:
+          type: "excel_automation"
+          processing_mode: "enhanced"
+
+  - id: "quality_check"
+    type: "quality_check"
+    description: "Validate generated Excel report"
+    config:
+      checks: ["completeness", "accuracy", "formatting"]
+      target_data: "{{ extracted_data }}"
+      quality_threshold: 0.85
+
+  - id: "conditional_improvement"
+    type: "conditional"
+    description: "Improve quality if below threshold"
+    config:
+      condition: "{{ steps.quality_check.quality_score < 0.85 }}"
+      if_true:
+        type: "agent_task"
+        config:
+          agent_name: "quality-engineer"
+          context:
+            original_result: "{{ steps.agent_task }}"
+            quality_issues: "{{ steps.quality_check.detailed_results }}"
+            improvement_target: 0.9
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            status: "quality_passed"
+            message: "Excel report meets quality standards"
+
+  - id: "create_visualizations"
+    type: "code_generation"
+    description: "Generate visualization code for charts"
+    config:
+      type: "visualization"
+      language: "python"
+      data: "{{ extracted_data }}"
+      chart_types: ["bar", "pie", "line"]
+      execute: true
+
+  - id: "notify_completion"
+    type: "parallel"
+    description: "Notify stakeholders about completion"
+    config:
+      tasks:
+        - type: "send_email"
+          config:
+            to: "data-team@company.com"
+            subject: "Excel Automation Complete: {{ document_id }}"
+            body: |
+              Excel automation workflow completed successfully.
+              
+              Document: {{ document_id }}
+              Output File: {{ output_filename }}
+              Quality Score: {{ steps.quality_check.quality_score }}
+              Processing Agent: {{ steps.intelligent_routing.selected_agent }}
+              
+              Generated Components:
+              - Data analysis script
+              - Excel report with multiple sheets
+              - Data visualizations
+              
+              Files are ready for review.
+        
+        - type: "claude_analyze"
+          config:
+            prompt: |
+              Summarize the Excel automation results:
+              - Document processed: {{ document_id }}
+              - Data extracted: {{ extracted_data | length }} fields
+              - Quality score: {{ steps.quality_check.quality_score }}
+              - Agent used: {{ steps.intelligent_routing.selected_agent }}
+            data:
+              processing_summary:
+                document_id: "{{ document_id }}"
+                agent_used: "{{ steps.intelligent_routing.selected_agent }}"
+                quality_score: "{{ steps.quality_check.quality_score }}"
+                files_generated:
+                  - "{{ output_filename }}"
+                  - "analysis_script.py"
+                  - "visualizations.png"
+
+metadata:
+  author: "DocAutomate + SuperClaude Framework"
+  category: "automation"
+  tags: ["excel", "analysis", "visualization", "superclaude"]
+  sla_hours: 1
+  retry_policy:
+    max_retries: 2
+    backoff_seconds: 60
+  features:
+    - "Intelligent agent routing"
+    - "Dynamic code generation"
+    - "Quality assurance loops"
+    - "Multi-format output"
+    - "Automated visualizations"

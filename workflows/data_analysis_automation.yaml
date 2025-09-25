@@ -1,0 +1,274 @@
+name: "data_analysis_automation"
+description: "Comprehensive data analysis with SuperClaude agents and code generation"
+version: "1.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Source document identifier"
+  
+  - name: "extracted_data"
+    type: "object"
+    required: true
+    description: "Raw extracted data from document"
+  
+  - name: "analysis_type"
+    type: "string"
+    required: false
+    default: "comprehensive"
+    description: "Type of analysis to perform (comprehensive, financial, statistical)"
+
+  - name: "output_formats"
+    type: "array"
+    required: false
+    default: ["json", "xlsx", "pdf"]
+    description: "Desired output formats"
+
+steps:
+  - id: "brainstorm_analysis_approach"
+    type: "agent_task"
+    description: "Brainstorm optimal analysis approach"
+    config:
+      agent_name: "root-cause-analyst"
+      context:
+        mode: "brainstorm"
+        document_id: "{{ document_id }}"
+        extracted_data: "{{ extracted_data }}"
+        analysis_type: "{{ analysis_type }}"
+        task: "determine_analysis_strategy"
+
+  - id: "route_to_specialist"
+    type: "intelligent_routing"
+    description: "Route to appropriate specialist agent"
+    config:
+      document_meta:
+        document_id: "{{ document_id }}"
+        content_type: "{{ analysis_type }}"
+        data_complexity: "{{ extracted_data | length }}"
+        processing_mode: "analysis"
+      mode: "automatic"
+
+  - id: "generate_analysis_code"
+    type: "code_generation"
+    description: "Generate comprehensive analysis script"
+    config:
+      type: "analysis"
+      language: "python"
+      libraries: ["pandas", "numpy", "scipy", "matplotlib", "seaborn"]
+      data: "{{ extracted_data }}"
+      custom_analysis: |
+        # Custom analysis based on brainstorm results
+        analysis_strategy = {{ steps.brainstorm_analysis_approach.summary.recommendations }}
+        
+        # Apply recommended analysis techniques
+        for technique in analysis_strategy.get('techniques', []):
+            if technique == 'descriptive_statistics':
+                self.results['descriptive_stats'] = self._calculate_descriptive_stats()
+            elif technique == 'correlation_analysis':
+                self.results['correlations'] = self._analyze_correlations()
+            elif technique == 'trend_analysis':
+                self.results['trends'] = self._detect_trends()
+            elif technique == 'outlier_detection':
+                self.results['outliers'] = self._detect_outliers()
+      execute: false
+
+  - id: "specialist_analysis"
+    type: "agent_task"
+    description: "Perform specialist analysis using routed agent"
+    config:
+      agent_name: "{{ steps.route_to_specialist.selected_agent }}"
+      context:
+        document_id: "{{ document_id }}"
+        extracted_data: "{{ extracted_data }}"
+        analysis_code: "{{ steps.generate_analysis_code.generated_code }}"
+        brainstorm_insights: "{{ steps.brainstorm_analysis_approach.summary }}"
+
+  - id: "execute_analysis_code"
+    type: "code_generation"
+    description: "Execute the generated analysis code"
+    config:
+      type: "analysis"
+      language: "python"
+      data: "{{ extracted_data }}"
+      code: "{{ steps.generate_analysis_code.generated_code }}"
+      execute: true
+
+  - id: "generate_visualizations"
+    type: "code_generation"
+    description: "Generate comprehensive visualizations"
+    config:
+      type: "visualization"
+      language: "python"
+      data: "{{ extracted_data }}"
+      analysis_results: "{{ steps.execute_analysis_code.execution_result }}"
+      chart_types: ["histogram", "scatter", "heatmap", "box", "violin"]
+      execute: true
+
+  - id: "quality_assessment"
+    type: "quality_check"
+    description: "Assess analysis quality and completeness"
+    config:
+      checks: 
+        - "statistical_validity"
+        - "visualization_clarity" 
+        - "insight_completeness"
+        - "code_quality"
+      target_data:
+        analysis_results: "{{ steps.execute_analysis_code.execution_result }}"
+        visualizations: "{{ steps.generate_visualizations.artifacts }}"
+        specialist_insights: "{{ steps.specialist_analysis.summary }}"
+      quality_threshold: 0.8
+
+  - id: "iterative_improvement"
+    type: "conditional"
+    description: "Improve analysis if quality is below threshold"
+    config:
+      condition: "{{ steps.quality_assessment.quality_score < 0.8 }}"
+      if_true:
+        type: "agent_task"
+        config:
+          agent_name: "quality-engineer"
+          context:
+            original_analysis: "{{ steps.execute_analysis_code }}"
+            quality_issues: "{{ steps.quality_assessment.recommendations }}"
+            improvement_areas: "{{ steps.quality_assessment.detailed_results }}"
+            target_quality: 0.85
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            quality_status: "approved"
+            final_score: "{{ steps.quality_assessment.quality_score }}"
+
+  - id: "orchestrate_report_generation"
+    type: "agent_task"
+    description: "Orchestrate comprehensive report creation"
+    config:
+      agent_name: "technical-writer"
+      context:
+        mode: "orchestrate"
+        task: "create_analysis_report"
+        analysis_results: "{{ steps.execute_analysis_code.execution_result }}"
+        visualizations: "{{ steps.generate_visualizations.artifacts }}"
+        specialist_insights: "{{ steps.specialist_analysis.summary }}"
+        quality_metrics: "{{ steps.quality_assessment }}"
+        output_formats: "{{ output_formats }}"
+
+  - id: "generate_executive_summary"
+    type: "claude_analyze"
+    description: "Generate executive summary of findings"
+    config:
+      prompt: |
+        Create an executive summary of the data analysis results:
+        
+        Document: {{ document_id }}
+        Analysis Type: {{ analysis_type }}
+        Data Points: {{ extracted_data | length }}
+        Quality Score: {{ steps.quality_assessment.quality_score }}
+        
+        Key findings from specialist analysis:
+        {{ steps.specialist_analysis.summary.key_insights }}
+        
+        Statistical results:
+        {{ steps.execute_analysis_code.execution_result.summary }}
+        
+        Please provide:
+        1. Key insights and findings
+        2. Statistical significance of results  
+        3. Business implications
+        4. Recommended next actions
+        5. Confidence level in findings
+      data:
+        analysis_summary: "{{ steps.orchestrate_report_generation.summary }}"
+        quality_metrics: "{{ steps.quality_assessment }}"
+
+  - id: "parallel_output_generation"
+    type: "parallel"
+    description: "Generate multiple output formats simultaneously"
+    config:
+      tasks:
+        - type: "code_generation"
+          config:
+            type: "excel_manipulation"
+            language: "python"
+            data:
+              analysis_results: "{{ steps.execute_analysis_code.execution_result }}"
+              executive_summary: "{{ steps.generate_executive_summary.analysis }}"
+            output_filename: "analysis_report_{{ document_id }}.xlsx"
+            execute: true
+
+        - type: "code_generation"
+          config:
+            type: "report_generation" 
+            language: "python"
+            data:
+              analysis_results: "{{ steps.execute_analysis_code.execution_result }}"
+              visualizations: "{{ steps.generate_visualizations.artifacts }}"
+              executive_summary: "{{ steps.generate_executive_summary.analysis }}"
+            output_format: "pdf"
+            execute: true
+
+        - type: "data_transform"
+          config:
+            transformations:
+              json_report:
+                document_id: "{{ document_id }}"
+                analysis_type: "{{ analysis_type }}"
+                executive_summary: "{{ steps.generate_executive_summary.analysis }}"
+                detailed_results: "{{ steps.execute_analysis_code.execution_result }}"
+                quality_score: "{{ steps.quality_assessment.quality_score }}"
+                generated_files: []
+
+  - id: "task_orchestration"
+    type: "agent_task"
+    description: "Orchestrate final deliverables and handoff"
+    config:
+      agent_name: "general-purpose"
+      context:
+        mode: "task-manage"
+        task: "finalize_analysis_deliverables"
+        all_outputs: "{{ steps.parallel_output_generation }}"
+        quality_verification: "{{ steps.quality_assessment }}"
+        executive_summary: "{{ steps.generate_executive_summary.analysis }}"
+
+  - id: "dynamic_followup_workflow"
+    type: "dynamic_workflow"
+    description: "Generate follow-up workflows based on findings"
+    config:
+      document_content: "{{ steps.generate_executive_summary.analysis.summary }}"
+      document_meta:
+        type: "analysis_results"
+        quality_score: "{{ steps.quality_assessment.quality_score }}"
+        confidence_level: "{{ steps.generate_executive_summary.analysis.confidence }}"
+        document_id: "{{ document_id }}"
+      workflow_hints:
+        - "monitoring_setup"
+        - "automated_reporting"
+        - "threshold_alerts"
+        - "periodic_reanalysis"
+
+metadata:
+  author: "DocAutomate + SuperClaude Framework"
+  category: "data_analysis"
+  tags: ["analysis", "statistics", "visualization", "reporting", "superclaude"]
+  sla_hours: 3
+  retry_policy:
+    max_retries: 2
+    backoff_seconds: 180
+  features:
+    - "Brainstorm-driven analysis strategy"
+    - "Intelligent agent routing"
+    - "Dynamic code generation and execution"
+    - "Quality-driven iterative improvement"
+    - "Multi-format report generation"
+    - "Executive summary creation"
+    - "Parallel output processing"
+    - "Dynamic follow-up workflow generation"
+  expected_outputs:
+    - "Comprehensive analysis report (PDF)"
+    - "Interactive Excel workbook"
+    - "Statistical visualizations (PNG/SVG)"
+    - "Executive summary (JSON/PDF)"
+    - "Analysis code (Python scripts)"
+    - "Follow-up workflow definitions"

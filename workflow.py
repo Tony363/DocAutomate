@@ -19,6 +19,9 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# Import SuperClaude Framework components
+from agent_providers import agent_registry, AgentProvider
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -66,7 +69,13 @@ class WorkflowEngine:
             'conditional': self._execute_conditional,
             'parallel': self._execute_parallel,
             'webhook': self._execute_webhook,
-            'claude_analyze': self._execute_claude_analyze
+            'claude_analyze': self._execute_claude_analyze,
+            # SuperClaude Framework extensions
+            'agent_task': self._execute_agent_task,
+            'intelligent_routing': self._execute_intelligent_routing,
+            'code_generation': self._execute_code_generation,
+            'quality_check': self._execute_quality_check,
+            'dynamic_workflow': self._execute_dynamic_workflow
         }
         
         # Load workflow definitions
@@ -430,6 +439,330 @@ class WorkflowEngine:
                 },
                 'warning': 'Claude Code not available - analysis was simulated'
             }
+    
+    # SuperClaude Framework Action Handlers
+    
+    async def _execute_agent_task(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task using SuperClaude agent providers"""
+        try:
+            agent_name = config.get('agent_name')
+            document_id = config.get('document_id')
+            context = config.get('context', {})
+            
+            logger.info(f"Executing agent task with {agent_name}")
+            
+            # If specific agent requested, use it
+            if agent_name:
+                provider = agent_registry.get_provider(agent_name)
+                if not provider:
+                    raise ValueError(f"Agent '{agent_name}' not found in registry")
+            else:
+                # Route based on document metadata
+                document_meta = context.get('document_meta', {})
+                provider, score = await agent_registry.route(document_meta)
+                logger.info(f"Auto-routed to {provider.name} with score {score.score:.2f}")
+            
+            # Create execution plan
+            document_content = context.get('document_content', '')
+            plan = await provider.plan(document_content, context)
+            
+            # Execute plan steps
+            results = []
+            for step in plan:
+                result = await provider.execute(step, context)
+                results.append(result)
+                
+                # Validate step result
+                quality_score, issues = await provider.validate(result)
+                if quality_score < 0.7:  # Quality threshold
+                    logger.warning(f"Low quality result (score: {quality_score}): {issues}")
+            
+            # Summarize results
+            summary = await provider.summarize(results)
+            
+            return {
+                'status': 'success',
+                'agent_used': provider.name,
+                'plan_executed': len(plan),
+                'results': [asdict(r) for r in results],
+                'summary': summary,
+                'total_cost': sum(r.cost for r in results),
+                'total_duration': sum(r.duration_seconds for r in results),
+                'average_quality': sum(r.quality_score for r in results) / len(results) if results else 0.0
+            }
+            
+        except Exception as e:
+            logger.error(f"Agent task execution failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e),
+                'fallback_used': 'general-purpose'
+            }
+    
+    async def _execute_intelligent_routing(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Intelligent routing based on document analysis"""
+        try:
+            document_meta = config.get('document_meta', {})
+            routing_mode = config.get('mode', 'automatic')  # automatic, brainstorm, task_manage, etc.
+            
+            logger.info(f"Executing intelligent routing in {routing_mode} mode")
+            
+            # Route to best agent
+            provider, score = await agent_registry.route(document_meta)
+            
+            # Apply behavioral mode modifications
+            if routing_mode == 'brainstorm' and score.score < 0.5:
+                # Use brainstorming for unclear documents
+                provider = agent_registry.get_provider('root-cause-analyst')
+                logger.info("Switched to root-cause-analyst for brainstorming mode")
+            elif routing_mode == 'quality_check':
+                # Add quality engineer to the pipeline
+                quality_provider = agent_registry.get_provider('quality-engineer')
+                logger.info("Added quality-engineer to processing pipeline")
+            
+            return {
+                'status': 'success',
+                'selected_agent': provider.name,
+                'routing_score': score.score,
+                'routing_reasons': score.reasons,
+                'estimated_cost': score.estimated_cost,
+                'estimated_time': score.estimated_time_seconds,
+                'mode_applied': routing_mode
+            }
+            
+        except Exception as e:
+            logger.error(f"Intelligent routing failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e),
+                'fallback_agent': 'general-purpose'
+            }
+    
+    async def _execute_code_generation(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute code generation tasks"""
+        try:
+            generation_type = config.get('type', 'analysis')  # analysis, visualization, automation
+            language = config.get('language', 'python')
+            libraries = config.get('libraries', [])
+            data = config.get('data', {})
+            
+            logger.info(f"Generating {language} code for {generation_type}")
+            
+            # Import code generator (will be created next)
+            try:
+                from code_generator import CodeGenerator
+                generator = CodeGenerator()
+                
+                if generation_type == 'analysis':
+                    code = await generator.generate_analysis_script(data, libraries)
+                elif generation_type == 'visualization':
+                    code = await generator.generate_visualization(data, config)
+                elif generation_type == 'automation':
+                    code = await generator.generate_automation_script(data, config)
+                else:
+                    raise ValueError(f"Unknown generation type: {generation_type}")
+                
+                # Execute generated code if requested
+                execute_code = config.get('execute', False)
+                execution_result = None
+                if execute_code:
+                    from sandbox_executor import SandboxExecutor
+                    executor = SandboxExecutor()
+                    execution_result = await executor.execute_code(code, language, data)
+                
+                return {
+                    'status': 'success',
+                    'generated_code': code,
+                    'generation_type': generation_type,
+                    'language': language,
+                    'executed': execute_code,
+                    'execution_result': execution_result,
+                    'artifacts': {
+                        f'generated_{generation_type}.{language}': code
+                    }
+                }
+                
+            except ImportError:
+                logger.warning("Code generator not available, using placeholder")
+                return {
+                    'status': 'simulated',
+                    'generated_code': f"# Generated {generation_type} code placeholder\n# Language: {language}\n# Libraries: {libraries}",
+                    'note': 'Code generator module not yet implemented'
+                }
+                
+        except Exception as e:
+            logger.error(f"Code generation failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    async def _execute_quality_check(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute quality assurance checks"""
+        try:
+            checks = config.get('checks', ['completeness', 'accuracy'])
+            target_data = config.get('target_data', state.get('extracted_data', {}))
+            threshold = config.get('quality_threshold', 0.8)
+            
+            logger.info(f"Running quality checks: {checks}")
+            
+            # Use quality engineer agent
+            quality_provider = agent_registry.get_provider('quality-engineer')
+            if not quality_provider:
+                raise ValueError("Quality engineer agent not available")
+            
+            # Create quality check context
+            context = {
+                'checks_requested': checks,
+                'target_data': target_data,
+                'threshold': threshold
+            }
+            
+            # Execute quality plan
+            plan = await quality_provider.plan('', context)
+            results = []
+            for step in plan:
+                result = await quality_provider.execute(step, context)
+                results.append(result)
+            
+            # Calculate overall quality score
+            overall_score = sum(r.quality_score for r in results) / len(results) if results else 0.0
+            passed = overall_score >= threshold
+            
+            return {
+                'status': 'success',
+                'quality_score': overall_score,
+                'threshold': threshold,
+                'passed': passed,
+                'checks_performed': checks,
+                'detailed_results': [asdict(r) for r in results],
+                'recommendations': [] if passed else ['Review and improve data quality']
+            }
+            
+        except Exception as e:
+            logger.error(f"Quality check failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e),
+                'quality_score': 0.0,
+                'passed': False
+            }
+    
+    async def _execute_dynamic_workflow(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate and execute dynamic workflows based on document content"""
+        try:
+            document_content = config.get('document_content', '')
+            document_meta = config.get('document_meta', {})
+            workflow_hints = config.get('workflow_hints', [])
+            
+            logger.info("Generating dynamic workflow")
+            
+            # Use root-cause-analyst to understand document and generate workflow
+            analyst = agent_registry.get_provider('root-cause-analyst')
+            if not analyst:
+                raise ValueError("Root cause analyst not available for workflow generation")
+            
+            # Generate workflow based on document analysis
+            context = {
+                'document_content': document_content,
+                'document_meta': document_meta,
+                'workflow_hints': workflow_hints,
+                'task': 'generate_workflow_yaml'
+            }
+            
+            plan = await analyst.plan(document_content, context)
+            workflow_result = None
+            
+            for step in plan:
+                if step.get('tool') == 'workflow_generation':
+                    # This would generate a YAML workflow definition
+                    workflow_result = await analyst.execute(step, context)
+                    break
+            
+            if workflow_result and workflow_result.success:
+                # Parse generated workflow and execute it
+                generated_workflow = workflow_result.output.get('workflow_yaml', '')
+                workflow_dict = yaml.safe_load(generated_workflow) if generated_workflow else None
+                
+                if workflow_dict:
+                    # Execute the generated workflow
+                    sub_run = await self._execute_generated_workflow(workflow_dict, document_meta.get('document_id', 'unknown'), state)
+                    
+                    return {
+                        'status': 'success',
+                        'generated_workflow': workflow_dict,
+                        'execution_result': asdict(sub_run),
+                        'dynamic': True
+                    }
+            
+            # Fallback to standard processing
+            return {
+                'status': 'fallback',
+                'message': 'Dynamic workflow generation failed, using standard processing',
+                'workflow_generated': False
+            }
+            
+        except Exception as e:
+            logger.error(f"Dynamic workflow execution failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    async def _execute_generated_workflow(self, workflow_dict: Dict, document_id: str, initial_state: Dict) -> WorkflowRun:
+        """Execute a dynamically generated workflow"""
+        # Create a temporary workflow run for the generated workflow
+        run = WorkflowRun(
+            run_id=f"dynamic_{self._generate_run_id()}",
+            workflow_name=workflow_dict.get('name', 'dynamic_workflow'),
+            document_id=document_id,
+            status=WorkflowStatus.RUNNING,
+            current_step=None,
+            parameters=workflow_dict.get('parameters', {}),
+            state=initial_state.copy(),
+            started_at=datetime.utcnow().isoformat(),
+            completed_at=None,
+            error=None,
+            outputs={}
+        )
+        
+        try:
+            # Execute workflow steps
+            for step in workflow_dict.get('steps', []):
+                run.current_step = step['id']
+                logger.info(f"Executing dynamic step: {step['id']}")
+                
+                # Resolve templates
+                resolved_config = self._resolve_templates(
+                    step.get('config', {}),
+                    run.parameters,
+                    run.state
+                )
+                
+                # Execute action
+                action_type = step['type']
+                if action_type in self.action_registry:
+                    action_handler = self.action_registry[action_type]
+                    result = await action_handler(resolved_config, run.state)
+                    
+                    # Store result
+                    if "steps" not in run.state:
+                        run.state["steps"] = {}
+                    run.state["steps"][step['id']] = result
+                    run.outputs[step['id']] = result
+                else:
+                    logger.warning(f"Unknown action type in dynamic workflow: {action_type}")
+            
+            run.status = WorkflowStatus.SUCCESS
+            run.completed_at = datetime.utcnow().isoformat()
+            
+        except Exception as e:
+            logger.error(f"Dynamic workflow execution failed: {e}")
+            run.status = WorkflowStatus.FAILED
+            run.error = str(e)
+            run.completed_at = datetime.utcnow().isoformat()
+        
+        return run
     
     def get_run_status(self, run_id: str) -> Optional[WorkflowRun]:
         """Get status of a workflow run"""

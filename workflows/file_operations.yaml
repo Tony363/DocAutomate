@@ -1,0 +1,176 @@
+name: "file_operations"
+description: "Intelligent file organization and management automation"
+version: "1.0.0"
+
+parameters:
+  - name: "source_directory"
+    type: "string"
+    required: true
+    description: "Directory containing files to organize"
+  
+  - name: "document_types"
+    type: "array"
+    required: false
+    description: "Array of document types found"
+  
+  - name: "organization_rules"
+    type: "object"
+    required: false
+    description: "Custom organization rules"
+
+steps:
+  - id: "scan_directory"
+    type: "agent_task"
+    description: "Use root-cause-analyst to understand file structure"
+    config:
+      agent_name: "root-cause-analyst"
+      context:
+        task: "analyze_file_structure"
+        source_directory: "{{ source_directory }}"
+        analysis_depth: "comprehensive"
+
+  - id: "generate_organization_script"
+    type: "code_generation"
+    description: "Generate file organization automation script"
+    config:
+      type: "file_operations"
+      language: "python"
+      data:
+        source_directory: "{{ source_directory }}"
+        file_analysis: "{{ steps.scan_directory.summary }}"
+        organization_rules: "{{ organization_rules }}"
+      operations: ["organize", "rename", "classify"]
+      execute: false
+
+  - id: "brainstorm_optimization"
+    type: "agent_task"
+    description: "Brainstorm file organization optimization"
+    config:
+      agent_name: "general-purpose"
+      context:
+        mode: "brainstorm"
+        task: "optimize_file_organization"
+        current_structure: "{{ steps.scan_directory.summary }}"
+        generated_script: "{{ steps.generate_organization_script.generated_code }}"
+
+  - id: "create_backup"
+    type: "code_generation"
+    description: "Generate backup script before organization"
+    config:
+      type: "automation"
+      language: "bash"
+      data:
+        source_directory: "{{ source_directory }}"
+      tasks: ["create_backup", "verify_backup"]
+      execute: true
+
+  - id: "quality_check_organization"
+    type: "quality_check"
+    description: "Validate organization plan"
+    config:
+      checks: ["file_safety", "structure_logic", "reversibility"]
+      target_data:
+        organization_script: "{{ steps.generate_organization_script.generated_code }}"
+        backup_created: "{{ steps.create_backup.execution_result }}"
+      quality_threshold: 0.9
+
+  - id: "conditional_execution"
+    type: "conditional"
+    description: "Execute organization only if quality check passes"
+    config:
+      condition: "{{ steps.quality_check_organization.passed == true }}"
+      if_true:
+        type: "code_generation"
+        config:
+          type: "file_operations"
+          language: "python"
+          data:
+            source_directory: "{{ source_directory }}"
+            organization_plan: "{{ steps.brainstorm_optimization.summary }}"
+            backup_location: "{{ steps.create_backup.artifacts }}"
+          execute: true
+      if_false:
+        type: "send_email"
+        config:
+          to: "admin@company.com"
+          subject: "File Organization Failed Quality Check"
+          body: |
+            The file organization for {{ source_directory }} failed quality checks.
+            
+            Issues found:
+            {{ steps.quality_check_organization.recommendations | join('\n') }}
+            
+            Manual review required before proceeding.
+
+  - id: "generate_file_report"
+    type: "code_generation"
+    description: "Generate comprehensive file organization report"
+    config:
+      type: "report_generation"
+      language: "python"
+      data:
+        original_structure: "{{ steps.scan_directory.summary }}"
+        organization_results: "{{ steps.conditional_execution }}"
+        quality_metrics: "{{ steps.quality_check_organization }}"
+      output_formats: ["html", "pdf", "json"]
+      execute: true
+
+  - id: "orchestrate_cleanup"
+    type: "agent_task"
+    description: "Orchestrate final cleanup and validation"
+    config:
+      agent_name: "general-purpose"
+      context:
+        mode: "orchestrate"
+        task: "finalize_file_organization"
+        organization_results: "{{ steps.conditional_execution }}"
+        report_generated: "{{ steps.generate_file_report }}"
+
+  - id: "dynamic_workflow_generation"
+    type: "dynamic_workflow"
+    description: "Generate follow-up workflows based on results"
+    config:
+      document_content: "{{ steps.generate_file_report.artifacts }}"
+      document_meta:
+        type: "file_organization_report"
+        source: "{{ source_directory }}"
+        quality_score: "{{ steps.quality_check_organization.quality_score }}"
+      workflow_hints:
+        - "maintenance_schedule"
+        - "monitoring_setup"
+        - "access_control_review"
+
+  - id: "create_maintenance_schedule"
+    type: "claude_analyze"
+    description: "Create ongoing maintenance recommendations"
+    config:
+      prompt: |
+        Based on the file organization results, create a maintenance schedule:
+        
+        Organization Quality: {{ steps.quality_check_organization.quality_score }}
+        Files Processed: {{ steps.scan_directory.summary.file_count }}
+        Directory Structure: {{ steps.conditional_execution.summary }}
+        
+        Recommend:
+        1. Maintenance frequency
+        2. Automated monitoring
+        3. Quality metrics to track
+        4. Alert thresholds
+      data:
+        organization_summary: "{{ steps.orchestrate_cleanup.summary }}"
+        quality_metrics: "{{ steps.quality_check_organization }}"
+
+metadata:
+  author: "DocAutomate + SuperClaude Framework"
+  category: "file_management"
+  tags: ["files", "organization", "automation", "maintenance"]
+  sla_hours: 2
+  retry_policy:
+    max_retries: 1  # File operations should be careful with retries
+    backoff_seconds: 300
+  features:
+    - "Intelligent file analysis"
+    - "Safe organization with backups"
+    - "Quality-gated execution"
+    - "Dynamic workflow generation"
+    - "Maintenance scheduling"
