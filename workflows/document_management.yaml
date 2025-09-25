@@ -1,0 +1,355 @@
+name: "document_management"
+description: "Manage document lifecycle including retention, return, and destruction with certification"
+version: "1.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Unique document identifier"
+    
+  - name: "trigger"
+    type: "array"
+    required: false
+    default: ["termination"]
+    description: "Trigger events (termination, written_request, expiration)"
+    
+  - name: "action"
+    type: "array"
+    required: true
+    description: "Actions to take (return_all_information, destroy_and_certify)"
+    
+  - name: "timeline"
+    type: "string"
+    required: false
+    default: "5_days"
+    description: "Timeline for action completion"
+    
+  - name: "original_action_type"
+    type: "string"
+    required: false
+    default: "document_return"
+    description: "Original action type from extraction"
+    
+  - name: "retention_period"
+    type: "string"
+    required: false
+    description: "Document retention period"
+    
+  - name: "document_type"
+    type: "string"
+    required: false
+    default: "confidential"
+    description: "Type of document for management purposes"
+
+steps:
+  - id: "validate_trigger"
+    type: "claude_analyze"
+    description: "Validate trigger event and determine appropriate action"
+    config:
+      prompt: |
+        Analyze document management trigger:
+        - Triggers: {{ trigger | join(', ') }}
+        - Required Actions: {{ action | join(', ') }}
+        - Timeline: {{ timeline }}
+        - Document Type: {{ document_type }}
+        
+        Determine:
+        1. Is trigger valid and verified?
+        2. Which action takes precedence (return vs destroy)?
+        3. Legal requirements for certification
+        4. Data classification level
+        5. Chain of custody requirements
+      data:
+        document_id: "{{ document_id }}"
+        triggers: "{{ trigger }}"
+        
+  - id: "inventory_documents"
+    type: "api_call"
+    description: "Create inventory of all related documents and copies"
+    config:
+      url: "https://api.company.com/documents/inventory"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        primary_document_id: "{{ document_id }}"
+        include_copies: true
+        include_derivatives: true
+        include_backups: true
+        
+  - id: "determine_action"
+    type: "conditional"
+    description: "Determine primary action based on requirements"
+    config:
+      condition: "{{ 'destroy_and_certify' in action }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "api_call"
+              config:
+                url: "https://api.company.com/documents/schedule-destruction"
+                method: "POST"
+                headers:
+                  Content-Type: "application/json"
+                  X-Destruction-Authority: "compliance"
+                body:
+                  document_id: "{{ document_id }}"
+                  related_documents: "{{ steps.inventory_documents.response.document_list }}"
+                  destruction_method: "secure_shred"
+                  timeline: "{{ timeline }}"
+                  require_witness: true
+                  
+            - type: "api_call"
+              config:
+                url: "https://api.company.com/certificates/prepare"
+                method: "POST"
+                body:
+                  type: "destruction_certificate"
+                  document_id: "{{ document_id }}"
+                  scheduled_date: "{{ __timestamp__ }}"
+      if_false:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/documents/prepare-return"
+          method: "POST"
+          body:
+            document_id: "{{ document_id }}"
+            return_to: "original_owner"
+            method: "secure_transfer"
+            timeline: "{{ timeline }}"
+            
+  - id: "create_management_record"
+    type: "api_call"
+    description: "Create formal document management record"
+    config:
+      url: "https://api.company.com/records/document-management"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        trigger_events: "{{ trigger }}"
+        actions_required: "{{ action }}"
+        timeline: "{{ timeline }}"
+        inventory_count: "{{ steps.inventory_documents.response.total_count }}"
+        management_type: "{{ 'destruction' if 'destroy_and_certify' in action else 'return' }}"
+        initiated_date: "{{ __timestamp__ }}"
+        status: "scheduled"
+        
+  - id: "legal_hold_check"
+    type: "api_call"
+    description: "Check for legal holds before proceeding"
+    config:
+      url: "https://api.company.com/legal/hold-check"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        related_documents: "{{ steps.inventory_documents.response.document_list }}"
+        action_type: "{{ 'destruction' if 'destroy_and_certify' in action else 'return' }}"
+        
+  - id: "process_hold_status"
+    type: "conditional"
+    description: "Process based on legal hold status"
+    config:
+      condition: "{{ steps.legal_hold_check.response.hold_active == true }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "send_email"
+              config:
+                to: "legal@company.com"
+                subject: "⚠️ Legal Hold Prevents Document Action - {{ document_id }}"
+                body: |
+                  A document management action has been blocked due to active legal hold.
+                  
+                  Document ID: {{ document_id }}
+                  Requested Action: {{ action | join(', ') }}
+                  Hold Reason: {{ steps.legal_hold_check.response.hold_reason }}
+                  Hold ID: {{ steps.legal_hold_check.response.hold_id }}
+                  
+                  The action will be queued until the hold is released.
+                  
+            - type: "api_call"
+              config:
+                url: "https://api.company.com/queue/legal-hold"
+                method: "POST"
+                body:
+                  document_id: "{{ document_id }}"
+                  pending_action: "{{ action }}"
+                  hold_id: "{{ steps.legal_hold_check.response.hold_id }}"
+      if_false:
+        type: "mcp_task"
+        config:
+          agent_name: "document-processor"
+          action: "execute_management_action"
+          params:
+            document_id: "{{ document_id }}"
+            action_type: "{{ 'destruction' if 'destroy_and_certify' in action else 'return' }}"
+            timeline: "{{ timeline }}"
+            
+  - id: "schedule_execution"
+    type: "conditional"
+    description: "Schedule document action execution"
+    config:
+      condition: "{{ steps.legal_hold_check.response.hold_active != true }}"
+      if_true:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/scheduler/document-action"
+          method: "POST"
+          body:
+            document_id: "{{ document_id }}"
+            action: "{{ 'destroy' if 'destroy_and_certify' in action else 'return' }}"
+            execute_date: "{{ __calculate_date__(timeline) }}"
+            notification_list: ["legal@company.com", "compliance@company.com", "records@company.com"]
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            execution_status: "blocked_by_hold"
+            
+  - id: "notification_cascade"
+    type: "parallel"
+    description: "Notify all stakeholders about document action"
+    config:
+      tasks:
+        - type: "send_email"
+          config:
+            to: "records-management@company.com"
+            subject: "Document Management Action Scheduled - {{ document_id }}"
+            body: |
+              Document management action has been initiated.
+              
+              Document ID: {{ document_id }}
+              Document Type: {{ document_type }}
+              Trigger: {{ trigger | join(', ') }}
+              Action: {{ action | join(', ') }}
+              Timeline: Complete within {{ timeline }}
+              
+              Inventory Summary:
+              - Primary Document: {{ document_id }}
+              - Total Items: {{ steps.inventory_documents.response.total_count }}
+              - Copies: {{ steps.inventory_documents.response.copies_count }}
+              - Backups: {{ steps.inventory_documents.response.backups_count }}
+              
+              {% if 'destroy_and_certify' in action %}
+              Destruction Details:
+              - Method: Secure shredding with witness
+              - Certificate will be generated upon completion
+              - All copies and derivatives will be destroyed
+              {% else %}
+              Return Details:
+              - Method: Secure transfer to original owner
+              - Chain of custody will be maintained
+              - Confirmation required upon receipt
+              {% endif %}
+              
+              Legal Hold Status: {{ 'ACTIVE - Action Blocked' if steps.legal_hold_check.response.hold_active else 'Clear - Proceeding' }}
+              
+              Management Record: {{ steps.create_management_record.response.record_id }}
+              
+        - type: "webhook"
+          config:
+            url: "https://slack.company.com/webhooks/records"
+            method: "POST"
+            body:
+              text: "Document {{ document_id }} scheduled for {{ 'destruction' if 'destroy_and_certify' in action else 'return' }} within {{ timeline }}"
+              channel: "#records-management"
+              
+        - type: "api_call"
+          config:
+            url: "https://api.company.com/audit/log"
+            method: "POST"
+            body:
+              event_type: "document_management_initiated"
+              document_id: "{{ document_id }}"
+              trigger: "{{ trigger }}"
+              action: "{{ action }}"
+              timeline: "{{ timeline }}"
+              legal_hold: "{{ steps.legal_hold_check.response.hold_active }}"
+              inventory_count: "{{ steps.inventory_documents.response.total_count }}"
+              timestamp: "{{ __timestamp__ }}"
+              workflow_run_id: "{{ __run_id__ }}"
+              
+  - id: "create_checklist"
+    type: "claude_analyze"
+    description: "Generate action checklist and tracking"
+    config:
+      prompt: |
+        Create a detailed checklist for document management action:
+        - Document: {{ document_id }}
+        - Action: {{ action | join(', ') }}
+        - Timeline: {{ timeline }}
+        - Document Count: {{ steps.inventory_documents.response.total_count }}
+        
+        Include:
+        1. Pre-action verification steps
+        2. Execution steps with timeline
+        3. Certification requirements
+        4. Compliance checkpoints
+        5. Final confirmation process
+      data:
+        action_details:
+          document_id: "{{ document_id }}"
+          action_type: "{{ 'destruction' if 'destroy_and_certify' in action else 'return' }}"
+          legal_status: "{{ 'blocked' if steps.legal_hold_check.response.hold_active else 'clear' }}"
+          
+  - id: "certification_prep"
+    type: "conditional"
+    description: "Prepare certification if required"
+    config:
+      condition: "{{ 'destroy_and_certify' in action or 'certify' in action }}"
+      if_true:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/certificates/generate"
+          method: "POST"
+          body:
+            type: "{{ 'destruction' if 'destroy_and_certify' in action else 'return' }}_certificate"
+            document_id: "{{ document_id }}"
+            action_details:
+              trigger: "{{ trigger }}"
+              timeline: "{{ timeline }}"
+              inventory: "{{ steps.inventory_documents.response }}"
+            preparer: "compliance_system"
+            require_signatures: ["records_manager", "compliance_officer"]
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            certification_required: false
+            
+  - id: "completion_tracking"
+    type: "mcp_task"
+    description: "Set up completion tracking and reminders"
+    config:
+      agent_name: "task-scheduler"
+      action: "track_document_action"
+      params:
+        document_id: "{{ document_id }}"
+        management_record: "{{ steps.create_management_record.response.record_id }}"
+        action_type: "{{ action }}"
+        deadline: "{{ __calculate_date__(timeline) }}"
+        reminder_intervals: [1, 3, 5]  # days
+        escalation_contact: "records-management@company.com"
+        certificate_required: "{{ 'destroy_and_certify' in action or 'certify' in action }}"
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "records-management"
+  tags: ["document-management", "retention", "destruction", "compliance", "certification"]
+  sla_hours: 120  # 5 days default
+  priority: "high"
+  retry_policy:
+    max_retries: 2
+    backoff_seconds: 3600  # 1 hour
+  compliance_standards:
+    - "ISO 15489"
+    - "DoD 5015.2"
+    - "NIST SP 800-88"
+    - "ARMA"
