@@ -1,0 +1,72 @@
+{
+  "run_id": "94a66a54",
+  "workflow_name": "complete_missing_info",
+  "document_id": "test_doc_456",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "document_id": "test_doc_456",
+    "field": "agreement_date",
+    "party": "John Doe",
+    "required": true
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The field 'agreement_date' is clearly a date field that should capture when the agreement was made or signed by John Doe.",
+          "insights": [
+            "Field name 'agreement_date' unambiguously indicates a date type field",
+            "This likely represents the execution or effective date of an agreement",
+            "Date fields are critical for legal documents and contract validity",
+            "Standard date format validation will be required"
+          ],
+          "recommendations": [
+            "Set field type as 'date'",
+            "Implement date picker UI component for consistent format entry",
+            "Use format MM/DD/YYYY or YYYY-MM-DD depending on locale",
+            "Add validation to ensure date is not in the future (unless future-dated agreements are allowed)",
+            "Consider making this a required field with high priority",
+            "Add tooltip explaining whether this is the signature date or effective date"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T06:20:56.387991",
+  "completed_at": "2025-09-25T06:21:15.622902",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The field 'agreement_date' is clearly a date field that should capture when the agreement was made or signed by John Doe.",
+        "insights": [
+          "Field name 'agreement_date' unambiguously indicates a date type field",
+          "This likely represents the execution or effective date of an agreement",
+          "Date fields are critical for legal documents and contract validity",
+          "Standard date format validation will be required"
+        ],
+        "recommendations": [
+          "Set field type as 'date'",
+          "Implement date picker UI component for consistent format entry",
+          "Use format MM/DD/YYYY or YYYY-MM-DD depending on locale",
+          "Add validation to ensure date is not in the future (unless future-dated agreements are allowed)",
+          "Consider making this a required field with high priority",
+          "Add tooltip explaining whether this is the signature date or effective date"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

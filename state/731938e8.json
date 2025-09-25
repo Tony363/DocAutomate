@@ -1,0 +1,88 @@
+{
+  "run_id": "731938e8",
+  "workflow_name": "document_signature",
+  "document_id": "test_doc_123",
+  "status": "failed",
+  "current_step": "check_signature_method",
+  "parameters": {
+    "document_id": "test_doc_123",
+    "document_type": "NDA",
+    "parties": [
+      "John Doe",
+      "Jane Smith"
+    ],
+    "signature_fields": [
+      "Signature",
+      "Initial",
+      "Date"
+    ],
+    "effective_date": "2024-01-01"
+  },
+  "state": {
+    "steps": {
+      "validate_parties": {
+        "status": "success",
+        "transformed": {
+          "total_parties": "2",
+          "signature_required": "3",
+          "document_status": "pending_signatures"
+        }
+      },
+      "prepare_signature_request": {
+        "status": "success",
+        "analysis": {
+          "summary": "NDA document requiring signatures from two parties (John Doe and Jane Smith) with standard signature requirements including signature, initials, and date fields for each party. Document becomes effective on 2024-01-01.",
+          "insights": [
+            "Document involves two individual parties requiring bilateral signatures",
+            "Standard NDA signature requirements with three fields per party",
+            "Fixed effective date indicates pre-agreed terms",
+            "No indication of witness or notarization requirements"
+          ],
+          "recommendations": [
+            "Execute signatures in parallel - both parties can sign simultaneously as no sequential dependency indicated",
+            "John Doe should complete: Full signature field, Initials field, Date field (suggest dating as actual signing date)",
+            "Jane Smith should complete: Full signature field, Initials field, Date field (suggest dating as actual signing date)",
+            "Include signature block with printed names beneath signature lines for clarity",
+            "Consider adding signature page reference noting 'Effective Date: January 1, 2024' separate from signing dates",
+            "Recommend electronic signature platform for audit trail and timestamp verification"
+          ],
+          "confidence": 0.85
+        }
+      }
+    }
+  },
+  "started_at": "2025-09-25T06:20:15.645093",
+  "completed_at": "2025-09-25T06:20:39.912121",
+  "error": "'dict object' has no attribute 'prepare_signature_request'",
+  "outputs": {
+    "validate_parties": {
+      "status": "success",
+      "transformed": {
+        "total_parties": "2",
+        "signature_required": "3",
+        "document_status": "pending_signatures"
+      }
+    },
+    "prepare_signature_request": {
+      "status": "success",
+      "analysis": {
+        "summary": "NDA document requiring signatures from two parties (John Doe and Jane Smith) with standard signature requirements including signature, initials, and date fields for each party. Document becomes effective on 2024-01-01.",
+        "insights": [
+          "Document involves two individual parties requiring bilateral signatures",
+          "Standard NDA signature requirements with three fields per party",
+          "Fixed effective date indicates pre-agreed terms",
+          "No indication of witness or notarization requirements"
+        ],
+        "recommendations": [
+          "Execute signatures in parallel - both parties can sign simultaneously as no sequential dependency indicated",
+          "John Doe should complete: Full signature field, Initials field, Date field (suggest dating as actual signing date)",
+          "Jane Smith should complete: Full signature field, Initials field, Date field (suggest dating as actual signing date)",
+          "Include signature block with printed names beneath signature lines for clarity",
+          "Consider adding signature page reference noting 'Effective Date: January 1, 2024' separate from signing dates",
+          "Recommend electronic signature platform for audit trail and timestamp verification"
+        ],
+        "confidence": 0.85
+      }
+    }
+  }
+}
