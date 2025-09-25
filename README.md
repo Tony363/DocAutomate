@@ -1,6 +1,6 @@
 # DocAutomate Framework
 
-**Enterprise Document Processing & Workflow Automation Platform**
+**Enterprise Document Processing & Workflow Automation via Pure Claude Code Delegation**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
@@ -11,14 +11,179 @@
 
 DocAutomate is a **pure API orchestration layer** that delegates ALL document processing to Claude Code agents through the SuperClaude Framework. With **ZERO local processing logic**, it serves as a universal document processor that generalizes to ANY document type - medical records, legal contracts, financial reports, technical documentation, and more.
 
-### Architecture Principle: Complete Delegation
+### Revolutionary Architecture: Complete Claude Code Delegation
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        API[REST API Client]
+        CLI[Command Line Interface]
+        WEB[Web Dashboard]
+    end
+
+    subgraph "DocAutomate Core (Pure Orchestration)"
+        FASTAPI[FastAPI Server<br/>Port 8001]
+        DSL[DSL Workflow Engine<br/>Zero Processing Logic]
+        INGESTER[Document Router<br/>Delegates to Claude]
+        EXTRACTOR[Action Dispatcher<br/>Delegates to Claude]
+        WORKFLOW[Workflow Manager<br/>Pure Orchestration]
+    end
+
+    subgraph "Claude Code Engine (ALL Processing)"
+        CLAUDE_CLI[Claude Code CLI<br/>Entry Point]
+        SUPERCLAUDE[SuperClaude Framework<br/>Intelligent Orchestration]
+        
+        subgraph "Specialized Agents (Domain Experts)"
+            TECH[technical-writer<br/>Documentation Quality]
+            SEC[security-engineer<br/>Security Analysis]
+            QUAL[quality-engineer<br/>Quality Metrics]
+            REQ[requirements-analyst<br/>Requirements Validation]
+            GEN[general-purpose<br/>Universal Processing]
+            MED[medical-review<br/>HIPAA Compliance]
+            LEG[legal-review<br/>Contract Analysis]
+            FIN[financial-audit<br/>SOX Compliance]
+        end
+        
+        subgraph "MCP Servers (Processing Tools)"
+            ZEN[Zen MCP<br/>Multi-Model Consensus<br/>GPT-5 + Opus + GPT-4.1]
+            SEQ[Sequential MCP<br/>Deep Analysis Pipeline]
+            MAGIC[Magic MCP<br/>UI Generation]
+            PLAY[Playwright MCP<br/>Testing Automation]
+            DEEP[DeepWiki MCP<br/>Documentation Lookup]
+        end
+    end
+
+    subgraph "DSL Configuration (No Code Changes)"
+        UNIFIED[unified-operations.yaml<br/>All Operations Defined]
+        MAPPINGS[agent-mappings.yaml<br/>Intelligent Routing]
+        TEMPLATES[universal-document.yaml<br/>Workflow Template]
+        QUALITY[Quality Scoring Rubrics<br/>Threshold Management]
+    end
+
+    subgraph "Processing Outputs"
+        RESULTS[Document Analysis]
+        REMEDIATED[Improved Documents]
+        CONSENSUS[Multi-Model Validation]
+        QUALITY_SCORES[Quality Metrics]
+    end
+
+    %% Client connections
+    API --> FASTAPI
+    CLI --> FASTAPI
+    WEB --> FASTAPI
+
+    %% Pure delegation flow
+    FASTAPI --> DSL
+    DSL --> INGESTER
+    DSL --> EXTRACTOR
+    DSL --> WORKFLOW
+    
+    INGESTER --> CLAUDE_CLI
+    EXTRACTOR --> CLAUDE_CLI
+    WORKFLOW --> CLAUDE_CLI
+
+    %% Claude Code processing
+    CLAUDE_CLI --> SUPERCLAUDE
+    SUPERCLAUDE --> TECH
+    SUPERCLAUDE --> SEC
+    SUPERCLAUDE --> QUAL
+    SUPERCLAUDE --> REQ
+    SUPERCLAUDE --> GEN
+    SUPERCLAUDE --> MED
+    SUPERCLAUDE --> LEG
+    SUPERCLAUDE --> FIN
+
+    %% MCP Server utilization
+    SUPERCLAUDE --> ZEN
+    SUPERCLAUDE --> SEQ
+    SUPERCLAUDE --> MAGIC
+    SUPERCLAUDE --> PLAY
+    SUPERCLAUDE --> DEEP
+
+    %% DSL drives everything
+    UNIFIED --> DSL
+    MAPPINGS --> DSL
+    TEMPLATES --> DSL
+    QUALITY --> DSL
+
+    %% Results generation
+    TECH --> RESULTS
+    SEC --> RESULTS
+    QUAL --> QUALITY_SCORES
+    ZEN --> CONSENSUS
+    GEN --> REMEDIATED
+
+    %% Styling
+    classDef claude fill:#9d4edd,stroke:#7b2cbf,stroke-width:3px,color:#fff
+    classDef api fill:#06ffa5,stroke:#40916c,stroke-width:2px,color:#000
+    classDef dsl fill:#ffd60a,stroke:#ffb700,stroke-width:2px,color:#000
+    classDef output fill:#f77f00,stroke:#d62d20,stroke-width:2px,color:#fff
+
+    class CLAUDE_CLI,SUPERCLAUDE,TECH,SEC,QUAL,REQ,GEN,MED,LEG,FIN,ZEN,SEQ,MAGIC,PLAY,DEEP claude
+    class FASTAPI,API,CLI,WEB,DSL api
+    class UNIFIED,MAPPINGS,TEMPLATES,QUALITY dsl
+    class RESULTS,REMEDIATED,CONSENSUS,QUALITY_SCORES output
 ```
-API Request → DSL Workflow → Claude Agent → Response
+
+### System Generalization: Universal Document Processing
+
+```mermaid
+graph LR
+    subgraph "ANY Document Type"
+        MED[📋 Medical Records<br/>HIPAA Compliance]
+        LEG[📄 Legal Contracts<br/>Signature Workflows]
+        FIN[💰 Financial Reports<br/>SOX Compliance]
+        TECH[📖 Technical Docs<br/>API Documentation]
+        INV[🧾 Invoices<br/>Data Extraction]
+        IMG[🖼️ Images/Screenshots<br/>Visual Analysis]
+        CUSTOM[🔧 Custom Domain<br/>DSL Configuration]
+    end
+
+    subgraph "Claude Code Universal Engine"
+        CLASSIFY[🔍 Document Classification<br/>Multi-Modal Understanding]
+        ROUTE[🎯 Intelligent Agent Routing<br/>Domain Expertise Matching]
+        PROCESS[⚙️ Parallel Processing<br/>Specialized Agent Execution]
+        VALIDATE[✅ Multi-Model Consensus<br/>Quality Validation]
+    end
+
+    subgraph "Domain-Specific Outputs"
+        MED_OUT[HIPAA-Compliant Analysis<br/>Privacy Officer Review]
+        LEG_OUT[Contract Review<br/>Risk Assessment]
+        FIN_OUT[Financial Audit<br/>Compliance Validation]
+        TECH_OUT[Documentation Quality<br/>API Completeness]
+        INV_OUT[Data Extraction<br/>Validation]
+        IMG_OUT[Visual Analysis<br/>Accessibility Check]
+        CUSTOM_OUT[Custom Processing<br/>Domain Rules]
+    end
+
+    MED --> CLASSIFY
+    LEG --> CLASSIFY
+    FIN --> CLASSIFY
+    TECH --> CLASSIFY
+    INV --> CLASSIFY
+    IMG --> CLASSIFY
+    CUSTOM --> CLASSIFY
+
+    CLASSIFY --> ROUTE
+    ROUTE --> PROCESS
+    PROCESS --> VALIDATE
+
+    VALIDATE --> MED_OUT
+    VALIDATE --> LEG_OUT
+    VALIDATE --> FIN_OUT
+    VALIDATE --> TECH_OUT
+    VALIDATE --> INV_OUT
+    VALIDATE --> IMG_OUT
+    VALIDATE --> CUSTOM_OUT
+
+    classDef input fill:#e9c46a,stroke:#f4a261,stroke-width:2px,color:#000
+    classDef engine fill:#2a9d8f,stroke:#264653,stroke-width:2px,color:#fff
+    classDef output fill:#e76f51,stroke:#d62d20,stroke-width:2px,color:#fff
+
+    class MED,LEG,FIN,TECH,INV,IMG,CUSTOM input
+    class CLASSIFY,ROUTE,PROCESS,VALIDATE engine
+    class MED_OUT,LEG_OUT,FIN_OUT,TECH_OUT,INV_OUT,IMG_OUT,CUSTOM_OUT output
 ```
-- **NO** local document processing logic
-- **ALL** intelligence resides in Claude Code
-- **DSL** defines WHAT to do, not HOW
-- **Agents** handle all actual processing
 
 ### Core Features
 
@@ -35,1493 +200,22 @@ API Request → DSL Workflow → Claude Agent → Response
 ## 📋 Table of Contents
 
 - [Architecture](#-architecture)
-- [System Generalization](#-system-generalization)
 - [Quick Start](#-quick-start)
-- [Installation](#-installation)
 - [API Documentation](#-api-documentation)
-- [Claude Code Integration](#-claude-code-integration)
 - [DSL Configuration](#-dsl-configuration)
+- [SuperClaude Framework Integration](#-superclaude-framework-integration)
 - [Workflow System](#-workflow-system)
+- [Document Remediation](#-document-remediation)
 - [Real-World Applications](#-real-world-applications)
 - [Production Deployment](#-production-deployment)
 
 ## 🏗️ Architecture
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        API[REST API Client]
-        CLI[Command Line Interface]
-        WEB[Web Dashboard]
-    end
-
-    subgraph "DocAutomate Core"
-        FASTAPI[FastAPI Server<br/>Port 8001]
-        INGESTER[Document Ingester]
-        EXTRACTOR[Action Extractor]
-        WORKFLOW[Workflow Engine]
-        MATCHER[Workflow Matcher]
-    end
-
-    subgraph "Claude Code Engine"
-        CLAUDE_CLI[Claude Code CLI]
-        SUPERCLAUDE[SuperClaude Framework]
-        
-        subgraph "Specialized Agents"
-            TECH[technical-writer]
-            SEC[security-engineer]
-            QUAL[quality-engineer]
-            REQ[requirements-analyst]
-            GEN[general-purpose]
-        end
-        
-        subgraph "MCP Servers"
-            ZEN[Zen MCP<br/>Multi-Model Consensus]
-            SEQ[Sequential MCP<br/>Analysis]
-            MAGIC[Magic MCP<br/>UI Generation]
-            PLAY[Playwright MCP<br/>Testing]
-        end
-    end
-
-    subgraph "Storage & State"
-        DOCS[(Document Storage)]
-        STATE[(Workflow State)]
-        LOGS[(Audit Logs)]
-    end
-
-    subgraph "External Services"
-        DOCUSIGN[DocuSign API]
-        EMAIL[Email Service]
-        SLACK[Slack Webhooks]
-        API_EXT[External APIs]
-    end
-
-    %% Client connections
-    API --> FASTAPI
-    CLI --> FASTAPI
-    WEB --> FASTAPI
-
-    %% Core processing flow
-    FASTAPI --> INGESTER
-    INGESTER --> EXTRACTOR
-    EXTRACTOR --> WORKFLOW
-    WORKFLOW --> MATCHER
-
-    %% Claude Code integration
-    INGESTER --> CLAUDE_CLI
-    EXTRACTOR --> CLAUDE_CLI
-    WORKFLOW --> CLAUDE_CLI
-    CLAUDE_CLI --> SUPERCLAUDE
-    SUPERCLAUDE --> TECH
-    SUPERCLAUDE --> SEC
-    SUPERCLAUDE --> QUAL
-    SUPERCLAUDE --> REQ
-    SUPERCLAUDE --> GEN
-
-    %% MCP Server usage
-    SUPERCLAUDE --> ZEN
-    SUPERCLAUDE --> SEQ
-    SUPERCLAUDE --> MAGIC
-    SUPERCLAUDE --> PLAY
-
-    %% Storage
-    INGESTER --> DOCS
-    WORKFLOW --> STATE
-    CLAUDE_CLI --> LOGS
-
-    %% External integrations
-    WORKFLOW --> DOCUSIGN
-    WORKFLOW --> EMAIL
-    WORKFLOW --> SLACK
-    WORKFLOW --> API_EXT
-
-    %% Styling
-    classDef claude fill:#9d4edd,stroke:#7b2cbf,stroke-width:2px,color:#fff
-    classDef api fill:#06ffa5,stroke:#40916c,stroke-width:2px,color:#000
-    classDef storage fill:#f77f00,stroke:#d62d20,stroke-width:2px,color:#fff
-    classDef external fill:#219ebc,stroke:#023047,stroke-width:2px,color:#fff
-
-    class CLAUDE_CLI,SUPERCLAUDE,TECH,SEC,QUAL,REQ,GEN,ZEN,SEQ,MAGIC,PLAY claude
-    class FASTAPI,API,CLI,WEB api
-    class DOCS,STATE,LOGS storage
-    class DOCUSIGN,EMAIL,SLACK,API_EXT external
-```
-
-The architecture shows Claude Code as the primary processing engine, with DocAutomate providing the orchestration layer, workflow management, and API interface.
-
-## 🌐 System Generalization
-
-DocAutomate generalizes to **ANY document type** through Claude Code's multi-modal understanding:
-
-### Universal Processing Pipeline
-
-```mermaid
-graph LR
-    subgraph "Any Document Type"
-        MED[Medical Records]
-        LEG[Legal Contracts]
-        FIN[Financial Reports]
-        TECH[Technical Docs]
-        INV[Invoices]
-        IMG[Images/Screenshots]
-    end
-
-    subgraph "Claude Code Engine"
-        CLASS[Document Classification]
-        ROUTE[Agent Routing]
-        PROC[Processing]
-        VAL[Validation]
-    end
-
-    subgraph "Specialized Agents"
-        MEDA[medical-review]
-        LEGA[legal-review]
-        FINA[financial-audit]
-        TECHA[technical-writer]
-        SECA[security-engineer]
-        QUAL[quality-engineer]
-    end
-
-    MED --> CLASS
-    LEG --> CLASS
-    FIN --> CLASS
-    TECH --> CLASS
-    INV --> CLASS
-    IMG --> CLASS
-
-    CLASS --> ROUTE
-    ROUTE --> MEDA
-    ROUTE --> LEGA
-    ROUTE --> FINA
-    ROUTE --> TECHA
-    
-    MEDA --> PROC
-    LEGA --> PROC
-    FINA --> PROC
-    TECHA --> PROC
-    
-    PROC --> VAL
-    VAL --> SECA
-    VAL --> QUAL
-```
-
-### Domain Extensibility
-
-Add new document types without changing code - only DSL configuration:
-
-```yaml
-# dsl/agent-mappings.yaml - Add new domain
-medical:
-  primary: "medical-review"
-  validators: ["hipaa-compliance", "privacy-officer"]
-  templates: "medical_remediation"
-  
-financial:
-  primary: "financial-audit"
-  validators: ["sox-compliance", "fraud-detector"]
-  templates: "financial_remediation"
-  
-# Your new domain
-construction:
-  primary: "construction-inspector"
-  validators: ["building-codes", "safety-reviewer"]
-  templates: "construction_remediation"
-```
-
-## 🚀 Quick Start
-
-### 1. Prerequisites
-
-```bash
-# Install Claude Code CLI (required)
-curl -sSf https://claude.ai/install.sh | sh
-
-# Verify installation
-claude --version
-```
-
-### 2. Installation
-
-```bash
-# Clone repository
-git clone https://github.com/your-org/DocAutomate.git
-cd DocAutomate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
-```
-
-### 3. Start the Server
-
-```bash
-# Start DocAutomate API
-python api.py
-
-# API available at: http://localhost:8001
-# Documentation: http://localhost:8001/docs
-```
-
-### 4. Test with a Document
-
-```bash
-# Upload a document
-curl -X POST "http://localhost:8001/documents/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@sample.pdf" \
-  -F "auto_process=true"
-
-# Check processing status
-curl "http://localhost:8001/documents/{document_id}"
-```
-
-## 📦 Installation
-
-### System Requirements
-
-- Python 3.11+
-- Claude Code CLI (latest)
-- 4GB RAM minimum, 8GB recommended
-- 10GB disk space for document storage
-
-### Detailed Setup
-
-```bash
-# 1. Install system dependencies
-sudo apt update
-sudo apt install python3.11 python3.11-pip python3.11-venv
-
-# 2. Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-venv\Scripts\activate  # Windows
-
-# 3. Install Python dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 4. Install Claude Code CLI
-curl -sSf https://claude.ai/install.sh | sh
-
-# 5. Configure Claude Code permissions
-export CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-export CLAUDE_TIMEOUT=300
-
-# 6. Create required directories
-mkdir -p storage logs workflows/custom docs/generated
-
-# 7. Configure environment
-cp .env.example .env
-```
-
-### Environment Configuration
-
-```bash
-# .env file
-CLAUDE_CLI_PATH=claude
-CLAUDE_TIMEOUT=300
-CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-CLAUDE_AUDIT_LOG=true
-DEBUG=false
-
-# API Settings
-API_PORT=8001
-API_HOST=0.0.0.0
-MAX_WORKERS=4
-
-# Storage Settings
-STORAGE_DIR=./storage
-STATE_DIR=./state
-WORKFLOWS_DIR=./workflows
-```
-
-## 📚 API Documentation
-
-### Core Endpoints
-
-#### Document Management
-
-**Upload Document**
-```bash
-curl -X POST "http://localhost:8001/documents/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@document.pdf" \
-  -F "auto_process=true"
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "filename": "document.pdf",
-  "status": "processing",
-  "message": "Document uploaded and queued for processing"
-}
-```
-
-**List Documents**
-```bash
-curl "http://localhost:8001/documents"
-
-# Filter by status
-curl "http://localhost:8001/documents?status=processed"
-
-# Response
-[
-  {
-    "document_id": "a1b2c3d4",
-    "filename": "document.pdf",
-    "status": "processed",
-    "ingested_at": "2024-09-25T10:30:00Z",
-    "workflow_runs": ["run_123", "run_124"],
-    "extracted_actions": [...]
-  }
-]
-```
-
-**Get Document Status**
-```bash
-curl "http://localhost:8001/documents/a1b2c3d4"
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "filename": "document.pdf",
-  "status": "processed",
-  "ingested_at": "2024-09-25T10:30:00Z",
-  "workflow_runs": ["run_123"],
-  "extracted_actions": [
-    {
-      "action_type": "signature_required",
-      "workflow_name": "document_signature",
-      "confidence_score": 0.95,
-      "parameters": {
-        "parties": ["Company A", "Company B"],
-        "signature_fields": ["signature", "date", "initials"]
-      }
-    }
-  ]
-}
-```
-
-#### Workflow Management
-
-**List Available Workflows**
-```bash
-curl "http://localhost:8001/workflows"
-
-# Response
-{
-  "workflows": [
-    {
-      "name": "document_signature",
-      "description": "Handle signature requirements for legal documents",
-      "version": "1.0.0",
-      "parameters": [...],
-      "steps": 8
-    },
-    {
-      "name": "multi_agent_analysis",
-      "description": "Parallel multi-agent document analysis",
-      "version": "2.0.0",
-      "parameters": [...],
-      "steps": 7
-    }
-  ]
-}
-```
-
-**Execute Workflow**
-```bash
-curl -X POST "http://localhost:8001/workflows/execute" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "a1b2c3d4",
-    "workflow_name": "document_signature",
-    "parameters": {
-      "parties": ["Company A", "Company B"],
-      "signature_fields": ["signature", "date"],
-      "document_type": "NDA"
-    },
-    "auto_execute": true
-  }'
-
-# Response
-{
-  "run_id": "run_123",
-  "workflow_name": "document_signature",
-  "document_id": "a1b2c3d4",
-  "status": "success",
-  "message": "Workflow executed"
-}
-```
-
-**Get Workflow Run Status**
-```bash
-curl "http://localhost:8001/workflows/runs/run_123"
-
-# Response
-{
-  "run_id": "run_123",
-  "workflow_name": "document_signature",
-  "status": "success",
-  "started_at": "2024-09-25T10:35:00Z",
-  "completed_at": "2024-09-25T10:37:00Z",
-  "current_step": null,
-  "outputs": {
-    "validate_parties": {...},
-    "prepare_signature_request": {...},
-    "notify_parties": {...}
-  },
-  "error": null
-}
-```
-
-#### Orchestration Endpoints
-
-**Execute Complete Orchestration Workflow**
-```bash
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "a1b2c3d4",
-    "workflow_type": "full",
-    "config": {
-      "quality_threshold": 0.8,
-      "max_iterations": 3,
-      "parallel_analysis": true
-    }
-  }'
-
-# Response
-{
-  "orchestration_id": "orch_xyz789",
-  "document_id": "a1b2c3d4",
-  "status": "queued",
-  "message": "Orchestration workflow queued for execution"
-}
-```
-
-**Multi-Agent Analysis**
-```bash
-curl -X POST "http://localhost:8001/documents/a1b2c3d4/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
-    "parallel": true
-  }'
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "analysis": {
-    "technical-writer": {
-      "success": true,
-      "confidence": 0.9,
-      "analysis": {
-        "findings": ["Clear structure", "Good terminology"],
-        "issues": [
-          {
-            "type": "clarity",
-            "severity": "low",
-            "description": "Section 3.2 could be clearer"
-          }
-        ],
-        "recommendations": ["Add examples to section 3.2"]
-      }
-    },
-    "security-engineer": {...},
-    "quality-engineer": {...}
-  },
-  "agent_count": 3,
-  "timestamp": "2024-09-25T10:40:00Z"
-}
-```
-
-**Consensus Validation**
-```bash
-curl -X POST "http://localhost:8001/documents/a1b2c3d4/synthesize" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "analysis_data": {
-      "technical-writer": {...},
-      "security-engineer": {...},
-      "quality-engineer": {...}
-    },
-    "models": ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
-  }'
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "consensus": {
-    "priority_issues": [...],
-    "recommendations": [...],
-    "quality_score": 85
-  },
-  "agreement_score": 0.92,
-  "models_used": ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
-}
-```
-
-**Document Remediation**
-```bash
-curl -X POST "http://localhost:8001/documents/a1b2c3d4/remediate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "issues": [
-      {
-        "type": "clarity",
-        "severity": "medium",
-        "description": "Section 3.2 needs clarification",
-        "location": "page 5"
-      }
-    ],
-    "template": "standard"
-  }'
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "remediation_path": "/docs/generated/a1b2c3d4/remediated_document.md",
-  "issues_resolved": ["clarity_section_3_2"],
-  "quality_score": 0.92,
-  "timestamp": "2024-09-25T10:45:00Z"
-}
-```
-
-**Quality Validation**
-```bash
-curl -X POST "http://localhost:8001/documents/a1b2c3d4/validate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "original_content": "Original document text...",
-    "remediated_content": "Improved document text...",
-    "validation_type": "quality"
-  }'
-
-# Response
-{
-  "document_id": "a1b2c3d4",
-  "validation": {
-    "quality_score": 92,
-    "improvements": ["Clarity enhanced", "Structure improved"],
-    "remaining_issues": [],
-    "validation_passed": true
-  },
-  "timestamp": "2024-09-25T10:50:00Z"
-}
-```
-
-### Health & Status
-
-**Health Check**
-```bash
-curl "http://localhost:8001/health"
-
-# Response
-{
-  "status": "healthy",
-  "components": {
-    "ingester": "operational",
-    "extractor": "operational",
-    "workflow_engine": "operational",
-    "api": "operational",
-    "claude_service": "operational"
-  }
-}
-```
-
-## 🔧 DSL Configuration
-
-### Unified Operations Schema
-
-The DSL defines all document operations without code:
-
-```yaml
-# dsl/unified-operations.yaml
-operation_types:
-  ingest:
-    primary_agent: "general-purpose"
-    mcp_servers: ["filesystem", "sequential"]
-    
-  analyze:
-    primary_agent: "requirements-analyst"
-    secondary_agents: ["technical-writer", "security-engineer"]
-    parallel_execution: true
-    
-  remediate:
-    primary_agent: "quality-engineer"
-    validation_models: ["gpt-5", "claude-opus-4.1"]
-    quality_threshold: 0.9
-    
-  validate:
-    consensus_required: true
-    models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
-    agreement_threshold: 0.85
-
-quality_scoring:
-  rubric:
-    completeness: 0.3
-    accuracy: 0.3
-    clarity: 0.2
-    compliance: 0.2
-```
-
-### Agent Mappings
-
-Intelligent routing based on document characteristics:
-
-```yaml
-# dsl/agent-mappings.yaml
-document_type_mappings:
-  contract:
-    primary: "legal-review"
-    validators: ["compliance-officer"]
-    
-  medical_record:
-    primary: "medical-review"
-    validators: ["privacy-officer", "hipaa-compliance"]
-    
-  technical_spec:
-    primary: "technical-writer"
-    validators: ["quality-engineer", "security-engineer"]
-
-selection_rules:
-  - condition: "high_risk"
-    action: "add_security_engineer"
-  - condition: "financial_data"
-    action: "add_compliance_officer"
-  - condition: "personal_data"
-    action: "add_privacy_officer"
-```
-
-## 🤖 Claude Code Integration
-
-### SuperClaude Framework Components
-
-DocAutomate leverages the full SuperClaude Framework with:
-
-**Specialized Agents:**
-- `technical-writer`: Documentation quality and clarity
-- `security-engineer`: Security vulnerabilities and compliance
-- `quality-engineer`: Quality metrics and testing
-- `requirements-analyst`: Requirements coverage validation
-- `general-purpose`: Fallback for general tasks
-
-**MCP Servers:**
-- `zen`: Multi-model consensus and validation
-- `sequential`: Structured analysis and reasoning
-- `magic`: UI component generation
-- `playwright`: Browser testing and automation
-
-**Behavioral Modes:**
-- `--brainstorm`: Collaborative discovery for unclear requirements
-- `--task-manage`: Multi-step operation orchestration
-- `--delegate`: Intelligent agent routing
-- `--consensus`: Multi-model agreement validation
-- `--thinkdeep`: Deep analysis with GPT-5
-
-### Claude CLI Configuration
-
-```python
-# claude_cli.py - Key configuration
-class ClaudeCLI:
-    def __init__(self):
-        self.timeout = int(os.getenv("CLAUDE_TIMEOUT", "300"))
-        self.claude_cmd = os.getenv("CLAUDE_CLI_PATH", "claude")
-        self.auto_grant_permissions = True
-        self.audit_log_enabled = True
-```
-
-### Multi-Model Consensus
-
-The system supports multi-model consensus validation using Claude Code's Zen MCP:
-
-```python
-# Example: Consensus validation with multiple models
-models = ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
-consensus = await claude_service.consensus_validation(
-    analysis_results=analysis_data,
-    document_id=document_id,
-    models=models
-)
-```
-
-## 🔄 Workflow System
-
-### DSL Workflow Structure
-
-DocAutomate uses YAML-based workflows that generalize to any document type:
-
-```yaml
-name: "document_processing_template"
-description: "Generic document processing workflow"
-version: "1.0.0"
-
-parameters:
-  - name: "document_id"
-    type: "string"
-    required: true
-  - name: "document_type"
-    type: "string"
-    required: false
-    default: "general"
-
-steps:
-  - id: "analyze_document"
-    type: "claude_delegate"
-    description: "Multi-agent analysis"
-    config:
-      agent: "auto"  # Intelligent routing
-      task: "Analyze document {{ document_id }}"
-      context:
-        document_content: "{{ document_content }}"
-        
-  - id: "consensus_validation"
-    type: "claude_consensus"
-    description: "Multi-model validation"
-    config:
-      analysis_data: "{{ steps.analyze_document }}"
-      models: ["gpt-5", "claude-opus-4.1"]
-      
-  - id: "generate_remediation"
-    type: "claude_remediate"
-    description: "Generate improved version"
-    config:
-      document_content: "{{ document_content }}"
-      issues: "{{ steps.consensus_validation.issues }}"
-```
-
-### Action Types
-
-**Claude Code Actions:**
-- `claude_delegate`: Task delegation to specialized agents
-- `claude_consensus`: Multi-model consensus validation  
-- `claude_thinkdeep`: Deep analysis with GPT-5
-- `claude_remediate`: Document improvement generation
-- `claude_analyze`: General analysis with structured output
-
-**Standard Actions:**
-- `api_call`: HTTP requests to external services
-- `send_email`: Email notifications
-- `data_transform`: Data manipulation and templates
-- `conditional`: Conditional execution logic
-- `parallel`: Concurrent task execution
-- `webhook`: Webhook notifications
-
-**SuperClaude Framework Actions:**
-- `agent_task`: Agent provider execution
-- `intelligent_routing`: Dynamic agent selection
-- `code_generation`: Automated script creation
-- `quality_check`: Quality assurance validation
-- `dynamic_workflow`: Runtime workflow generation
-
-### Workflow Examples
-
-**Document Signature Workflow:**
-- Validates signature parties and requirements
-- Integrates with DocuSign API for e-signatures
-- Sends notifications and tracks status
-- Schedules reminders for unsigned documents
-
-**Multi-Agent Analysis Workflow:**
-- Parallel analysis with multiple Claude agents
-- Aggregates findings and generates reports
-- Quality assessment with configurable thresholds
-- Generates actionable recommendations
-
-**Document Remediation Workflow:**
-- Identifies document quality issues
-- Generates improved versions using Claude Code
-- Validates improvements with multi-model consensus
-- Produces final remediated documents
-
-## 🎯 Orchestration Endpoints
-
-### Complete Workflow Orchestration
-
-The orchestration system provides a high-level API for complete document processing:
-
-```python
-# POST /orchestrate/workflow
-{
-  "document_id": "abc123",
-  "workflow_type": "full",  # full, analysis_only, remediation_only
-  "config": {
-    "quality_threshold": 0.8,
-    "max_iterations": 3,
-    "agents": ["technical-writer", "security-engineer"],
-    "models": ["gpt-5", "claude-opus-4.1"]
-  }
-}
-```
-
-### Orchestration Flow
-
-1. **Multi-Agent Analysis**: Parallel processing with specialized agents
-2. **Consensus Validation**: Multi-model agreement on findings
-3. **Issue Identification**: Categorization and prioritization
-4. **Remediation Generation**: Claude Code-powered improvements
-5. **Quality Validation**: Final quality assessment
-6. **Result Aggregation**: Comprehensive reporting
-
-### Quality Metrics
-
-The system tracks comprehensive quality metrics:
-
-- **Document Quality Score**: 0-100 based on analysis
-- **Agent Confidence**: Individual agent confidence scores
-- **Model Agreement**: Consensus percentage across models
-- **Issue Resolution**: Number of issues addressed
-- **Processing Time**: Performance metrics per stage
-
-## ⚙️ Configuration
-
-### Claude Code Settings
-
-```bash
-# Environment variables
-export CLAUDE_CLI_PATH="/usr/local/bin/claude"
-export CLAUDE_TIMEOUT=300
-export CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-export CLAUDE_AUDIT_LOG=true
-export CLAUDE_AUDIT_LOG_FILE="logs/claude_audit.log"
-
-# Model preferences
-export SC_FORCE_MODEL=gpt-5
-export SC_MAX_TOKENS=50000
-export SC_DEFAULT_THINK_LEVEL=3
-```
-
-### Workflow Configuration
-
-```yaml
-# workflows/config.yaml
-default_agents:
-  - technical-writer
-  - security-engineer
-  - quality-engineer
-
-quality_thresholds:
-  minimum: 0.7
-  target: 0.85
-  excellent: 0.95
-
-timeout_settings:
-  document_processing: 300
-  workflow_execution: 600
-  consensus_validation: 180
-
-parallel_processing:
-  max_concurrent_agents: 5
-  batch_size: 10
-```
-
-### API Configuration
-
-```python
-# api.py configuration
-app = FastAPI(
-    title="DocAutomate API",
-    description="Enterprise Document Processing & Workflow Automation",
-    version="1.0.0"
-)
-
-# CORS settings
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-## 🌍 Real-World Applications
-
-### Medical Records Processing
-
-Process HIPAA-compliant medical records with privacy validation:
-
-```bash
-# Upload medical record
-curl -X POST "http://localhost:8001/documents/upload" \
-  -F "file=@patient_record.pdf" \
-  -F "auto_process=true"
-
-# Execute medical compliance workflow
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "med_001",
-    "workflow_type": "medical_compliance",
-    "agents": ["medical-review", "privacy-officer", "quality-engineer"],
-    "config": {
-      "compliance_standards": ["HIPAA", "HL7"],
-      "redaction_required": true,
-      "quality_threshold": 0.95
-    }
-  }'
-
-# Response
-{
-  "orchestration_id": "orch_med_001",
-  "status": "success",
-  "compliance_score": 98,
-  "issues_found": ["missing_patient_consent_section"],
-  "remediation_applied": true
-}
-```
-
-### Financial Report Validation
-
-Validate financial reports for SOX compliance:
-
-```bash
-# Process quarterly report
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "fin_q4_2024",
-    "workflow_type": "financial_audit",
-    "agents": ["financial-auditor", "compliance-officer", "fraud-detector"],
-    "config": {
-      "standards": ["SOX", "GAAP"],
-      "risk_threshold": 0.05,
-      "audit_level": "comprehensive"
-    }
-  }'
-
-# Response
-{
-  "orchestration_id": "orch_fin_001",
-  "audit_score": 94,
-  "compliance_status": "passed",
-  "risk_factors": [],
-  "recommendations": ["enhance_disclosure_notes"]
-}
-```
-
-### Technical Documentation Review
-
-Analyze and improve technical specifications:
-
-```bash
-# Multi-agent technical review
-curl -X POST "http://localhost:8001/documents/{doc_id}/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
-    "parallel": true,
-    "config": {
-      "check_security": true,
-      "validate_completeness": true,
-      "code_examples_required": true
-    }
-  }'
-
-# Generate improved version
-curl -X POST "http://localhost:8001/documents/{doc_id}/remediate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template": "technical_documentation",
-    "improvements": ["add_code_examples", "clarify_architecture", "add_security_section"]
-  }'
-```
-
-### Invoice Processing
-
-Automated invoice extraction and validation:
-
-```bash
-# Process invoice with data extraction
-curl -X POST "http://localhost:8001/workflows/execute" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workflow_name": "invoice_processing",
-    "document_id": "inv_2024_001",
-    "parameters": {
-      "extract_line_items": true,
-      "validate_calculations": true,
-      "vendor_verification": true
-    }
-  }'
-
-# Response includes extracted data
-{
-  "run_id": "run_inv_001",
-  "status": "success",
-  "extracted_data": {
-    "vendor": "Acme Corp",
-    "invoice_number": "INV-2024-001",
-    "total": 5000.00,
-    "tax": 400.00,
-    "line_items": [...]
-  },
-  "validation_passed": true
-}
-```
-
-### Custom Domain Integration
-
-Add any new document type via DSL:
-
-```yaml
-# workflows/insurance_claim.yaml
-name: "insurance_claim_processor"
-steps:
-  - type: "claude_delegate"
-    config:
-      agent: "insurance-reviewer"  # Custom agent
-      task: "Extract claim details and validate coverage"
-      
-  - type: "api_call"
-    config:
-      url: "https://insurance.company.com/claims/validate"
-      method: "POST"
-      body: "{{ steps.extract_claim.output }}"
-      
-  - type: "claude_consensus"
-    config:
-      models: ["gpt-5", "claude-opus-4.1"]
-      validation_type: "fraud_detection"
-```
-
-## 📝 Examples
-
-### Processing a Legal Contract
-
-```bash
-# 1. Upload contract
-curl -X POST "http://localhost:8001/documents/upload" \
-  -F "file=@contract.pdf" \
-  -F "auto_process=true"
-
-# 2. Check extracted actions
-curl "http://localhost:8001/documents/abc123" | jq '.extracted_actions'
-
-# 3. Execute signature workflow
-curl -X POST "http://localhost:8001/workflows/execute" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "abc123",
-    "workflow_name": "document_signature",
-    "parameters": {
-      "parties": ["Acme Corp", "Widget Inc"],
-      "document_type": "contract"
-    },
-    "auto_execute": true
-  }'
-
-# 4. Monitor workflow progress
-curl "http://localhost:8001/workflows/runs/run_456"
-```
-
-### Complete Document Analysis
-
-```bash
-# 1. Upload document
-DOC_ID=$(curl -X POST "http://localhost:8001/documents/upload" \
-  -F "file=@technical_spec.pdf" \
-  -F "auto_process=false" | jq -r '.document_id')
-
-# 2. Run multi-agent analysis
-curl -X POST "http://localhost:8001/documents/$DOC_ID/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
-    "parallel": true
-  }' > analysis_results.json
-
-# 3. Generate consensus
-curl -X POST "http://localhost:8001/documents/$DOC_ID/synthesize" \
-  -H "Content-Type: application/json" \
-  -d @analysis_results.json > consensus.json
-
-# 4. Generate remediation
-curl -X POST "http://localhost:8001/documents/$DOC_ID/remediate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "issues": [...],
-    "template": "technical_document"
-  }' > remediation.json
-```
-
-### Custom Workflow Creation
-
-```yaml
-# workflows/custom_compliance.yaml
-name: "compliance_review"
-description: "Automated compliance review workflow"
-version: "1.0.0"
-
-parameters:
-  - name: "document_id"
-    type: "string"
-    required: true
-  - name: "compliance_framework"
-    type: "string"
-    required: true
-    description: "SOX, GDPR, HIPAA, etc."
-
-steps:
-  - id: "compliance_analysis"
-    type: "claude_delegate"
-    description: "Specialized compliance analysis"
-    config:
-      agent: "security-engineer"
-      task: "Analyze document {{ document_id }} for {{ compliance_framework }} compliance"
-      
-  - id: "risk_assessment"
-    type: "claude_thinkdeep"
-    description: "Deep risk analysis"
-    config:
-      prompt: "Assess compliance risks for {{ compliance_framework }}"
-      model: "gpt-5"
-      
-  - id: "generate_report"
-    type: "api_call"
-    description: "Generate compliance report"
-    config:
-      url: "https://compliance.company.com/reports"
-      method: "POST"
-      body:
-        document_id: "{{ document_id }}"
-        framework: "{{ compliance_framework }}"
-        findings: "{{ steps.compliance_analysis.output }}"
-        risk_score: "{{ steps.risk_assessment.analysis.risk_score }}"
-```
-
-## 🚀 Production Deployment
-
-### Docker Deployment
-
-```dockerfile
-# Dockerfile
-FROM python:3.11-slim
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Claude Code CLI
-RUN curl -sSf https://claude.ai/install.sh | sh
-
-# Set working directory
-WORKDIR /app
-
-# Copy requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application
-COPY . .
-
-# Create directories
-RUN mkdir -p storage logs state workflows/custom docs/generated
-
-# Set environment variables
-ENV CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-ENV CLAUDE_TIMEOUT=300
-ENV PYTHONPATH=/app
-
-# Expose port
-EXPOSE 8001
-
-# Start application
-CMD ["python", "api.py"]
-```
-
-### Docker Compose
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  docautomate:
-    build: .
-    ports:
-      - "8001:8001"
-    environment:
-      - CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-      - CLAUDE_TIMEOUT=300
-      - API_PORT=8001
-    volumes:
-      - ./storage:/app/storage
-      - ./logs:/app/logs
-      - ./state:/app/state
-      - ./workflows:/app/workflows
-      - ./docs:/app/docs
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: docautomate
-      POSTGRES_USER: docautomate
-      POSTGRES_PASSWORD: your_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-```
-
-### Kubernetes Deployment
-
-```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: docautomate
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: docautomate
-  template:
-    metadata:
-      labels:
-        app: docautomate
-    spec:
-      containers:
-      - name: docautomate
-        image: docautomate:latest
-        ports:
-        - containerPort: 8001
-        env:
-        - name: CLAUDE_AUTO_GRANT_FILE_ACCESS
-          value: "true"
-        - name: CLAUDE_TIMEOUT
-          value: "300"
-        volumeMounts:
-        - name: storage
-          mountPath: /app/storage
-        - name: logs
-          mountPath: /app/logs
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "500m"
-          limits:
-            memory: "4Gi"
-            cpu: "1000m"
-      volumes:
-      - name: storage
-        persistentVolumeClaim:
-          claimName: docautomate-storage
-      - name: logs
-        persistentVolumeClaim:
-          claimName: docautomate-logs
-```
-
-### Production Checklist
-
-- [ ] Claude Code CLI installed and configured
-- [ ] Environment variables properly set
-- [ ] SSL/TLS certificates configured
-- [ ] Database connections secured
-- [ ] File permissions restricted
-- [ ] Audit logging enabled
-- [ ] Monitoring and alerting configured
-- [ ] Backup strategy implemented
-- [ ] Security scanning completed
-- [ ] Performance testing completed
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Claude Code Permission Issues:**
-```bash
-# Check Claude Code status
-claude --version
-
-# Enable auto-grant permissions
-export CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-
-# Check audit logs
-tail -f logs/claude_audit.log
-```
-
-**PDF Processing Failures:**
-```bash
-# Install PyPDF2 fallback
-pip install PyPDF2
-
-# Check file permissions
-ls -la document.pdf
-
-# Test direct extraction
-python -c "from claude_cli import ClaudeCLI; cli = ClaudeCLI(); print(cli.read_document('document.pdf')[:100])"
-```
-
-**Workflow Execution Errors:**
-```bash
-# Check workflow syntax
-python -c "import yaml; print(yaml.safe_load(open('workflows/test.yaml')))"
-
-# Validate parameters
-curl "http://localhost:8001/workflows/test_workflow"
-
-# Check workflow state
-ls -la state/
-```
-
-**API Connection Issues:**
-```bash
-# Check API status
-curl "http://localhost:8001/health"
-
-# Check logs
-tail -f logs/api.log
-
-# Test with verbose output
-DEBUG=true python api.py
-```
-
-### Performance Optimization
-
-**Claude Code Optimization:**
-```bash
-# Increase timeout for large documents
-export CLAUDE_TIMEOUT=600
-
-# Use parallel processing
-export CLAUDE_MAX_CONCURRENT=5
-
-# Enable caching
-export CLAUDE_ENABLE_CACHE=true
-```
-
-**API Optimization:**
-```python
-# api.py - Increase worker count
-MAX_WORKERS = 8  # Adjust based on CPU cores
-
-# Enable async processing
-BACKGROUND_TASKS = True
-
-# Configure timeouts
-REQUEST_TIMEOUT = 300
-```
-
-## 📊 Monitoring & Metrics
-
-### Health Checks
-
-The API provides comprehensive health checks:
-
-```bash
-# Basic health
-curl "http://localhost:8001/health"
-
-# Detailed component status
-curl "http://localhost:8001/health?detailed=true"
-```
-
-### Audit Logging
-
-All Claude Code operations are logged:
-
-```json
-{
-  "timestamp": "2024-09-25T10:30:00Z",
-  "operation": "file_read",
-  "file_path": "/path/to/document.pdf",
-  "status": "success",
-  "processing_time": 2.5,
-  "output_length": 1500
-}
-```
-
-### Performance Metrics
-
-Key metrics to monitor:
-
-- Document processing time
-- Workflow execution duration
-- Claude Code API response time
-- Quality scores and trends
-- Error rates by component
-
-## 📈 Recent Updates
-
-### Version 2.0.0 - Pure Claude Code Delegation
-- **Complete Transformation**: ALL document processing now delegates to Claude Code agents
-- **Universal Document Processor**: Generalizes to ANY document type (medical, legal, financial, technical)
-- **Zero Local Processing**: No document logic in DocAutomate - pure API orchestration layer
-- **DSL-Driven Architecture**: YAML configurations define workflows without code changes
-- **Multi-Model Consensus**: GPT-5, Claude Opus 4.1, and GPT-4.1 validation
-- **Quality Loop Automation**: Iterative improvement until quality thresholds met
-- **Parallel Agent Execution**: Concurrent multi-agent processing
-- **Infinite Extensibility**: Add new document types and operations via DSL only
-
-## 🤝 Contributing
-
-### Development Setup
-
-```bash
-# Clone and setup development environment
-git clone https://github.com/your-org/DocAutomate.git
-cd DocAutomate
-
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests
-python -m pytest tests/ -v
-
-# Run with debug logging
-DEBUG=true python api.py
-```
-
-### Code Style
-
-The project uses:
-- Black for code formatting
-- isort for import sorting
-- mypy for type checking
-- pytest for testing
-
-### Submitting Changes
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🔄 Implementation Architecture
-
 ### Pure Delegation Pattern
 
-DocAutomate operates as a stateless orchestration layer:
+DocAutomate operates as a stateless orchestration layer with complete Claude Code delegation:
 
+**Architecture Principle:**
 ```
 API Request → DSL Workflow → Claude Agent Invocation → Response
 ```
@@ -1548,47 +242,1717 @@ API Request → DSL Workflow → Claude Agent Invocation → Response
    - Multi-agent coordination
    - Consensus validation management
 
-### Processing Flows
+### Document Processing Flow
 
-**Document Ingestion:**
-```
-1. API receives document
-2. DSL determines operation type
-3. Claude classifies document (if auto)
-4. Agent selected from mappings
-5. Claude agent processes document
-6. Results returned via API
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as DocAutomate API
+    participant DSL as DSL Engine
+    participant Claude as Claude CLI
+    participant Agents as SuperClaude Agents
+    participant MCP as MCP Servers
+
+    Client->>API: Upload Document
+    API->>DSL: Parse & Route
+    DSL->>Claude: Delegate with Context
+    Claude->>Agents: Intelligent Agent Selection
+    
+    par Parallel Processing
+        Agents->>MCP: Technical Analysis
+        Agents->>MCP: Security Review
+        Agents->>MCP: Quality Assessment
+    end
+    
+    MCP-->>Agents: Analysis Results
+    Agents-->>Claude: Consolidated Findings
+    
+    alt Quality < Threshold
+        Claude->>Agents: Remediate Document
+        Agents->>MCP: Generate Improvements
+        MCP-->>Agents: Enhanced Document
+    end
+    
+    Claude-->>DSL: Final Results
+    DSL-->>API: Structured Response
+    API-->>Client: Document + Analysis
 ```
 
-**Multi-Agent Analysis:**
-```
-1. DSL identifies parallel agents
-2. Service invokes agents concurrently
-3. Each agent analyzes via Claude CLI
-4. Results aggregated
-5. Consensus validation (if enabled)
-6. Synthesized findings returned
+## 🚀 Quick Start
+
+### Prerequisites
+```bash
+# Install Claude Code CLI (required)
+curl -sSf https://claude.ai/install.sh | sh
+
+# Verify installation
+claude --version
 ```
 
-**Quality Iteration:**
+### Installation
+```bash
+# Clone repository
+git clone https://github.com/your-org/DocAutomate.git
+cd DocAutomate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your Claude Code settings
 ```
-1. Initial processing by agent
-2. Quality score calculated
-3. If below threshold: loop
-4. Claude improves document
-5. Re-validate quality
-6. Repeat until threshold met
+
+### Start the Server
+```bash
+# Start DocAutomate API
+python api.py
+
+# API available at: http://localhost:8001
+# Documentation: http://localhost:8001/docs
 ```
+
+### Test with a Document
+```bash
+# Upload and process a document
+curl -X POST "http://localhost:8001/documents/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@sample.pdf" \
+  -F "auto_process=true"
+
+# Response
+{
+  "document_id": "a1b2c3d4",
+  "filename": "sample.pdf",
+  "status": "processing",
+  "message": "Document uploaded and queued for Claude Code processing"
+}
+```
+
+## 📚 API Documentation
+
+### Document Management
+
+#### Upload Document
+```bash
+curl -X POST "http://localhost:8001/documents/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@document.pdf" \
+  -F "auto_process=true"
+
+# Response
+{
+  "document_id": "a1b2c3d4",
+  "filename": "document.pdf",
+  "status": "processing",
+  "message": "Document uploaded and delegated to Claude Code"
+}
+```
+
+#### List Documents
+```bash
+curl "http://localhost:8001/documents"
+
+# Filter by status
+curl "http://localhost:8001/documents?status=processed"
+
+# Response
+[
+  {
+    "document_id": "a1b2c3d4",
+    "filename": "document.pdf",
+    "status": "processed",
+    "ingested_at": "2024-09-25T10:30:00Z",
+    "claude_agent": "technical-writer",
+    "quality_score": 92,
+    "workflow_runs": ["run_123"],
+    "extracted_actions": [...]
+  }
+]
+```
+
+#### Get Document Status
+```bash
+curl "http://localhost:8001/documents/a1b2c3d4"
+
+# Response with Claude Code analysis
+{
+  "document_id": "a1b2c3d4",
+  "filename": "document.pdf",
+  "status": "processed",
+  "claude_analysis": {
+    "primary_agent": "technical-writer",
+    "quality_score": 92,
+    "issues_found": [
+      {
+        "type": "clarity",
+        "severity": "medium",
+        "description": "Section 3.2 needs clarification",
+        "agent_recommendation": "Add concrete examples"
+      }
+    ],
+    "consensus_validation": {
+      "models": ["gpt-5", "claude-opus-4.1"],
+      "agreement_score": 0.94
+    }
+  }
+}
+```
+
+### Multi-Agent Analysis
+
+#### Parallel Agent Analysis
+```bash
+curl -X POST "http://localhost:8001/documents/a1b2c3d4/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
+    "parallel": true,
+    "claude_config": {
+      "superclaude_modes": ["--delegate", "--parallel"],
+      "quality_threshold": 0.85
+    }
+  }'
+
+# Response with agent-specific analysis
+{
+  "document_id": "a1b2c3d4",
+  "analysis": {
+    "technical-writer": {
+      "claude_command": "--delegate technical-writer 'Analyze documentation quality'",
+      "success": true,
+      "confidence": 0.9,
+      "analysis": {
+        "findings": ["Clear structure", "Good terminology"],
+        "issues": [
+          {
+            "id": "clarity_section_3_2",
+            "type": "clarity",
+            "severity": "medium",
+            "description": "Section 3.2 needs concrete examples",
+            "location": {"section": "3.2", "lines": [45, 60]}
+          }
+        ]
+      }
+    },
+    "security-engineer": {
+      "claude_command": "--delegate security-engineer 'Security assessment'",
+      "success": true,
+      "confidence": 0.88,
+      "analysis": {
+        "security_score": 85,
+        "vulnerabilities": [],
+        "recommendations": ["Add authentication flow diagram"]
+      }
+    }
+  },
+  "processing_time": 45.2,
+  "parallel_execution": true
+}
+```
+
+#### Multi-Model Consensus Validation
+```bash
+curl -X POST "http://localhost:8001/documents/a1b2c3d4/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "analysis_data": {...},
+    "consensus_config": {
+      "models": ["gpt-5", "claude-opus-4.1", "gpt-4.1"],
+      "claude_command": "--zen consensus",
+      "agreement_threshold": 0.85
+    }
+  }'
+
+# Response with multi-model validation
+{
+  "document_id": "a1b2c3d4",
+  "consensus": {
+    "claude_command": "--zen consensus 'Validate technical documentation analysis'",
+    "models_consensus": {
+      "gpt-5": {"quality_score": 90, "critical_issues": 2},
+      "claude-opus-4.1": {"quality_score": 88, "critical_issues": 2},
+      "gpt-4.1": {"quality_score": 89, "critical_issues": 3}
+    },
+    "final_consensus": {
+      "quality_score": 89,
+      "agreement_score": 0.92,
+      "critical_issues": [
+        "Authentication flow missing",
+        "Error handling incomplete"
+      ]
+    }
+  }
+}
+```
+
+#### Document Remediation via Claude Code
+```bash
+curl -X POST "http://localhost:8001/documents/a1b2c3d4/remediate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "issues": [
+      {
+        "id": "clarity_section_3_2",
+        "type": "clarity",
+        "severity": "medium",
+        "description": "Section 3.2 needs concrete examples"
+      }
+    ],
+    "claude_config": {
+      "agent": "technical-writer",
+      "command": "--delegate technical-writer",
+      "quality_target": 0.92
+    }
+  }'
+
+# Response with Claude-remediated document
+{
+  "document_id": "a1b2c3d4",
+  "remediation": {
+    "claude_command": "--delegate technical-writer 'Remediate documentation issues'",
+    "remediated_path": "/docs/generated/a1b2c3d4/remediated_document.md",
+    "improvements": {
+      "issues_resolved": ["clarity_section_3_2"],
+      "quality_improvement": {
+        "before": 0.78,
+        "after": 0.92,
+        "improvement": "+18%"
+      },
+      "changes_made": [
+        "Added 3 concrete examples to section 3.2",
+        "Clarified technical terminology",
+        "Enhanced code snippets with context"
+      ]
+    },
+    "validation": {
+      "claude_validation": "--zen-review 'Validate remediated document'",
+      "quality_passed": true,
+      "consensus_score": 0.94
+    }
+  }
+}
+```
+
+### Complete Orchestration Workflow
+
+#### Execute Full Claude Code Workflow
+```bash
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "a1b2c3d4",
+    "workflow_type": "full",
+    "claude_config": {
+      "superclaude_modes": ["--delegate", "--task-manage", "--thinkdeep"],
+      "agents": ["technical-writer", "security-engineer", "quality-engineer"],
+      "models": ["gpt-5", "claude-opus-4.1"],
+      "quality_threshold": 0.9,
+      "max_iterations": 3
+    }
+  }'
+
+# Response
+{
+  "orchestration_id": "orch_xyz789",
+  "document_id": "a1b2c3d4",
+  "claude_workflow": {
+    "commands_executed": [
+      "--delegate --parallel 'Multi-agent analysis'",
+      "--zen consensus 'Validate findings'",
+      "--delegate technical-writer 'Remediate issues'",
+      "--zen-review 'Final validation'"
+    ],
+    "agents_used": ["technical-writer", "security-engineer", "quality-engineer"],
+    "models_used": ["gpt-5", "claude-opus-4.1"],
+    "total_processing_time": 120.5
+  },
+  "status": "completed",
+  "final_quality_score": 94
+}
+```
+
+### Health & Status
+
+#### Health Check
+```bash
+curl "http://localhost:8001/health"
+
+# Response including Claude Code status
+{
+  "status": "healthy",
+  "components": {
+    "api": "operational",
+    "dsl_engine": "operational",
+    "claude_cli": {
+      "status": "operational",
+      "version": "1.2.3",
+      "superclaude_framework": "available"
+    },
+    "agent_registry": {
+      "status": "operational",
+      "registered_agents": 6
+    }
+  },
+  "claude_code_integration": {
+    "cli_path": "/usr/local/bin/claude",
+    "auto_grant_permissions": true,
+    "available_agents": ["technical-writer", "security-engineer", "quality-engineer", "requirements-analyst", "general-purpose"],
+    "mcp_servers": ["zen", "sequential", "magic", "playwright", "deepwiki"]
+  }
+}
+```
+
+## 🔧 DSL Configuration
+
+### Unified Operations Schema
+
+The DSL defines all document operations through Claude Code delegation:
+
+```yaml
+# dsl/unified-operations.yaml
+operation_types:
+  ingest:
+    claude_command: "--delegate general-purpose"
+    description: "Document classification and initial analysis"
+    mcp_servers: ["filesystem", "sequential"]
+    
+  analyze:
+    claude_command: "--delegate --parallel"
+    description: "Multi-agent parallel analysis"
+    primary_agent: "requirements-analyst"
+    secondary_agents: ["technical-writer", "security-engineer"]
+    superclaude_modes: ["--delegate", "--parallel"]
+    
+  remediate:
+    claude_command: "--delegate quality-engineer"
+    description: "Document improvement via Claude Code"
+    validation_command: "--zen consensus"
+    models: ["gpt-5", "claude-opus-4.1"]
+    quality_threshold: 0.9
+    
+  validate:
+    claude_command: "--zen-review --thinkdeep"
+    description: "Multi-model consensus validation"
+    consensus_required: true
+    models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+    agreement_threshold: 0.85
+
+# Quality scoring through Claude Code
+quality_scoring:
+  claude_command: "--delegate quality-engineer 'Calculate quality metrics'"
+  rubric:
+    completeness: 0.3
+    accuracy: 0.3
+    clarity: 0.2
+    compliance: 0.2
+  thresholds:
+    minimum: 0.7
+    target: 0.85
+    excellent: 0.95
+```
+
+### Agent Mappings
+
+Intelligent routing to Claude Code agents based on document characteristics:
+
+```yaml
+# dsl/agent-mappings.yaml
+document_type_mappings:
+  # Medical documents
+  medical_record:
+    claude_agents:
+      primary: "medical-review"
+      validators: ["privacy-officer", "hipaa-compliance"]
+    superclaude_modes: ["--delegate", "--safe-mode"]
+    compliance_standards: ["HIPAA", "HL7"]
+    
+  # Legal documents  
+  contract:
+    claude_agents:
+      primary: "legal-review"
+      validators: ["compliance-officer"]
+    superclaude_modes: ["--delegate", "--thinkdeep"]
+    risk_assessment: true
+    
+  # Technical documentation
+  technical_spec:
+    claude_agents:
+      primary: "technical-writer"
+      validators: ["quality-engineer", "security-engineer"]
+    superclaude_modes: ["--delegate", "--parallel", "--zen-review"]
+    quality_focus: ["clarity", "completeness", "accuracy"]
+
+# Dynamic agent selection rules
+selection_rules:
+  - condition: "document.contains('authentication')"
+    action: "add_agent:security-engineer"
+    claude_command: "--delegate security-engineer"
+    
+  - condition: "document.contains('financial_data')"
+    action: "add_agent:compliance-officer"
+    claude_command: "--delegate compliance-officer"
+    
+  - condition: "document.type == 'api_documentation'"
+    action: "add_agent:technical-writer"
+    claude_command: "--delegate technical-writer --tools deepwiki"
+```
+
+### Universal Workflow Template
+
+```yaml
+# workflows/universal-document.yaml
+name: "universal_document_processor"
+description: "Claude Code-powered universal document processing"
+version: "2.0.0"
+
+claude_integration:
+  superclaude_framework: true
+  default_modes: ["--delegate", "--task-manage"]
+  
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+  - name: "operation_type"
+    type: "string"
+    enum: ["ingest", "analyze", "remediate", "validate"]
+    default: "analyze"
+
+steps:
+  - id: "classify_document"
+    type: "claude_delegate"
+    description: "Claude Code document classification"
+    config:
+      claude_command: "--delegate general-purpose"
+      task: "Classify document type and determine optimal processing approach"
+      context:
+        document_id: "{{ document_id }}"
+        document_content: "{{ document_content }}"
+      
+  - id: "route_to_agents"
+    type: "claude_routing"
+    description: "Intelligent agent selection via DSL"
+    config:
+      routing_rules: "{{ dsl.agent_mappings }}"
+      document_classification: "{{ steps.classify_document.classification }}"
+      
+  - id: "parallel_analysis"
+    type: "claude_parallel"
+    description: "Multi-agent parallel processing"
+    config:
+      claude_command: "--delegate --parallel --task-manage"
+      agents: "{{ steps.route_to_agents.selected_agents }}"
+      tasks: "{{ dsl.operation_tasks[operation_type] }}"
+      
+  - id: "consensus_validation"
+    type: "claude_consensus"
+    description: "Multi-model consensus validation"
+    config:
+      claude_command: "--zen consensus"
+      analysis_data: "{{ steps.parallel_analysis.results }}"
+      models: ["gpt-5", "claude-opus-4.1"]
+      threshold: 0.85
+      
+  - id: "remediation"
+    type: "claude_remediate"
+    condition: "{{ steps.consensus_validation.quality_score < 0.9 }}"
+    description: "Claude Code-powered document improvement"
+    config:
+      claude_command: "--delegate technical-writer --loop"
+      document_content: "{{ document_content }}"
+      issues: "{{ steps.consensus_validation.issues }}"
+      quality_target: 0.9
+      
+  - id: "final_validation"
+    type: "claude_review"
+    description: "Final quality validation"
+    config:
+      claude_command: "--zen-review --thinkdeep"
+      document: "{{ steps.remediation.output || document_content }}"
+      quality_gates: "{{ dsl.quality_scoring.thresholds }}"
+```
+
+## 🤖 SuperClaude Framework Integration
+
+### Complete Claude Code Integration
+
+DocAutomate leverages the full SuperClaude Framework ecosystem:
+
+#### Specialized Agents
+- `technical-writer`: Documentation quality, clarity, and completeness
+- `security-engineer`: Security vulnerabilities and compliance gaps
+- `quality-engineer`: Quality metrics, testing coverage validation
+- `requirements-analyst`: Requirements completeness and traceability
+- `general-purpose`: Universal fallback for any document type
+- `medical-review`: HIPAA-compliant medical document analysis
+- `legal-review`: Contract analysis and legal compliance
+- `financial-audit`: SOX compliance and financial validation
+
+#### MCP Server Integration
+- **Zen MCP**: Multi-model consensus with GPT-5, Claude Opus 4.1, GPT-4.1
+- **Sequential MCP**: Structured multi-step analysis and reasoning
+- **Magic MCP**: UI component generation for documentation
+- **Playwright MCP**: Browser testing and validation automation
+- **DeepWiki MCP**: Official documentation and best practices lookup
+
+#### SuperClaude Behavioral Modes
+- `--brainstorm`: Collaborative discovery for unclear requirements
+- `--task-manage`: Multi-step operation orchestration with persistence
+- `--delegate`: Intelligent agent routing and task distribution
+- `--thinkdeep`: Deep analysis with GPT-5 (50K tokens)
+- `--zen-review`: Production-grade validation with multi-model consensus
+- `--consensus`: Multi-model agreement on critical findings
+- `--parallel`: Concurrent multi-agent execution
+
+### Claude CLI Configuration
+
+```python
+# services/claude_service.py - Enhanced integration
+class ClaudeService:
+    def __init__(self):
+        self.claude_cli = ClaudeCLI()
+        self.dsl_config = self._load_dsl_configurations()
+        self.superclaude_enabled = True
+        
+    async def execute_with_dsl(self, operation: str, document_id: str, **kwargs):
+        """Execute operation via Claude Code with DSL configuration"""
+        
+        # Get DSL configuration for operation
+        operation_config = self.dsl_config['operation_types'][operation]
+        claude_command = operation_config['claude_command']
+        
+        # Build SuperClaude command with context
+        full_command = f"{claude_command} --task-manage"
+        if operation_config.get('parallel_execution'):
+            full_command += " --parallel"
+            
+        # Execute via Claude Code
+        result = await self.claude_cli.execute_command(
+            command=full_command,
+            context={
+                'document_id': document_id,
+                'operation_type': operation,
+                **kwargs
+            }
+        )
+        
+        return result
+
+    async def multi_agent_analysis(self, document_id: str, agents: List[str]):
+        """Parallel multi-agent analysis via SuperClaude"""
+        
+        agent_tasks = []
+        for agent in agents:
+            task = f"--delegate {agent} 'Analyze document {document_id}'"
+            agent_tasks.append(task)
+            
+        # Execute all agents in parallel
+        command = f"--task-manage --parallel {' '.join(agent_tasks)}"
+        result = await self.claude_cli.execute_command(command)
+        
+        return result
+
+    async def consensus_validation(self, analysis_data: dict, models: List[str]):
+        """Multi-model consensus via Zen MCP"""
+        
+        command = f"--zen consensus --models {','.join(models)}"
+        result = await self.claude_cli.execute_command(
+            command=command,
+            context={'analysis_data': analysis_data}
+        )
+        
+        return result
+```
+
+### DSL-Driven SuperClaude Commands
+
+The system automatically generates SuperClaude commands from DSL configuration:
+
+```python
+# Example DSL → SuperClaude command generation
+def generate_claude_command(operation: str, document_type: str) -> str:
+    """Generate SuperClaude command from DSL"""
+    
+    # Get operation config
+    op_config = dsl_config['operation_types'][operation]
+    base_command = op_config['claude_command']
+    
+    # Get document-specific agents
+    doc_config = dsl_config['document_type_mappings'].get(document_type, {})
+    agents = doc_config.get('claude_agents', {})
+    
+    # Build full command
+    if operation == 'analyze' and agents:
+        primary = agents.get('primary', 'general-purpose')
+        validators = agents.get('validators', [])
+        
+        command = f"--delegate --parallel {primary}"
+        if validators:
+            command += f" {' '.join(validators)}"
+            
+        # Add SuperClaude modes
+        modes = doc_config.get('superclaude_modes', [])
+        command += f" {' '.join(modes)}"
+        
+        return command
+    
+    return base_command
+
+# Usage examples:
+# Medical document: "--delegate --parallel medical-review privacy-officer --delegate --safe-mode"
+# Contract: "--delegate --parallel legal-review compliance-officer --delegate --thinkdeep"  
+# Technical spec: "--delegate --parallel technical-writer quality-engineer --delegate --parallel --zen-review"
+```
+
+## 🔄 Workflow System
+
+### Document Processing Pipeline
+
+```mermaid
+flowchart TD
+    START([Document Upload])
+    CLASSIFY[Claude Code Classification<br/>--delegate general-purpose]
+    ROUTE[DSL Agent Routing<br/>Document Type → Agents]
+    
+    subgraph "Parallel Claude Code Analysis"
+        TECH[Technical Writer<br/>--delegate technical-writer]
+        SEC[Security Engineer<br/>--delegate security-engineer]  
+        QUAL[Quality Engineer<br/>--delegate quality-engineer]
+        REQ[Requirements Analyst<br/>--delegate requirements-analyst]
+    end
+    
+    SYNTHESIZE[Claude Code Synthesis<br/>--delegate system-architect]
+    CONSENSUS[Multi-Model Consensus<br/>--zen consensus]
+    
+    QUALITY{Quality Score<br/>>= Threshold?}
+    REMEDIATE[Claude Code Remediation<br/>--delegate quality-engineer --loop]
+    VALIDATE[Final Validation<br/>--zen-review --thinkdeep]
+    
+    COMPLETE([Processing Complete])
+    
+    START --> CLASSIFY
+    CLASSIFY --> ROUTE
+    ROUTE --> TECH
+    ROUTE --> SEC
+    ROUTE --> QUAL
+    ROUTE --> REQ
+    
+    TECH --> SYNTHESIZE
+    SEC --> SYNTHESIZE
+    QUAL --> SYNTHESIZE
+    REQ --> SYNTHESIZE
+    
+    SYNTHESIZE --> CONSENSUS
+    CONSENSUS --> QUALITY
+    
+    QUALITY -->|No| REMEDIATE
+    REMEDIATE --> VALIDATE
+    VALIDATE --> QUALITY
+    
+    QUALITY -->|Yes| COMPLETE
+    
+    classDef claude fill:#9d4edd,stroke:#7b2cbf,stroke-width:2px,color:#fff
+    classDef decision fill:#f77f00,stroke:#d62d20,stroke-width:2px,color:#fff
+    
+    class CLASSIFY,TECH,SEC,QUAL,REQ,SYNTHESIZE,CONSENSUS,REMEDIATE,VALIDATE claude
+    class QUALITY decision
+```
+
+### Document Remediation Workflow
+
+Based on the comprehensive remediation system that's been implemented:
+
+#### Multi-Agent Issue Detection
+
+```mermaid
+graph TB
+    subgraph "Document Ingestion"
+        DOC[Document Upload<br/>PDF/DOCX/MD/HTML/TXT]
+        PARSE[Claude Code Parsing<br/>--delegate general-purpose]
+        INDEX[Content Indexing<br/>Section Boundaries]
+    end
+    
+    subgraph "Parallel Issue Detection"
+        TW[Technical Writer<br/>--delegate technical-writer<br/>Clarity & Completeness]
+        RA[Requirements Analyst<br/>--delegate requirements-analyst<br/>Traceability & Coverage]
+        SE[Security Engineer<br/>--delegate security-engineer<br/>Vulnerabilities & Compliance]
+        QE[Quality Engineer<br/>--delegate quality-engineer<br/>Testing & Metrics]
+    end
+    
+    subgraph "Issue Synthesis & Consensus"
+        SA[System Architect<br/>--delegate system-architect<br/>Consolidate Findings]
+        CONSENSUS[Multi-Model Consensus<br/>--zen consensus<br/>Validate Critical Issues]
+        PRIORITY[Priority Calculation<br/>Severity × Impact]
+    end
+    
+    subgraph "Remediation Generation"
+        TEMPLATE[Template Selection<br/>Based on Issue Types]
+        GENERATE[Claude Code Generation<br/>--delegate technical-writer<br/>Context-Aware Fixes]
+        INTEGRATE[Document Integration<br/>Progressive Enhancement]
+    end
+    
+    subgraph "Quality Validation"
+        REVIEW[Deep Quality Review<br/>--zen-review --thinkdeep]
+        STRUCTURAL[Structure Validation<br/>TOC & Hierarchy]
+        FINAL[Final Consensus<br/>--zen consensus]
+    end
+    
+    DOC --> PARSE
+    PARSE --> INDEX
+    INDEX --> TW
+    INDEX --> RA
+    INDEX --> SE
+    INDEX --> QE
+    
+    TW --> SA
+    RA --> SA
+    SE --> SA
+    QE --> SA
+    
+    SA --> CONSENSUS
+    CONSENSUS --> PRIORITY
+    
+    PRIORITY --> TEMPLATE
+    TEMPLATE --> GENERATE
+    GENERATE --> INTEGRATE
+    
+    INTEGRATE --> REVIEW
+    REVIEW --> STRUCTURAL
+    STRUCTURAL --> FINAL
+    
+    classDef claude fill:#9d4edd,stroke:#7b2cbf,stroke-width:2px,color:#fff
+    classDef process fill:#2a9d8f,stroke:#264653,stroke-width:2px,color:#fff
+    
+    class PARSE,TW,RA,SE,QE,SA,CONSENSUS,GENERATE,REVIEW,FINAL claude
+    class TEMPLATE,INTEGRATE,PRIORITY,STRUCTURAL process
+```
+
+#### Issue Detection Patterns
+
+The system detects comprehensive issue types through Claude Code agents:
+
+**Technical Writer Analysis:**
+- **Clarity Issues**: Ambiguous explanations, undefined terms
+- **Consistency Issues**: Inconsistent terminology usage  
+- **Completeness Issues**: Missing examples or explanations
+
+**Security Engineer Analysis:**
+- **Security Issues**: Vulnerabilities, weak authentication patterns
+- **Compliance Issues**: Missing regulatory documentation
+- **Privacy Issues**: Inadequate data protection measures
+
+**Quality Engineer Analysis:**
+- **Testing Issues**: Missing test documentation
+- **Performance Issues**: Undocumented performance impacts
+- **Structural Issues**: Poor organization, broken references
+
+#### Remediation Templates
+
+```yaml
+# templates/remediation/define-term.yaml
+template:
+  id: "define-term"
+  applicable_to:
+    issue_types: ["clarity"]
+    severity_range: ["low", "medium"]
+  generation:
+    claude_command: "--delegate technical-writer"
+    method: "insert"
+    patterns:
+      definition_block: |
+        ### {{ term }}
+        
+        {{ definition }}
+        
+        {{ context_explanation }}
+        
+        **Example**: {{ example }}
+    location: "first_usage"
+  validators:
+    - type: "content"
+      claude_command: "--delegate quality-engineer"
+      rules: ["definition_present", "example_included"]
+```
+
+## 🌍 Real-World Applications
+
+### Medical Records Processing (HIPAA Compliance)
+
+```bash
+# Upload medical record with automatic HIPAA compliance
+curl -X POST "http://localhost:8001/documents/upload" \
+  -F "file=@patient_record.pdf" \
+  -F "document_type=medical_record" \
+  -F "auto_process=true"
+
+# Execute HIPAA compliance workflow via Claude Code
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "med_001",
+    "workflow_type": "medical_compliance",
+    "claude_config": {
+      "agents": ["medical-review", "privacy-officer", "hipaa-compliance"],
+      "superclaude_modes": ["--delegate", "--safe-mode", "--consensus"],
+      "compliance_standards": ["HIPAA", "HL7"],
+      "privacy_level": "maximum"
+    }
+  }'
+
+# Response with Claude Code HIPAA analysis
+{
+  "orchestration_id": "orch_med_001",
+  "claude_analysis": {
+    "commands_executed": [
+      "--delegate medical-review --safe-mode 'HIPAA compliance analysis'",
+      "--delegate privacy-officer 'Privacy impact assessment'",
+      "--zen consensus 'Validate compliance findings'"
+    ],
+    "compliance_score": 98,
+    "privacy_violations": 0,
+    "required_redactions": ["patient_ssn", "provider_npi"],
+    "hipaa_safeguards": {
+      "physical": "compliant",
+      "administrative": "compliant", 
+      "technical": "needs_encryption_docs"
+    }
+  },
+  "remediation_applied": true,
+  "claude_remediation": "--delegate technical-writer 'Add missing encryption documentation'"
+}
+```
+
+### Financial Report Validation (SOX Compliance)
+
+```bash
+# Process quarterly report with SOX compliance
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "fin_q4_2024",
+    "workflow_type": "financial_audit",
+    "claude_config": {
+      "agents": ["financial-auditor", "compliance-officer", "fraud-detector"],
+      "superclaude_modes": ["--delegate", "--thinkdeep", "--zen-review"],
+      "standards": ["SOX", "GAAP"],
+      "risk_threshold": 0.05
+    }
+  }'
+
+# Response with Claude Code financial analysis
+{
+  "orchestration_id": "orch_fin_001",
+  "claude_analysis": {
+    "commands_executed": [
+      "--delegate financial-auditor --thinkdeep 'SOX compliance audit'",
+      "--delegate fraud-detector 'Risk assessment analysis'",
+      "--zen consensus 'Validate audit findings'"
+    ],
+    "sox_compliance": {
+      "section_302": "compliant",
+      "section_404": "compliant", 
+      "section_906": "needs_ceo_certification"
+    },
+    "risk_factors": [],
+    "audit_score": 94,
+    "findings": ["enhance_disclosure_notes", "add_ceo_certification"]
+  },
+  "claude_remediation": "--delegate technical-writer 'Generate missing SOX documentation'"
+}
+```
+
+### Technical Documentation Enhancement
+
+```bash
+# Multi-agent technical documentation review
+curl -X POST "http://localhost:8001/documents/{doc_id}/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
+    "claude_config": {
+      "superclaude_modes": ["--delegate", "--parallel", "--zen-review"],
+      "quality_target": 0.9,
+      "focus_areas": ["api_completeness", "security_docs", "examples"]
+    }
+  }'
+
+# Generate comprehensive improvements via Claude Code
+curl -X POST "http://localhost:8001/documents/{doc_id}/remediate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "claude_config": {
+      "agent": "technical-writer",
+      "command": "--delegate technical-writer --loop --tools deepwiki",
+      "improvements": ["add_code_examples", "clarify_architecture", "enhance_security_section"]
+    }
+  }'
+
+# Response showing Claude Code enhancements
+{
+  "remediation": {
+    "claude_commands": [
+      "--delegate technical-writer 'Add comprehensive code examples'",
+      "--tools deepwiki 'Research API documentation best practices'", 
+      "--delegate security-engineer 'Enhance security documentation'",
+      "--zen-review 'Validate all improvements'"
+    ],
+    "improvements_made": {
+      "code_examples": 12,
+      "security_sections": 3,
+      "architecture_diagrams": 2,
+      "api_endpoint_docs": 8
+    },
+    "quality_improvement": {
+      "before": 0.72,
+      "after": 0.91,
+      "improvement": "+26%"
+    }
+  }
+}
+```
+
+### Custom Domain Integration via DSL
+
+Add any new document type through DSL configuration only:
+
+```yaml
+# dsl/custom-domains.yaml - Add insurance claim processing
+insurance_claim:
+  claude_agents:
+    primary: "insurance-reviewer"  # Custom agent
+    validators: ["fraud-detector", "compliance-officer"]
+    
+  superclaude_modes: ["--delegate", "--thinkdeep", "--consensus"]
+  
+  processing_rules:
+    - extract_claim_details: "--delegate insurance-reviewer 'Extract all claim information'"
+    - validate_coverage: "--tools deepwiki 'Verify policy coverage'"
+    - fraud_assessment: "--delegate fraud-detector --thinkdeep 'Assess fraud risk'"
+    - final_validation: "--zen consensus 'Validate claim processing'"
+
+workflow_template:
+  name: "insurance_claim_processor"
+  steps:
+    - id: "extract_claim"
+      type: "claude_delegate"
+      config:
+        claude_command: "--delegate insurance-reviewer"
+        task: "Extract claim details and validate coverage"
+        
+    - id: "external_validation"
+      type: "api_call"
+      config:
+        url: "https://insurance.company.com/claims/validate"
+        method: "POST"
+        body: "{{ steps.extract_claim.output }}"
+        
+    - id: "consensus_validation"
+      type: "claude_consensus"
+      config:
+        claude_command: "--zen consensus"
+        models: ["gpt-5", "claude-opus-4.1"]
+        validation_type: "fraud_detection"
+```
+
+## 📝 Document Remediation
+
+### Complete Remediation System
+
+DocAutomate includes a sophisticated document remediation system powered entirely by Claude Code:
+
+#### Issue Detection Workflow
+
+The system uses a multi-stage approach for comprehensive issue identification:
+
+**Stage 1: Initial Analysis**
+```bash
+--delegate general-purpose "Analyze document structure and identify major sections"
+```
+
+**Stage 2: Parallel Specialized Analysis**
+```bash
+--delegate --parallel \
+  technical-writer:"Check documentation clarity and completeness" \
+  requirements-analyst:"Validate requirements coverage and traceability" \
+  security-engineer:"Identify security vulnerabilities and compliance gaps" \
+  quality-engineer:"Assess testing coverage and quality metrics"
+```
+
+**Stage 3: Issue Synthesis & Consensus**
+```bash
+--delegate system-architect "Synthesize all findings and create consolidated issue report"
+--zen consensus --model gpt-5 "Validate critical and high-severity issues"
+```
+
+#### Issue Categories
+
+The system detects and categorizes issues comprehensively:
+
+**Clarity Issues:**
+- Undefined technical terms
+- Complex sentence structures (>25 words average)
+- Missing context for acronyms
+- Passive voice overuse (>30%)
+
+**Completeness Issues:**
+- Missing required sections
+- Incomplete API documentation  
+- Absent error handling documentation
+- No examples for complex features
+
+**Security Issues:**
+- Hardcoded credentials in examples
+- Missing authentication documentation
+- Unencrypted data transmission examples
+- No security considerations section
+
+**Structure Issues:**
+- Inconsistent heading hierarchy
+- Orphaned sections not linked from TOC
+- Circular references
+- Poor information architecture
+
+#### Remediation Templates
+
+The system uses YAML-based templates for systematic fixes:
+
+```yaml
+# Example: define-term.yaml template
+template:
+  id: "define-term"
+  applicable_to:
+    issue_types: ["clarity"]
+    severity_range: ["low", "medium"]
+  generation:
+    method: "insert"
+    claude_command: "--delegate technical-writer 'Generate term definition'"
+    patterns:
+      definition_block: |
+        ### {{ term }}
+        
+        {{ definition }}
+        
+        {{ context_explanation }}
+        
+        **Example**: {{ example }}
+  validators:
+    - type: "content"
+      claude_validation: "--delegate quality-engineer 'Validate definition quality'"
+      rules: ["definition_present", "example_included"]
+```
+
+#### Quality Validation Gates
+
+Multi-layered validation ensures remediation quality:
+
+```bash
+# Structural validation
+--delegate quality-engineer "Verify document structure and completeness"
+
+# Content validation  
+--delegate technical-writer "Validate clarity and readability improvements"
+
+# Security validation
+--delegate security-engineer "Verify security documentation adequacy"
+
+# Final consensus
+--zen consensus "Approve remediated document quality"
+```
+
+### Usage Examples
+
+#### Complete Document Remediation
+```bash
+# 1. Upload and analyze document
+curl -X POST "http://localhost:8001/documents/upload" \
+  -F "file=@api-specification.md" \
+  -F "auto_process=true"
+
+# 2. Execute full remediation workflow
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "api_spec_001",
+    "workflow_type": "full_remediation",
+    "claude_config": {
+      "superclaude_modes": ["--delegate", "--parallel", "--thinkdeep"],
+      "quality_threshold": 0.9,
+      "max_iterations": 3
+    }
+  }'
+
+# 3. Response with comprehensive remediation
+{
+  "orchestration_id": "orch_remediate_001",
+  "claude_remediation": {
+    "issue_detection": {
+      "command": "--delegate --parallel technical-writer requirements-analyst security-engineer",
+      "issues_found": 23,
+      "critical_issues": 2,
+      "high_issues": 6
+    },
+    "remediation_applied": {
+      "command": "--delegate technical-writer --loop 'Apply all remediation templates'",
+      "templates_used": ["define-term", "add-section", "fix-structure"],
+      "improvements": [
+        "Added 8 missing term definitions",
+        "Created 3 new required sections",
+        "Fixed 12 structural issues",
+        "Enhanced 15 code examples"
+      ]
+    },
+    "final_validation": {
+      "command": "--zen-review --thinkdeep 'Final quality assessment'",
+      "quality_score": 94,
+      "validation_passed": true
+    }
+  }
+}
+```
+
+## 🚀 Production Deployment
+
+### Docker Deployment with Claude Code
+
+```dockerfile
+# Dockerfile
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI
+RUN curl -sSf https://claude.ai/install.sh | sh
+
+# Add Claude Code to PATH
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY . .
+
+# Create required directories
+RUN mkdir -p storage logs state workflows/custom docs/generated dsl
+
+# Set Claude Code environment variables
+ENV CLAUDE_AUTO_GRANT_FILE_ACCESS=true
+ENV CLAUDE_TIMEOUT=300
+ENV CLAUDE_AUDIT_LOG=true
+ENV PYTHONPATH=/app
+
+# Expose port
+EXPOSE 8001
+
+# Health check with Claude Code validation
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8001/health || exit 1
+
+# Start application
+CMD ["python", "api.py"]
+```
+
+### Docker Compose with Full Stack
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  docautomate:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      # Claude Code Configuration
+      - CLAUDE_AUTO_GRANT_FILE_ACCESS=true
+      - CLAUDE_TIMEOUT=300
+      - CLAUDE_AUDIT_LOG=true
+      - SC_FORCE_MODEL=gpt-5  # Prefer GPT-5 for deep analysis
+      - SC_MAX_TOKENS=50000
+      
+      # API Configuration
+      - API_PORT=8001
+      - API_HOST=0.0.0.0
+      - DEBUG=false
+      
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - ./state:/app/state
+      - ./workflows:/app/workflows
+      - ./docs:/app/docs
+      - ./dsl:/app/dsl
+      
+    depends_on:
+      - redis
+      - postgres
+      
+    restart: unless-stopped
+    
+    # Ensure Claude Code is available
+    healthcheck:
+      test: ["CMD", "claude", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: docautomate
+      POSTGRES_USER: docautomate
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+### Kubernetes Deployment
+
+```yaml
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docautomate
+  labels:
+    app: docautomate
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: docautomate
+  template:
+    metadata:
+      labels:
+        app: docautomate
+    spec:
+      containers:
+      - name: docautomate
+        image: docautomate:latest
+        ports:
+        - containerPort: 8001
+        env:
+        # Claude Code Configuration
+        - name: CLAUDE_AUTO_GRANT_FILE_ACCESS
+          value: "true"
+        - name: CLAUDE_TIMEOUT
+          value: "300"
+        - name: CLAUDE_AUDIT_LOG
+          value: "true"
+        - name: SC_FORCE_MODEL
+          value: "gpt-5"
+          
+        # Resource limits appropriate for Claude Code processing
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1000m"
+          limits:
+            memory: "8Gi" 
+            cpu: "2000m"
+            
+        volumeMounts:
+        - name: storage
+          mountPath: /app/storage
+        - name: logs
+          mountPath: /app/logs
+        - name: dsl-config
+          mountPath: /app/dsl
+          
+        # Health check includes Claude Code validation
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: docautomate-storage
+      - name: logs
+        persistentVolumeClaim:
+          claimName: docautomate-logs
+      - name: dsl-config
+        configMap:
+          name: dsl-configuration
+```
+
+### Production Environment Configuration
+
+```bash
+# .env.production
+# Claude Code Settings
+CLAUDE_CLI_PATH=/usr/local/bin/claude
+CLAUDE_TIMEOUT=600  # Increased for production workloads
+CLAUDE_AUTO_GRANT_FILE_ACCESS=true
+CLAUDE_AUDIT_LOG=true
+CLAUDE_AUDIT_LOG_FILE=/app/logs/claude_audit.log
+
+# SuperClaude Framework Configuration  
+SC_FORCE_MODEL=gpt-5  # Use GPT-5 for production quality
+SC_MAX_TOKENS=50000
+SC_DEFAULT_THINK_LEVEL=3  # Deep analysis by default
+SC_ENABLE_CONSENSUS=true  # Enable multi-model consensus
+
+# API Production Settings
+API_PORT=8001
+API_HOST=0.0.0.0
+MAX_WORKERS=8  # Scale based on CPU cores
+BACKGROUND_TASKS=true
+REQUEST_TIMEOUT=600  # Match Claude timeout
+
+# Security
+SSL_CERT_PATH=/etc/ssl/certs/docautomate.crt
+SSL_KEY_PATH=/etc/ssl/private/docautomate.key
+CORS_ORIGINS=https://app.company.com,https://admin.company.com
+
+# Monitoring & Logging
+LOG_LEVEL=INFO
+METRICS_ENABLED=true
+PROMETHEUS_PORT=9090
+JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+
+# DSL Configuration
+DSL_CONFIG_PATH=/app/dsl
+WORKFLOW_CONFIG_PATH=/app/workflows
+TEMPLATE_CONFIG_PATH=/app/templates
+```
+
+### Production Checklist
+
+#### Claude Code Readiness
+- [ ] Claude Code CLI installed and accessible (`claude --version`)
+- [ ] SuperClaude Framework components available
+- [ ] MCP servers configured (zen, sequential, magic, playwright, deepwiki)
+- [ ] Model access verified (GPT-5, Claude Opus 4.1, GPT-4.1)
+- [ ] Agent registry populated with all required agents
+- [ ] File permissions configured for Claude Code access
+- [ ] Audit logging enabled and configured
+
+#### System Configuration
+- [ ] Environment variables properly set
+- [ ] DSL configurations validated (`dsl/unified-operations.yaml`)
+- [ ] Workflow templates tested (`workflows/universal-document.yaml`)
+- [ ] Agent mappings configured (`dsl/agent-mappings.yaml`)
+- [ ] Quality scoring rubrics defined
+- [ ] SSL/TLS certificates configured
+- [ ] Database connections secured
+- [ ] Monitoring and alerting configured
+- [ ] Backup strategy implemented
+- [ ] Security scanning completed
+- [ ] Performance testing with Claude Code load
+
+#### Operational Readiness
+- [ ] Health checks include Claude Code validation
+- [ ] Log aggregation for Claude Code audit logs
+- [ ] Metrics collection for processing times
+- [ ] Error alerting for agent failures
+- [ ] Scaling policies for high document volume
+- [ ] Disaster recovery procedures
+- [ ] Documentation for ops team
+- [ ] Runbook for common Claude Code issues
+
+## 🔧 Troubleshooting
+
+### Claude Code Integration Issues
+
+**Claude Code CLI Not Found:**
+```bash
+# Check installation
+which claude
+claude --version
+
+# Reinstall if needed
+curl -sSf https://claude.ai/install.sh | sh
+
+# Update PATH
+export PATH="/root/.local/bin:$PATH"
+```
+
+**Agent Registration Failures:**
+```bash
+# Check agent registry
+curl "http://localhost:8001/health" | jq '.claude_code_integration.available_agents'
+
+# Debug agent initialization
+python -c "
+from agent_providers import AgentProvider
+provider = AgentProvider()
+print(f'Registered agents: {list(provider.agents.keys())}')
+"
+
+# Common fix: Remove @abstractmethod decorator
+# File: agent_providers.py, Line ~101
+# Change: Remove @abstractmethod from execute method
+```
+
+**SuperClaude Framework Issues:**
+```bash
+# Test SuperClaude modes
+claude --help | grep -E "(delegate|parallel|consensus|zen)"
+
+# Test MCP servers
+claude --tools zen "Test Zen MCP availability"
+claude --tools sequential "Test Sequential MCP"
+
+# Check model access
+claude --model gpt-5 "Test GPT-5 access"
+claude --model claude-opus-4.1 "Test Opus access"
+```
+
+**DSL Configuration Problems:**
+```bash
+# Validate DSL YAML syntax
+python -c "
+import yaml
+with open('dsl/unified-operations.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+    print('DSL configuration valid')
+    print(f'Operations: {list(config[\"operation_types\"].keys())}')
+"
+
+# Test agent mappings
+python -c "
+import yaml
+with open('dsl/agent-mappings.yaml', 'r') as f:
+    mappings = yaml.safe_load(f)
+    print('Agent mappings valid')
+    print(f'Document types: {list(mappings[\"document_type_mappings\"].keys())}')
+"
+```
+
+### Performance Optimization
+
+**Claude Code Timeout Issues:**
+```bash
+# Increase timeout for complex documents
+export CLAUDE_TIMEOUT=900  # 15 minutes
+
+# Use parallel processing
+export CLAUDE_MAX_CONCURRENT=5
+
+# Enable Claude Code caching
+export CLAUDE_ENABLE_CACHE=true
+```
+
+**API Performance Tuning:**
+```python
+# api.py - Production optimizations
+MAX_WORKERS = 12  # Scale with CPU cores
+BACKGROUND_TASKS = True
+REQUEST_TIMEOUT = 900  # Match Claude timeout
+
+# Enable async processing for Claude Code calls
+CLAUDE_ASYNC_ENABLED = True
+CLAUDE_BATCH_SIZE = 5  # Process documents in batches
+```
+
+**Multi-Model Consensus Optimization:**
+```bash
+# Optimize model selection for speed vs quality
+export SC_CONSENSUS_MODELS="gpt-5,claude-opus-4.1"  # 2 models instead of 3
+export SC_CONSENSUS_THRESHOLD=0.8  # Lower threshold for faster consensus
+export SC_ENABLE_FAST_CONSENSUS=true  # Skip deep analysis for simple docs
+```
+
+## 📊 Monitoring & Metrics
+
+### Claude Code Integration Metrics
+
+The system tracks comprehensive Claude Code integration metrics:
+
+**Processing Metrics:**
+- Claude Code command execution time
+- Agent selection accuracy
+- Multi-model consensus agreement rates
+- Quality score improvements
+- SuperClaude mode effectiveness
+
+**Health Monitoring:**
+```bash
+# Enhanced health check with Claude Code validation
+curl "http://localhost:8001/health?detailed=true"
+
+{
+  "status": "healthy",
+  "components": {
+    "api": "operational",
+    "claude_cli": {
+      "status": "operational",
+      "version": "1.2.3",
+      "response_time_ms": 150
+    },
+    "superclaude_framework": {
+      "status": "operational", 
+      "agents_available": 8,
+      "mcp_servers": ["zen", "sequential", "magic", "playwright", "deepwiki"]
+    },
+    "model_access": {
+      "gpt-5": "available",
+      "claude-opus-4.1": "available", 
+      "gpt-4.1": "available"
+    },
+    "dsl_engine": "operational",
+    "agent_registry": "operational"
+  }
+}
+```
+
+**Audit Logging:**
+All Claude Code operations are comprehensively logged:
+
+```json
+{
+  "timestamp": "2024-09-25T10:30:00Z",
+  "operation": "document_analysis",
+  "document_id": "a1b2c3d4",
+  "claude_command": "--delegate --parallel technical-writer security-engineer",
+  "agents_used": ["technical-writer", "security-engineer"],
+  "models_used": ["gpt-5", "claude-opus-4.1"],
+  "processing_time": 45.2,
+  "quality_score": 92,
+  "status": "success"
+}
+```
+
+## 📈 Recent Updates
+
+### Version 2.0.0 - Pure Claude Code Delegation Architecture
+
+**Revolutionary Changes:**
+- **Complete Transformation**: ALL document processing now delegates to Claude Code agents
+- **Universal Document Processor**: Generalizes to ANY document type through Claude Code's multi-modal understanding
+- **Zero Local Processing**: No document logic in DocAutomate - pure API orchestration layer
+- **DSL-Driven Architecture**: YAML configurations define workflows without code changes
+- **SuperClaude Framework Integration**: Full utilization of specialized agents, MCP servers, and behavioral modes
+- **Multi-Model Consensus**: GPT-5, Claude Opus 4.1, and GPT-4.1 validation for critical decisions
+- **Quality Loop Automation**: Iterative improvement until quality thresholds met through Claude Code
+- **Parallel Agent Execution**: Concurrent multi-agent processing for maximum efficiency
+- **Infinite Extensibility**: Add new document types and operations via DSL configuration only
+
+**Technical Implementation:**
+- Unified DSL schema for all operations (`dsl/unified-operations.yaml`)
+- Intelligent agent mappings (`dsl/agent-mappings.yaml`)
+- Universal workflow template (`workflows/universal-document.yaml`)
+- Pure delegation pattern in `agent_providers.py`
+- Enhanced Claude service with DSL integration (`services/claude_service.py`)
+- Comprehensive document remediation system
+- Multi-stage issue detection workflow
+- Template-based remediation generation
+
+## 🤝 Contributing
+
+### Development Setup for Claude Code Integration
+
+```bash
+# Clone and setup development environment
+git clone https://github.com/your-org/DocAutomate.git
+cd DocAutomate
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Install Claude Code CLI for development
+curl -sSf https://claude.ai/install.sh | sh
+
+# Configure development environment
+export CLAUDE_AUTO_GRANT_FILE_ACCESS=true
+export CLAUDE_TIMEOUT=300
+export SC_FORCE_MODEL=gpt-5
+export DEBUG=true
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run tests including Claude Code integration tests
+python -m pytest tests/ -v --include-claude-integration
+
+# Run with debug logging including Claude Code commands
+DEBUG=true python api.py
+```
+
+### Testing Claude Code Integration
+
+```bash
+# Test Claude Code CLI availability
+python -c "
+from services.claude_service import ClaudeService
+service = ClaudeService()
+print('Claude Code integration working')
+"
+
+# Test agent registration
+python -c "
+from agent_providers import AgentRegistry
+registry = AgentRegistry()
+print(f'Registered agents: {len(registry.agents)}')
+"
+
+# Test DSL configuration loading
+python -c "
+import yaml
+with open('dsl/unified-operations.yaml') as f:
+    dsl = yaml.safe_load(f)
+    print(f'DSL operations: {list(dsl[\"operation_types\"].keys())}')
+"
+```
+
+### Code Style
+
+The project follows Claude Code integration standards:
+- **Claude Commands**: Properly formatted SuperClaude commands
+- **DSL Validation**: All YAML configurations must be valid
+- **Agent Testing**: Test all agent integrations
+- **Error Handling**: Robust Claude Code error handling
+- **Documentation**: Document all Claude Code integrations
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
 - **Documentation**: [Full API Docs](http://localhost:8001/docs)
 - **Issues**: [GitHub Issues](https://github.com/your-org/DocAutomate/issues)
 - **Claude Code**: [Official Documentation](https://claude.ai/code/docs)
+- **SuperClaude Framework**: [Framework Documentation](https://github.com/anthropics/claude-code)
 - **Community**: [Discussions](https://github.com/your-org/DocAutomate/discussions)
 
 ---
 
 **DocAutomate Framework** - Universal Document Processing via Pure Claude Code Delegation
+
+*Transforming any document type through intelligent Claude Code orchestration*
 
 Built with ❤️ by the DocAutomate team
