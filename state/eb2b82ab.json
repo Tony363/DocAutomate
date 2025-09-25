@@ -1,0 +1,73 @@
+{
+  "run_id": "eb2b82ab",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "recipient": "TONY LIU",
+    "field_type": "residential_address",
+    "original_action_type": "address_required",
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "general"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The field 'address' is missing and marked as required. This appears to be a standard postal/physical address field that needs to be collected from a party.",
+          "insights": [
+            "Field type is clearly 'address' based on the field name and context hint",
+            "The party/entity from whom the address is needed is not specified in the context",
+            "The 'address_required' context confirms this is a mandatory field that cannot be left empty",
+            "No specific address format or country/region is indicated, suggesting a flexible format may be needed"
+          ],
+          "recommendations": [
+            "Implement standard address validation including street, city, state/province, postal code, and country fields",
+            "Set priority as HIGH since the field is marked as required",
+            "Consider using address autocomplete/validation services for accuracy",
+            "Allow flexible formatting to accommodate international addresses",
+            "Add clear field labels and placeholder text to guide user input",
+            "Implement required field validation to prevent form submission without this data"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T22:02:23.742010",
+  "completed_at": "2025-09-25T22:02:38.728036",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The field 'address' is missing and marked as required. This appears to be a standard postal/physical address field that needs to be collected from a party.",
+        "insights": [
+          "Field type is clearly 'address' based on the field name and context hint",
+          "The party/entity from whom the address is needed is not specified in the context",
+          "The 'address_required' context confirms this is a mandatory field that cannot be left empty",
+          "No specific address format or country/region is indicated, suggesting a flexible format may be needed"
+        ],
+        "recommendations": [
+          "Implement standard address validation including street, city, state/province, postal code, and country fields",
+          "Set priority as HIGH since the field is marked as required",
+          "Consider using address autocomplete/validation services for accuracy",
+          "Allow flexible formatting to accommodate international addresses",
+          "Add clear field labels and placeholder text to guide user input",
+          "Implement required field validation to prevent form submission without this data"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
