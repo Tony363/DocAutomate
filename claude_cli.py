@@ -744,13 +744,25 @@ JSON OUTPUT (no other text):"""
         """
         mode_str = mode.value if isinstance(mode, SuperClaudeMode) else mode
         
-        # Build command with mode flag
-        cmd = [self.claude_cmd, f"--{mode_str}", "--print"]
+        # Map SuperClaude modes to prompt instructions
+        mode_prompts = {
+            "task-manage": "--task-manage: Orchestrate this task with systematic organization and TodoWrite tracking.",
+            "brainstorm": "--brainstorm: Use collaborative discovery mindset to explore this request.",
+            "orchestrate": "--orchestrate: Optimize tool selection and parallel execution for this task.",
+            "uc": "--uc: Use ultra-compressed token-efficient mode with symbols and abbreviations.",
+            "introspect": "--introspect: Apply meta-cognitive analysis and self-reflection.",
+            "loop": "--loop: Iterate until quality threshold ≥70% is achieved."
+        }
         
-        # Prepare full prompt with context
-        full_prompt = prompt
+        # Build command with ONLY valid CLI flags
+        cmd = [self.claude_cmd, "--print"]
+        
+        # Embed mode instruction in prompt
+        mode_instruction = mode_prompts.get(mode_str, f"--{mode_str}: Execute in {mode_str} mode.")
+        full_prompt = f"{mode_instruction}\n\n{prompt}"
+        
         if context:
-            full_prompt = f"Context: {json.dumps(context, indent=2)}\n\nTask: {prompt}"
+            full_prompt = f"Context: {json.dumps(context, indent=2)}\n\n{full_prompt}"
         
         logger.info(f"Executing with {mode_str} mode: {prompt[:50]}...")
         
@@ -781,22 +793,25 @@ JSON OUTPUT (no other text):"""
         Returns:
             CLI execution result with agent metadata
         """
-        # Build command flags
-        cmd = [self.claude_cmd, "--delegate"]
+        # Build command with ONLY valid flags
+        cmd = [self.claude_cmd, "--print"]
         
-        if task_manage:
-            cmd.append("--task-manage")
-        if quality_loop:
-            cmd.append("--loop")
+        # Build agent instruction
+        agent_instruction = "--delegate: Use intelligent agent routing for this task.\n"
         
-        cmd.append("--print")
-        
-        # Prepare prompt with agent specification
         if agent:
             agent_str = agent.value if isinstance(agent, SuperClaudeAgent) else agent
-            full_prompt = f"Use the {agent_str} agent for this task: {prompt}"
+            agent_instruction += f"Specifically use the {agent_str} agent.\n"
         else:
-            full_prompt = f"Auto-route to best agent: {prompt}"
+            agent_instruction += "Auto-select the best agent based on the task requirements.\n"
+        
+        if task_manage:
+            agent_instruction += "--task-manage: Apply systematic task organization with TodoWrite tracking.\n"
+        
+        if quality_loop:
+            agent_instruction += "--loop: Iterate until quality score ≥70% is achieved.\n"
+        
+        full_prompt = f"{agent_instruction}\n{prompt}"
         
         logger.info(f"Delegating to agent {agent or 'auto'}: {prompt[:50]}...")
         
@@ -829,17 +844,47 @@ JSON OUTPUT (no other text):"""
         """
         mcp_str = mcp.value if isinstance(mcp, SuperClaudeMCP) else mcp
         
-        # Build command with MCP server flag
-        cmd = [self.claude_cmd, f"--{mcp_str}"]
+        # Map MCP servers to instructions
+        mcp_prompts = {
+            "zen": "Use the Zen MCP server for multi-model consensus and deep thinking.",
+            "sequential": "Use Sequential MCP for structured multi-step reasoning.",
+            "magic": "Use Magic MCP for UI component generation.",
+            "playwright": "Use Playwright MCP for browser automation.",
+            "context7": "Use Context7 MCP for framework documentation.",
+            "serena": "Use Serena MCP for semantic understanding.",
+            "morphllm": "Use Morphllm MCP for bulk code transformations."
+        }
         
+        # Build command with ONLY valid CLI flags
+        cmd = [self.claude_cmd, "--print"]
+        
+        # Build prompt with MCP instruction
+        mcp_instruction = mcp_prompts.get(mcp_str, f"Use {mcp_str} MCP server for this task.")
+        
+        # Add additional SuperClaude directives if provided
         if additional_flags:
-            cmd.extend(additional_flags)
+            for flag in additional_flags:
+                if flag == "--thinkdeep":
+                    mcp_instruction += "\n--thinkdeep: Apply deep multi-angle analysis and hypothesis testing."
+                elif flag == "--consensus":
+                    mcp_instruction += "\n--consensus: Build multi-model consensus validation."
+                elif flag == "--model":
+                    # Skip model flag, next item will be model name
+                    continue
+                elif flag in ["gpt-5", "claude-opus-4.1", "gpt-4.1"]:
+                    # Model names - add as preference
+                    mcp_instruction += f"\nPreferred model: {flag}"
+                elif not flag.startswith("-"):
+                    # Skip non-flag arguments
+                    continue
+                else:
+                    mcp_instruction += f"\n{flag}"
         
-        cmd.append("--print")
+        full_prompt = f"{mcp_instruction}\n\n{prompt}"
         
         logger.info(f"Using {mcp_str} MCP server: {prompt[:50]}...")
         
-        result = self._run_command(cmd, input_text=prompt)
+        result = self._run_command(cmd, input_text=full_prompt)
         
         # Add metadata
         if result.metadata is None:
@@ -1013,6 +1058,28 @@ class AsyncClaudeCLI(ClaudeCLI):
     async def chat_async(self, message: str, context: Optional[str] = None) -> str:
         """Async version of chat"""
         return await asyncio.to_thread(self.chat, message, context)
+    
+    async def execute_with_mode_async(self, 
+                                     prompt: str, 
+                                     mode: Union[SuperClaudeMode, str], 
+                                     context: Optional[Dict[str, Any]] = None) -> CLIResult:
+        """Async wrapper for execute_with_mode"""
+        return await asyncio.to_thread(self.execute_with_mode, prompt, mode, context)
+    
+    async def use_mcp_server_async(self, 
+                                  prompt: str, 
+                                  mcp: Union[SuperClaudeMCP, str],
+                                  additional_flags: List[str] = None) -> CLIResult:
+        """Async wrapper for use_mcp_server"""
+        return await asyncio.to_thread(self.use_mcp_server, prompt, mcp, additional_flags)
+    
+    async def delegate_to_agent_async(self, 
+                                     prompt: str, 
+                                     agent: Union[SuperClaudeAgent, str] = None,
+                                     task_manage: bool = False,
+                                     quality_loop: bool = False) -> CLIResult:
+        """Async wrapper for delegate_to_agent"""
+        return await asyncio.to_thread(self.delegate_to_agent, prompt, agent, task_manage, quality_loop)
 
 # Example usage and testing
 if __name__ == "__main__":

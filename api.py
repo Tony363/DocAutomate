@@ -125,12 +125,10 @@ class ConsensusRequest(BaseModel):
     models: Optional[List[str]] = None
 
 class RemediationRequest(BaseModel):
-    document_id: str
     issues: List[Dict[str, Any]]
     template: Optional[str] = None
 
 class ValidationRequest(BaseModel):
-    document_id: str
     original_content: str
     remediated_content: str
     validation_type: str = "quality"  # quality, security, compliance
