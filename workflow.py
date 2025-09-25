@@ -62,6 +62,10 @@ class WorkflowEngine:
             'api_call': self._execute_api_call,
             'mcp_task': self._execute_mcp_task,
             'send_email': self._execute_send_email,
+            'claude_delegate': self._execute_claude_delegate,
+            'claude_consensus': self._execute_claude_consensus,
+            'claude_thinkdeep': self._execute_claude_thinkdeep,
+            'claude_remediate': self._execute_claude_remediate,
             'data_transform': self._execute_data_transform,
             'conditional': self._execute_conditional,
             'parallel': self._execute_parallel,
@@ -960,7 +964,161 @@ class WorkflowEngine:
         
         return sorted(runs, key=lambda x: x.started_at, reverse=True)
 
-# Example usage
+    # Enhanced Claude Code Action Handlers
+    
+    async def _execute_claude_delegate(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute task delegation to Claude agents"""
+        try:
+            from services.claude_service import claude_service
+            
+            agent = config.get('agent')  # Specific agent or None for auto-routing
+            task = config.get('task', config.get('prompt'))
+            context = config.get('context', {})
+            
+            logger.info(f"Delegating to Claude agent: {agent or 'auto'}")
+            
+            result = await claude_service.delegate_to_agent(
+                task_description=task,
+                agent=agent,
+                context=context
+            )
+            
+            return {
+                'status': 'success' if result.get('success') else 'failed',
+                'agent_used': result.get('agent_used'),
+                'output': result.get('output'),
+                'context': result.get('context')
+            }
+            
+        except Exception as e:
+            logger.error(f"Claude delegation failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    async def _execute_claude_consensus(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute multi-model consensus validation"""
+        try:
+            from services.claude_service import claude_service, AnalysisResult
+            
+            # Get analysis data from config or state
+            analysis_data = config.get('analysis_data', state.get('analysis_results', {}))
+            document_id = config.get('document_id', state.get('document_id'))
+            models = config.get('models', ['gpt-5', 'claude-opus-4.1', 'gpt-4.1'])
+            
+            logger.info(f"Running consensus validation with models: {models}")
+            
+            # Convert to proper format if needed
+            analysis_results = {}
+            for agent, data in analysis_data.items():
+                if isinstance(data, dict):
+                    analysis_results[agent] = AnalysisResult(
+                        success=data.get('success', True),
+                        analysis=data.get('analysis', {}),
+                        agent_used=agent,
+                        confidence=data.get('confidence', 0.5)
+                    )
+                else:
+                    analysis_results[agent] = data
+            
+            consensus = await claude_service.consensus_validation(
+                analysis_results=analysis_results,
+                document_id=document_id,
+                models=models
+            )
+            
+            return {
+                'status': 'success' if consensus.success else 'failed',
+                'consensus': consensus.consensus,
+                'agreement_score': consensus.agreement_score,
+                'models_used': consensus.models_used
+            }
+            
+        except Exception as e:
+            logger.error(f"Consensus validation failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    async def _execute_claude_thinkdeep(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute deep thinking analysis using Claude"""
+        try:
+            from claude_cli import AsyncClaudeCLI, SuperClaudeMCP
+            
+            prompt = config.get('prompt')
+            data = config.get('data', state.get('document_content', ''))
+            model = config.get('model', 'gpt-5')
+            
+            logger.info(f"Running deep thinking analysis with model: {model}")
+            
+            cli = AsyncClaudeCLI()
+            
+            # Use Zen MCP with thinkdeep
+            result = await cli.use_mcp_server(
+                prompt=f"{prompt}\n\nData: {data[:2000]}...",
+                mcp=SuperClaudeMCP.ZEN,
+                additional_flags=['--thinkdeep', '--model', model]
+            )
+            
+            return {
+                'status': 'success' if result.success else 'failed',
+                'analysis': result.output,
+                'model_used': model
+            }
+            
+        except Exception as e:
+            logger.error(f"Deep thinking analysis failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    async def _execute_claude_remediate(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute document remediation using Claude"""
+        try:
+            from services.claude_service import claude_service
+            
+            document_content = config.get('document_content', state.get('document_content', ''))
+            issues = config.get('issues', state.get('issues', []))
+            document_id = config.get('document_id', state.get('document_id'))
+            
+            logger.info(f"Running remediation for document {document_id} with {len(issues)} issues")
+            
+            remediation = await claude_service.generate_remediation(
+                document_content=document_content,
+                issues=issues,
+                document_id=document_id
+            )
+            
+            if remediation.success:
+                # Save remediated content
+                output_dir = Path(f"docs/generated/{document_id}")
+                output_dir.mkdir(parents=True, exist_ok=True)
+                
+                output_file = output_dir / "remediated_document.md"
+                output_file.write_text(remediation.remediated_content)
+                
+                return {
+                    'status': 'success',
+                    'remediated_path': str(output_file),
+                    'issues_resolved': remediation.issues_resolved,
+                    'quality_score': remediation.quality_score
+                }
+            else:
+                return {
+                    'status': 'failed',
+                    'error': 'Remediation failed'
+                }
+                
+        except Exception as e:
+            logger.error(f"Document remediation failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+
 if __name__ == "__main__":
     async def main():
         engine = WorkflowEngine()

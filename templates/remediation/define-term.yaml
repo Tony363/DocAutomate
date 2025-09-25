@@ -1,0 +1,121 @@
+# Define Term Remediation Template
+# Purpose: Add definition for undefined technical terms
+
+template:
+  id: define-term
+  name: Term Definition Template
+  version: 1.0.0
+  purpose: Add clear definition for technical terms that are used without explanation
+  
+  applicable_to:
+    issue_types: [clarity, consistency]
+    severity_range: [low, medium]
+    document_types: [markdown, html, docx]
+  
+  inputs:
+    required:
+      term: string  # The term to define
+      definition: string  # Clear definition of the term
+      context_section: string  # Section where term is first used
+    optional:
+      examples: array  # Usage examples
+      related_terms: array  # Related terminology
+      acronym_expansion: string  # If term is an acronym
+  
+  generation:
+    method: insert  # Insert definition before first usage
+    
+    patterns:
+      inline_definition: |
+        {term} (_{definition}_)
+      
+      glossary_entry: |
+        **{term}**: {definition}
+        {% if examples %}
+        _Examples_: 
+        {% for example in examples %}
+        - {example}
+        {% endfor %}
+        {% endif %}
+      
+      detailed_definition: |
+        ### {term}
+        {% if acronym_expansion %}
+        _{acronym_expansion}_
+        {% endif %}
+        
+        {definition}
+        
+        {% if examples %}
+        **Examples:**
+        {% for example in examples %}
+        - {example}
+        {% endfor %}
+        {% endif %}
+        
+        {% if related_terms %}
+        **Related Terms:** {% for term in related_terms %}{term}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% endif %}
+    
+    selection_logic: |
+      if location.type == 'glossary':
+        return 'glossary_entry'
+      elif issue.severity == 'low':
+        return 'inline_definition'
+      else:
+        return 'detailed_definition'
+  
+  output_constraints:
+    max_length: 500  # Maximum characters for definition
+    style_guide: technical-writing
+    format: markdown
+    rules:
+      - Definition must be self-contained
+      - Avoid circular references
+      - Use simple language where possible
+      - Include concrete examples for complex terms
+  
+  validators:
+    - type: content
+      rules:
+        - Term is defined before first usage
+        - Definition is clear and unambiguous
+        - No undefined terms in definition itself
+    
+    - type: style
+      rules:
+        - Consistent formatting with document
+        - Appropriate technical level for audience
+    
+    - type: structural
+      rules:
+        - Definition properly integrated into document flow
+        - Cross-references are valid
+  
+  examples:
+    - context: API Documentation
+      before: |
+        The API requires a session token for all authenticated requests.
+      after: |
+        The API requires a session token (a temporary credential issued after 
+        successful authentication that must be included in the Authorization 
+        header) for all authenticated requests.
+    
+    - context: Glossary Section
+      before: |
+        ## Glossary
+        (empty)
+      after: |
+        ## Glossary
+        
+        **Session Token**: A temporary credential issued by the authentication 
+        service after successful login. Session tokens expire after 24 hours 
+        and must be included in the Authorization header for all API requests.
+        _Examples_:
+        - `Authorization: Bearer <session_token>`
+        - Store securely in browser localStorage or secure cookie
+  
+  metrics:
+    average_application_time: 2s
+    success_rate: 0.95
+    user_satisfaction: 4.2/5

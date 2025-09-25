@@ -1,0 +1,210 @@
+name: "document_remediation"
+description: "Document remediation workflow using Claude Code for issue resolution"
+version: "2.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for remediation"
+  
+  - name: "document_content"
+    type: "string"
+    required: true
+    description: "Original document content"
+    
+  - name: "issues"
+    type: "array"
+    required: true
+    description: "List of issues to remediate"
+    
+  - name: "template"
+    type: "string"
+    required: false
+    default: "standard"
+    description: "Remediation template to use"
+    
+  - name: "quality_threshold"
+    type: "number"
+    required: false
+    default: 0.8
+    description: "Minimum quality score after remediation"
+
+steps:
+  - id: "prepare_remediation"
+    type: "data_transform"
+    description: "Prepare remediation context"
+    config:
+      transformations:
+        remediation_id: "remediation_{{ document_id }}_{{ timestamp() }}"
+        issue_count: "{{ issues | length }}"
+        critical_issues: "{{ issues | selectattr('severity', 'equalto', 'critical') | list | length }}"
+        high_issues: "{{ issues | selectattr('severity', 'equalto', 'high') | list | length }}"
+        
+  - id: "prioritize_issues"
+    type: "claude_analyze"
+    description: "Prioritize issues for remediation"
+    config:
+      prompt: |
+        Prioritize these issues for remediation of document {{ document_id }}:
+        
+        Issues:
+        {{ issues }}
+        
+        Create a prioritized remediation plan that:
+        1. Groups related issues
+        2. Orders by severity and impact
+        3. Identifies dependencies between fixes
+        4. Estimates complexity of each fix
+        
+        Return structured remediation plan.
+      data: "{{ issues }}"
+  
+  - id: "generate_remediation"
+    type: "claude_remediate"
+    description: "Generate remediated document using Claude Code"
+    config:
+      document_id: "{{ document_id }}"
+      document_content: "{{ document_content }}"
+      issues: "{{ steps.prioritize_issues.analysis.prioritized_issues or issues }}"
+  
+  - id: "validate_remediation"
+    type: "claude_thinkdeep"
+    description: "Validate the remediated document"
+    config:
+      prompt: |
+        Validate the remediation of document {{ document_id }}:
+        
+        Original Issues: {{ issue_count }}
+        Issues Addressed: {{ steps.generate_remediation.issues_resolved | length }}
+        
+        Remediated Content Preview:
+        {{ steps.generate_remediation.remediated_content[:1000] }}...
+        
+        Validate:
+        1. All critical issues resolved
+        2. Document structure maintained
+        3. Content accuracy preserved
+        4. No new issues introduced
+        5. Quality improvements achieved
+        
+        Calculate quality score (0-100).
+      model: "gpt-5"
+      data: "{{ steps.generate_remediation }}"
+  
+  - id: "check_quality_threshold"
+    type: "conditional"
+    description: "Check if quality threshold is met"
+    config:
+      condition: "{{ steps.validate_remediation.analysis.quality_score >= (quality_threshold * 100) }}"
+      if_true:
+        type: "data_transform"
+        config:
+          transformations:
+            quality_status: "approved"
+            message: "Remediation meets quality threshold"
+      if_false:
+        type: "claude_delegate"
+        config:
+          agent: "quality-engineer"
+          task: "Identify additional improvements needed for document {{ document_id }} to meet quality threshold of {{ quality_threshold * 100 }}%"
+          context:
+            current_quality: "{{ steps.validate_remediation.analysis.quality_score }}"
+            remediated_content: "{{ steps.generate_remediation.remediated_content }}"
+  
+  - id: "generate_diff_report"
+    type: "claude_analyze"
+    description: "Generate difference report between original and remediated"
+    config:
+      prompt: |
+        Generate a comprehensive diff report comparing:
+        
+        Original Document ({{ document_content | length }} chars)
+        vs
+        Remediated Document ({{ steps.generate_remediation.remediated_content | length }} chars)
+        
+        Provide:
+        1. Summary of changes made
+        2. Sections added/removed/modified
+        3. Key improvements
+        4. Remaining concerns if any
+      data:
+        original: "{{ document_content[:2000] }}..."
+        remediated: "{{ steps.generate_remediation.remediated_content[:2000] }}..."
+  
+  - id: "save_remediated_document"
+    type: "api_call"
+    description: "Save remediated document"
+    config:
+      url: "http://localhost:8001/documents/{{ document_id }}/save"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        content: "{{ steps.generate_remediation.remediated_content }}"
+        metadata:
+          remediation_id: "{{ steps.prepare_remediation.remediation_id }}"
+          issues_resolved: "{{ steps.generate_remediation.issues_resolved }}"
+          quality_score: "{{ steps.generate_remediation.quality_score }}"
+          validated_score: "{{ steps.validate_remediation.analysis.quality_score }}"
+  
+  - id: "generate_remediation_report"
+    type: "data_transform"
+    description: "Generate comprehensive remediation report"
+    config:
+      transformations:
+        report:
+          document_id: "{{ document_id }}"
+          remediation_id: "{{ steps.prepare_remediation.remediation_id }}"
+          timestamp: "{{ now() }}"
+          status: "{{ steps.check_quality_threshold.quality_status or 'needs_review' }}"
+          metrics:
+            original_issues: "{{ issue_count }}"
+            critical_issues: "{{ steps.prepare_remediation.critical_issues }}"
+            high_issues: "{{ steps.prepare_remediation.high_issues }}"
+            issues_resolved: "{{ steps.generate_remediation.issues_resolved | length }}"
+            resolution_rate: "{{ (steps.generate_remediation.issues_resolved | length) / issue_count * 100 }}%"
+          quality:
+            initial_score: "{{ steps.generate_remediation.quality_score * 100 }}"
+            validated_score: "{{ steps.validate_remediation.analysis.quality_score }}"
+            threshold: "{{ quality_threshold * 100 }}"
+            meets_threshold: "{{ steps.check_quality_threshold.quality_status == 'approved' }}"
+          changes: "{{ steps.generate_diff_report.analysis }}"
+          remediation_path: "{{ steps.generate_remediation.remediated_path }}"
+  
+  - id: "notify_completion"
+    type: "send_email"
+    description: "Notify stakeholders of remediation completion"
+    config:
+      to: "document-team@company.com"
+      subject: "Document Remediation {{ 'Approved' if steps.check_quality_threshold.quality_status == 'approved' else 'Needs Review' }}: {{ document_id }}"
+      body: |
+        Document remediation has been completed for {{ document_id }}.
+        
+        Status: {{ steps.check_quality_threshold.quality_status or 'needs_review' }}
+        
+        Remediation Summary:
+        - Original Issues: {{ issue_count }}
+        - Issues Resolved: {{ steps.generate_remediation.issues_resolved | length }}
+        - Resolution Rate: {{ (steps.generate_remediation.issues_resolved | length) / issue_count * 100 }}%
+        
+        Quality Metrics:
+        - Initial Score: {{ steps.generate_remediation.quality_score * 100 }}%
+        - Validated Score: {{ steps.validate_remediation.analysis.quality_score }}%
+        - Required Threshold: {{ quality_threshold * 100 }}%
+        - Status: {{ 'Meets Threshold ✅' if steps.check_quality_threshold.quality_status == 'approved' else 'Below Threshold ⚠️' }}
+        
+        {% if steps.check_quality_threshold.quality_status != 'approved' %}
+        Action Required: Manual review and additional improvements needed.
+        {% endif %}
+        
+        View remediated document: {{ steps.generate_remediation.remediated_path }}
+        View full report: /orchestrate/runs/{{ steps.prepare_remediation.remediation_id }}
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "remediation"
+  tags: ["remediation", "document-improvement", "claude-code", "quality-assurance"]
+  sla_hours: 2
+  requires_claude: true

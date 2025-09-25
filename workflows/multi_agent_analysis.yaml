@@ -1,0 +1,160 @@
+name: "multi_agent_analysis"
+description: "Parallel multi-agent document analysis using Claude Code agents"
+version: "2.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for analysis"
+  
+  - name: "document_content"
+    type: "string"
+    required: true
+    description: "Document content to analyze"
+    
+  - name: "agents"
+    type: "array"
+    required: false
+    default: ["general-purpose", "technical-writer", "security-engineer", "quality-engineer", "requirements-analyst"]
+    description: "List of Claude agents to use"
+    
+  - name: "parallel"
+    type: "boolean"
+    required: false
+    default: true
+    description: "Run agents in parallel or sequential"
+
+steps:
+  - id: "prepare_analysis"
+    type: "data_transform"
+    description: "Prepare analysis context"
+    config:
+      transformations:
+        analysis_id: "analysis_{{ document_id }}_{{ timestamp() }}"
+        document_length: "{{ document_content | length }}"
+        agent_count: "{{ agents | length }}"
+        
+  - id: "agent_analysis"
+    type: "conditional"
+    description: "Choose parallel or sequential analysis"
+    config:
+      condition: "{{ parallel }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "claude_delegate"
+              config:
+                agent: "{{ agents[0] }}"
+                task: "Analyze document {{ document_id }}: structure, quality, completeness"
+                context:
+                  document_content: "{{ document_content }}"
+                  
+            - type: "claude_delegate"
+              config:
+                agent: "{{ agents[1] if agents | length > 1 else 'technical-writer' }}"
+                task: "Review document {{ document_id }}: clarity, consistency, terminology"
+                context:
+                  document_content: "{{ document_content }}"
+                  
+            - type: "claude_delegate"
+              config:
+                agent: "{{ agents[2] if agents | length > 2 else 'security-engineer' }}"
+                task: "Analyze document {{ document_id }}: security, compliance, vulnerabilities"
+                context:
+                  document_content: "{{ document_content }}"
+                  
+            - type: "claude_delegate"
+              config:
+                agent: "{{ agents[3] if agents | length > 3 else 'quality-engineer' }}"
+                task: "Assess document {{ document_id }}: quality metrics, test coverage"
+                context:
+                  document_content: "{{ document_content }}"
+                  
+            - type: "claude_delegate"
+              config:
+                agent: "{{ agents[4] if agents | length > 4 else 'requirements-analyst' }}"
+                task: "Validate document {{ document_id }}: requirements, completeness, coverage"
+                context:
+                  document_content: "{{ document_content }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            sequential_mode: true
+            note: "Sequential analysis would be executed here"
+  
+  - id: "aggregate_results"
+    type: "claude_analyze"
+    description: "Aggregate and summarize all agent findings"
+    config:
+      prompt: |
+        Aggregate and summarize the analysis results from multiple agents for document {{ document_id }}.
+        
+        Agent Results:
+        {{ steps.agent_analysis }}
+        
+        Please provide:
+        1. Summary of key findings
+        2. Critical issues identified
+        3. Recommendations prioritized by importance
+        4. Overall document quality score (0-100)
+      data: "{{ steps.agent_analysis }}"
+  
+  - id: "identify_issues"
+    type: "data_transform"
+    description: "Extract and categorize issues"
+    config:
+      transformations:
+        issues:
+          critical: "{{ steps.aggregate_results.analysis.critical_issues or [] }}"
+          high: "{{ steps.aggregate_results.analysis.high_priority_issues or [] }}"
+          medium: "{{ steps.aggregate_results.analysis.medium_priority_issues or [] }}"
+          low: "{{ steps.aggregate_results.analysis.low_priority_issues or [] }}"
+        total_issues: "{{ (steps.aggregate_results.analysis.critical_issues | length) + (steps.aggregate_results.analysis.high_priority_issues | length) + (steps.aggregate_results.analysis.medium_priority_issues | length) + (steps.aggregate_results.analysis.low_priority_issues | length) }}"
+  
+  - id: "quality_assessment"
+    type: "conditional"
+    description: "Assess if document meets quality threshold"
+    config:
+      condition: "{{ steps.aggregate_results.analysis.quality_score >= 70 }}"
+      if_true:
+        type: "data_transform"
+        config:
+          transformations:
+            quality_status: "acceptable"
+            recommendation: "Document meets quality standards"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            quality_status: "needs_improvement"
+            recommendation: "Document requires remediation"
+  
+  - id: "generate_analysis_report"
+    type: "data_transform"
+    description: "Generate comprehensive analysis report"
+    config:
+      transformations:
+        report:
+          document_id: "{{ document_id }}"
+          analysis_id: "{{ steps.prepare_analysis.analysis_id }}"
+          timestamp: "{{ now() }}"
+          agents_used: "{{ agents }}"
+          execution_mode: "{{ 'parallel' if parallel else 'sequential' }}"
+          summary: "{{ steps.aggregate_results.analysis.summary }}"
+          quality_score: "{{ steps.aggregate_results.analysis.quality_score }}"
+          quality_status: "{{ steps.quality_assessment.quality_status }}"
+          issues:
+            total: "{{ steps.identify_issues.total_issues }}"
+            breakdown: "{{ steps.identify_issues.issues }}"
+          recommendations: "{{ steps.aggregate_results.analysis.recommendations }}"
+          next_steps: "{{ steps.quality_assessment.recommendation }}"
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "analysis"
+  tags: ["multi-agent", "analysis", "claude-code", "parallel-processing"]
+  sla_hours: 1
+  requires_claude: true

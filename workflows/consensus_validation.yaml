@@ -1,0 +1,210 @@
+name: "consensus_validation"
+description: "Multi-model consensus validation using Claude Code Zen MCP"
+version: "2.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for validation"
+  
+  - name: "analysis_data"
+    type: "object"
+    required: true
+    description: "Analysis data to validate"
+    
+  - name: "models"
+    type: "array"
+    required: false
+    default: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+    description: "Models to use for consensus"
+    
+  - name: "quorum_threshold"
+    type: "number"
+    required: false
+    default: 0.67
+    description: "Agreement threshold for consensus (0.0-1.0)"
+    
+  - name: "validation_type"
+    type: "string"
+    required: false
+    default: "comprehensive"
+    description: "Type of validation (comprehensive, security, quality, compliance)"
+
+steps:
+  - id: "prepare_consensus"
+    type: "data_transform"
+    description: "Prepare data for consensus validation"
+    config:
+      transformations:
+        consensus_id: "consensus_{{ document_id }}_{{ timestamp() }}"
+        model_count: "{{ models | length }}"
+        quorum_required: "{{ (models | length) * quorum_threshold | round }}"
+        
+  - id: "extract_key_findings"
+    type: "claude_analyze"
+    description: "Extract and prioritize key findings for validation"
+    config:
+      prompt: |
+        Extract and prioritize the most important findings from this analysis data:
+        
+        {{ analysis_data }}
+        
+        Focus on:
+        1. Critical issues that must be addressed
+        2. High-priority recommendations
+        3. Quality metrics and scores
+        4. Security and compliance concerns
+        
+        Return structured list of top 10 findings for consensus validation.
+      data: "{{ analysis_data }}"
+  
+  - id: "multi_model_consensus"
+    type: "claude_consensus"
+    description: "Run multi-model consensus validation using Zen MCP"
+    config:
+      analysis_data: "{{ analysis_data }}"
+      document_id: "{{ document_id }}"
+      models: "{{ models }}"
+  
+  - id: "calculate_agreement"
+    type: "data_transform"
+    description: "Calculate agreement metrics"
+    config:
+      transformations:
+        agreement_score: "{{ steps.multi_model_consensus.agreement_score }}"
+        consensus_reached: "{{ steps.multi_model_consensus.agreement_score >= quorum_threshold }}"
+        models_agreed: "{{ (steps.multi_model_consensus.agreement_score * models | length) | round }}"
+        models_disagreed: "{{ models | length - ((steps.multi_model_consensus.agreement_score * models | length) | round) }}"
+  
+  - id: "validate_by_type"
+    type: "conditional"
+    description: "Perform type-specific validation"
+    config:
+      condition: "{{ validation_type != 'comprehensive' }}"
+      if_true:
+        type: "claude_thinkdeep"
+        config:
+          prompt: |
+            Perform deep {{ validation_type }} validation for document {{ document_id }}.
+            
+            Consensus Results:
+            {{ steps.multi_model_consensus.consensus }}
+            
+            Focus specifically on {{ validation_type }} aspects and provide detailed assessment.
+          model: "gpt-5"
+          data: "{{ steps.multi_model_consensus.consensus }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            validation_note: "Comprehensive validation completed via consensus"
+  
+  - id: "determine_confidence"
+    type: "data_transform"
+    description: "Determine overall confidence level"
+    config:
+      transformations:
+        confidence_level: |
+          {% if steps.calculate_agreement.agreement_score >= 0.9 %}
+            very_high
+          {% elif steps.calculate_agreement.agreement_score >= 0.75 %}
+            high
+          {% elif steps.calculate_agreement.agreement_score >= 0.6 %}
+            moderate
+          {% elif steps.calculate_agreement.agreement_score >= 0.4 %}
+            low
+          {% else %}
+            very_low
+          {% endif %}
+        confidence_score: "{{ steps.calculate_agreement.agreement_score * 100 }}"
+  
+  - id: "identify_disagreements"
+    type: "conditional"
+    description: "Analyze disagreements if consensus not reached"
+    config:
+      condition: "{{ not steps.calculate_agreement.consensus_reached }}"
+      if_true:
+        type: "claude_analyze"
+        config:
+          prompt: |
+            Analyze the disagreements in the consensus validation:
+            
+            Consensus Data: {{ steps.multi_model_consensus.consensus }}
+            Agreement Score: {{ steps.calculate_agreement.agreement_score }}
+            
+            Identify:
+            1. Points of disagreement between models
+            2. Reasons for disagreement
+            3. Recommendations for resolution
+            4. Risk assessment of proceeding without full consensus
+          data: "{{ steps.multi_model_consensus.consensus }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            disagreement_analysis: "Full consensus achieved"
+  
+  - id: "generate_validation_report"
+    type: "data_transform"
+    description: "Generate comprehensive validation report"
+    config:
+      transformations:
+        validation_report:
+          document_id: "{{ document_id }}"
+          consensus_id: "{{ steps.prepare_consensus.consensus_id }}"
+          timestamp: "{{ now() }}"
+          validation_type: "{{ validation_type }}"
+          models_used: "{{ models }}"
+          consensus:
+            reached: "{{ steps.calculate_agreement.consensus_reached }}"
+            agreement_score: "{{ steps.calculate_agreement.agreement_score }}"
+            confidence_level: "{{ steps.determine_confidence.confidence_level }}"
+            confidence_score: "{{ steps.determine_confidence.confidence_score }}"
+            models_agreed: "{{ steps.calculate_agreement.models_agreed }}"
+            models_disagreed: "{{ steps.calculate_agreement.models_disagreed }}"
+          key_findings: "{{ steps.extract_key_findings.analysis }}"
+          consensus_results: "{{ steps.multi_model_consensus.consensus }}"
+          disagreements: "{{ steps.identify_disagreements }}"
+          recommendations: |
+            {% if steps.calculate_agreement.consensus_reached %}
+              Proceed with high confidence - consensus achieved
+            {% elif steps.calculate_agreement.agreement_score >= 0.5 %}
+              Proceed with caution - partial consensus
+            {% else %}
+              Review required - low consensus
+            {% endif %}
+  
+  - id: "alert_if_low_consensus"
+    type: "conditional"
+    description: "Send alert if consensus is too low"
+    config:
+      condition: "{{ steps.calculate_agreement.agreement_score < 0.5 }}"
+      if_true:
+        type: "send_email"
+        config:
+          to: "review-team@company.com"
+          subject: "⚠️ Low Consensus Alert: Document {{ document_id }}"
+          body: |
+            Low consensus detected for document {{ document_id }}.
+            
+            Agreement Score: {{ steps.calculate_agreement.agreement_score * 100 }}%
+            Models: {{ models | join(', ') }}
+            Validation Type: {{ validation_type }}
+            
+            Manual review recommended before proceeding.
+            
+            View full report: /orchestrate/runs/{{ steps.prepare_consensus.consensus_id }}
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            alert_sent: false
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "validation"
+  tags: ["consensus", "validation", "multi-model", "zen-mcp", "claude-code"]
+  sla_hours: 1
+  requires_claude: true
+  requires_zen_mcp: true

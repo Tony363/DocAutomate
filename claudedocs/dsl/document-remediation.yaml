@@ -1,0 +1,323 @@
+# Document Remediation Unified DSL Schema
+# Version: 1.0.0
+# Purpose: Define structure for document analysis, issue tracking, and remediation
+
+# Document Analysis Structure
+document_analysis:
+  # Document metadata
+  doc_id: string  # Content-addressed hash of document
+  doc_path: string  # Original document location
+  doc_format: enum[pdf|docx|markdown|html|plaintext]
+  run_id: string  # Timestamp + config hash
+  run_config:
+    model: string
+    temperature: float
+    agents_used: array
+    tool_versions: object
+  
+  # Issue definitions
+  issues:
+    - id: string  # Stable content-addressed hash
+      type: enum
+        - clarity  # Unclear or ambiguous content
+        - completeness  # Missing required sections
+        - security  # Security vulnerabilities or concerns
+        - performance  # Performance-related issues
+        - structure  # Organizational problems
+        - consistency  # Inconsistent terminology or patterns
+        - compliance  # Regulatory or standard violations
+      
+      severity: enum
+        - critical  # Blocks document usage
+        - high  # Significant impact
+        - medium  # Moderate impact
+        - low  # Minor issues
+      
+      confidence: float  # 0.0 to 1.0
+      
+      # Source tracking
+      detected_by: string  # Agent that found the issue
+      detected_at: timestamp
+      
+      # Location information
+      location:
+        type: enum[section|line|component|figure|table|code_block]
+        ref:
+          path: string  # Section path like "/api/auth"
+          line_range: [start, end]  # Line numbers if applicable
+          anchor_id: string  # HTML/MD anchor if available
+      
+      # Evidence and context
+      evidence:
+        snippets: array  # Relevant text excerpts
+        context: string  # Surrounding context
+        references: array  # Related sections or documents
+      
+      # Remediation planning
+      remediation:
+        strategy: enum[template|rewrite|enhancement|addition|removal]
+        template_id: string  # If using template
+        template_version: string
+        parameters: object  # Template-specific parameters
+        constraints: array  # Requirements for fix
+        acceptance_criteria: array  # Validation rules
+        estimated_effort: enum[trivial|minor|moderate|major]
+      
+      # Tracking
+      status: enum[open|analyzing|planned|in_progress|fixed|wont_fix|deferred]
+      resolution:
+        fixed_in: string  # Document version/commit
+        verified_by: array  # Validation agents
+        verification_date: timestamp
+      
+      # Relations
+      tags: array
+      related_issues: array  # Issue IDs
+      blocks: array  # Issues this blocks
+      blocked_by: array  # Issues blocking this
+
+# Remediation Templates
+remediation_templates:
+  - id: string
+    name: string
+    version: string
+    purpose: string
+    
+    # Template configuration
+    applicable_to:
+      issue_types: array
+      severity_range: [min, max]
+      document_types: array
+    
+    # Input requirements
+    inputs:
+      required: object  # Required parameters schema
+      optional: object  # Optional parameters schema
+      
+    # Generation rules
+    generation:
+      method: enum[replace|insert|append|wrap]
+      pattern: string  # Template pattern with placeholders
+      
+    # Output constraints
+    output_constraints:
+      max_length: integer
+      style_guide: string
+      format: string
+      
+    # Validation
+    validators:
+      - type: enum[structural|content|style|compliance]
+        rules: array
+        
+    # Examples
+    examples:
+      - before: string
+        after: string
+        context: string
+
+# Generation Pipeline Configuration
+generation_pipeline:
+  stages:
+    # Stage 1: Issue Processing
+    parse_issues:
+      input: issues_list
+      operations:
+        - validate_schema
+        - normalize_format
+        - deduplicate
+      output: normalized_issues
+    
+    # Stage 2: Categorization
+    categorize:
+      input: normalized_issues
+      operations:
+        - group_by_type
+        - group_by_location
+        - identify_dependencies
+      output: categorized_issues
+    
+    # Stage 3: Prioritization
+    prioritize:
+      input: categorized_issues
+      operations:
+        - apply_severity_weights
+        - consider_dependencies
+        - apply_business_rules
+      output: prioritized_issues
+    
+    # Stage 4: Template Selection
+    select_templates:
+      input: prioritized_issues
+      operations:
+        - match_issue_to_template
+        - validate_applicability
+        - prepare_parameters
+      output: template_assignments
+    
+    # Stage 5: Content Generation
+    generate:
+      input: template_assignments
+      operations:
+        - inject_context
+        - apply_template
+        - ensure_consistency
+      output: generated_sections
+    
+    # Stage 6: Integration
+    integrate:
+      input: generated_sections
+      operations:
+        - merge_with_original
+        - resolve_conflicts
+        - maintain_structure
+      output: integrated_document
+    
+    # Stage 7: Validation
+    validate:
+      input: integrated_document
+      quality_gates:
+        - structural_validity
+        - content_completeness
+        - style_compliance
+        - link_integrity
+        - terminology_consistency
+      output: validation_report
+    
+    # Stage 8: Iteration
+    iterate:
+      condition: validation_report.failed_gates > 0
+      max_iterations: 3
+      operations:
+        - identify_failures
+        - adjust_generation
+        - regenerate_sections
+    
+    # Stage 9: Finalization
+    finalize:
+      input: validated_document
+      operations:
+        - generate_metadata
+        - create_changelog
+        - package_artifacts
+      output: final_document
+
+# Validation Gates
+validation_gates:
+  structural:
+    - id: toc_completeness
+      description: Table of contents matches document structure
+      severity: medium
+      
+    - id: heading_hierarchy
+      description: Proper heading nesting (H1 > H2 > H3)
+      severity: high
+      
+    - id: section_presence
+      description: All required sections present
+      severity: critical
+  
+  consistency:
+    - id: term_definitions
+      description: All technical terms defined before use
+      severity: medium
+      
+    - id: style_guide
+      description: Follows specified style guide
+      severity: low
+      
+    - id: reference_integrity
+      description: All internal references valid
+      severity: high
+  
+  security:
+    - id: sensitive_data
+      description: No exposed credentials or PII
+      severity: critical
+      
+    - id: auth_documentation
+      description: Authentication flows properly documented
+      severity: high
+  
+  quality:
+    - id: example_completeness
+      description: Code examples are complete and runnable
+      severity: medium
+      
+    - id: api_documentation
+      description: All API endpoints documented
+      severity: high
+
+# Agent Configuration
+agent_roles:
+  general-purpose:
+    purpose: Initial document parsing and structure analysis
+    capabilities:
+      - format_detection
+      - structure_extraction
+      - metadata_extraction
+    output: parsed_document
+  
+  technical-writer:
+    purpose: Documentation quality and clarity
+    focus_areas:
+      - terminology_consistency
+      - explanation_clarity
+      - example_quality
+      - readability_metrics
+    issue_types: [clarity, completeness, consistency]
+  
+  requirements-analyst:
+    purpose: Requirements completeness and traceability
+    focus_areas:
+      - requirement_coverage
+      - acceptance_criteria
+      - test_coverage
+      - dependency_mapping
+    issue_types: [completeness, structure]
+  
+  security-engineer:
+    purpose: Security vulnerability assessment
+    focus_areas:
+      - authentication_flows
+      - authorization_patterns
+      - data_protection
+      - compliance_requirements
+    issue_types: [security, compliance]
+  
+  quality-engineer:
+    purpose: Testing and quality metrics
+    focus_areas:
+      - test_coverage
+      - error_handling
+      - performance_considerations
+      - monitoring_requirements
+    issue_types: [performance, completeness]
+  
+  system-architect:
+    purpose: Synthesis and architectural coherence
+    capabilities:
+      - issue_consolidation
+      - dependency_analysis
+      - impact_assessment
+      - solution_design
+    output: consolidated_analysis
+
+# Artifact Management
+artifacts:
+  structure:
+    input_documents: /docs/source/{doc_id}/
+    analysis_reports: /docs/analysis/{doc_id}/{run_id}/
+    generated_documents: /docs/generated/{doc_id}/{run_id}/
+    validation_reports: /docs/validation/{doc_id}/{run_id}/
+    templates: /templates/remediation/
+  
+  versioning:
+    strategy: content_addressed
+    id_generation: sha256(normalized_content)
+    metadata_format: yaml
+    
+  retention:
+    keep_last_n_runs: 10
+    archive_after_days: 30
+    cleanup_strategy: oldest_first
