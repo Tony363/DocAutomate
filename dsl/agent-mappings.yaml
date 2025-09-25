@@ -1,0 +1,289 @@
+# Agent Mapping Configuration
+# Maps document operations and types to specific SuperClaude agents
+# This file defines the intelligent routing logic for agent selection
+
+version: "1.0.0"
+name: "agent_operation_mappings"
+description: "Intelligent agent routing for document operations"
+
+# Document type to agent mappings
+document_type_mappings:
+  # Technical Documentation
+  api_documentation:
+    primary: "backend-architect"
+    secondary: ["technical-writer", "requirements-analyst"]
+    validation: "quality-engineer"
+    
+  user_guide:
+    primary: "technical-writer"
+    secondary: ["frontend-architect", "general-purpose"]
+    validation: "quality-engineer"
+    
+  readme:
+    primary: "technical-writer"
+    secondary: ["general-purpose"]
+    validation: "requirements-analyst"
+    
+  # Legal Documents
+  contract:
+    primary: "requirements-analyst"
+    secondary: ["general-purpose", "security-engineer"]
+    validation: "quality-engineer"
+    consensus_required: true
+    
+  nda:
+    primary: "security-engineer"
+    secondary: ["requirements-analyst"]
+    validation: "quality-engineer"
+    sensitive: true
+    
+  terms_of_service:
+    primary: "requirements-analyst"
+    secondary: ["security-engineer", "technical-writer"]
+    validation: "quality-engineer"
+    
+  # Financial Documents
+  invoice:
+    primary: "finance-engineer"
+    secondary: ["general-purpose"]
+    validation: "quality-engineer"
+    precision_required: true
+    
+  financial_report:
+    primary: "finance-engineer"
+    secondary: ["requirements-analyst"]
+    validation: "quality-engineer"
+    audit_trail: true
+    
+  # Security Documents
+  security_policy:
+    primary: "security-engineer"
+    secondary: ["requirements-analyst", "technical-writer"]
+    validation: "quality-engineer"
+    compliance_check: true
+    
+  vulnerability_report:
+    primary: "security-engineer"
+    secondary: ["root-cause-analyst"]
+    validation: "security-engineer"
+    critical: true
+    
+  # Development Documents
+  architecture_design:
+    primary: "system-architect"
+    secondary: ["backend-architect", "frontend-architect"]
+    validation: "quality-engineer"
+    
+  test_plan:
+    primary: "quality-engineer"
+    secondary: ["requirements-analyst"]
+    validation: "quality-engineer"
+    
+  code_review:
+    primary: "refactoring-expert"
+    secondary: ["quality-engineer", "security-engineer"]
+    validation: "quality-engineer"
+
+# Operation-specific agent selection
+operation_mappings:
+  # Ingestion operations
+  extract_text:
+    agent: "general-purpose"
+    prompt_focus: "text extraction and structure preservation"
+    
+  parse_structure:
+    agent: "requirements-analyst"
+    prompt_focus: "document structure and hierarchy analysis"
+    
+  extract_metadata:
+    agent: "general-purpose"
+    prompt_focus: "metadata and properties extraction"
+    
+  # Analysis operations
+  identify_issues:
+    agent: "auto"  # Let Claude decide based on content
+    multi_agent: true
+    agents_pool:
+      - technical-writer: "clarity and completeness issues"
+      - requirements-analyst: "structure and coverage gaps"
+      - security-engineer: "security vulnerabilities"
+      - quality-engineer: "quality and standard violations"
+      
+  assess_quality:
+    agent: "quality-engineer"
+    prompt_focus: "comprehensive quality assessment"
+    scoring_required: true
+    
+  check_compliance:
+    agent: "security-engineer"
+    prompt_focus: "compliance and regulatory requirements"
+    
+  # Remediation operations
+  fix_clarity:
+    agent: "technical-writer"
+    prompt_focus: "improve clarity and readability"
+    iterative: true
+    
+  add_missing_sections:
+    agent: "requirements-analyst"
+    prompt_focus: "identify and add missing required sections"
+    
+  improve_structure:
+    agent: "system-architect"
+    prompt_focus: "reorganize for better structure and flow"
+    
+  fix_security_issues:
+    agent: "security-engineer"
+    prompt_focus: "remediate security vulnerabilities"
+    critical: true
+    
+  enhance_quality:
+    agent: "quality-engineer"
+    prompt_focus: "improve overall quality metrics"
+    loop_until_quality: 0.9
+    
+  # Generation operations
+  generate_section:
+    agent: "technical-writer"
+    prompt_focus: "generate missing section content"
+    
+  generate_examples:
+    agent: "frontend-architect"  # For UI examples
+    agent_selection:
+      - condition: "section_type == 'api'"
+        agent: "backend-architect"
+      - condition: "section_type == 'ui'"
+        agent: "frontend-architect"
+      - default: "technical-writer"
+        
+  generate_tests:
+    agent: "quality-engineer"
+    prompt_focus: "generate comprehensive test cases"
+    
+  generate_documentation:
+    agent: "technical-writer"
+    prompt_focus: "generate complete documentation"
+
+# Agent selection rules
+selection_rules:
+  # Priority-based selection
+  priority_rules:
+    - condition: "severity == 'critical'"
+      boost_agents: ["security-engineer", "root-cause-analyst"]
+      
+    - condition: "document_size > 10000"
+      prefer_mode: "uc"  # Ultra-compressed for large docs
+      
+    - condition: "quality_score < 0.5"
+      enable_loop: true
+      max_iterations: 10
+      
+    - condition: "consensus_required == true"
+      enable_zen: true
+      models: ["gpt-5", "claude-opus-4.1"]
+      
+  # Capability matching
+  capability_rules:
+    - required: "financial_analysis"
+      agents: ["finance-engineer"]
+      
+    - required: "security_assessment"
+      agents: ["security-engineer"]
+      
+    - required: "ui_design"
+      agents: ["frontend-architect"]
+      
+    - required: "api_design"
+      agents: ["backend-architect"]
+      
+    - required: "quality_assurance"
+      agents: ["quality-engineer"]
+      
+    - required: "documentation"
+      agents: ["technical-writer"]
+
+# Multi-agent coordination patterns
+coordination_patterns:
+  parallel_analysis:
+    description: "Multiple agents analyze in parallel"
+    execution: "parallel"
+    agents: ["dynamic"]  # Selected based on document type
+    aggregation: "synthesis"
+    
+  sequential_refinement:
+    description: "Agents refine work sequentially"
+    execution: "sequential"
+    flow:
+      - "general-purpose"  # Initial analysis
+      - "specialist"  # Domain-specific refinement
+      - "quality-engineer"  # Final validation
+      
+  consensus_validation:
+    description: "Multiple models reach consensus"
+    execution: "consensus"
+    zen_config:
+      models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+      min_agreement: 2
+      
+  iterative_improvement:
+    description: "Loop until quality threshold met"
+    execution: "loop"
+    config:
+      max_iterations: 5
+      quality_threshold: 0.9
+      agent: "context_dependent"
+
+# Performance optimization
+optimization_hints:
+  # Agent pooling
+  agent_pools:
+    technical_pool: ["technical-writer", "backend-architect", "frontend-architect"]
+    quality_pool: ["quality-engineer", "requirements-analyst"]
+    security_pool: ["security-engineer", "root-cause-analyst"]
+    
+  # Batch processing
+  batch_operations:
+    - operation: "analyze_multiple"
+      max_batch: 10
+      parallel_agents: 5
+      
+    - operation: "validate_bulk"
+      max_batch: 20
+      use_consensus: false  # Too expensive for bulk
+      
+  # Caching strategies
+  cache_config:
+    agent_results: 3600  # 1 hour
+    consensus_results: 7200  # 2 hours
+    quality_scores: 1800  # 30 minutes
+
+# Fallback strategies
+fallback_rules:
+  agent_unavailable:
+    strategy: "next_best"
+    fallback_chain:
+      - "specialist_agent"
+      - "general-purpose"
+      - "root-cause-analyst"  # Can handle anything
+      
+  quality_too_low:
+    strategy: "escalate"
+    escalation:
+      - "add_more_agents"
+      - "enable_consensus"
+      - "increase_iterations"
+      - "use_thinkdeep"
+      
+  timeout:
+    strategy: "graceful_degradation"
+    actions:
+      - "switch_to_uc_mode"
+      - "reduce_parallel_agents"
+      - "disable_consensus"
+
+# Metadata
+metadata:
+  version: "1.0.0"
+  framework: "SuperClaude"
+  last_updated: "2024-01-01"
+  maintainer: "DocAutomate Team"

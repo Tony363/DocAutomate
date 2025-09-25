@@ -1158,6 +1158,18 @@ Key metrics to monitor:
 - Quality scores and trends
 - Error rates by component
 
+## 📈 Recent Updates
+
+### Version 2.0.0 - Major Enhancement
+- **Universal Document Processor**: New generalized workflow for any document type
+- **Enhanced Agent Routing**: Intelligent agent selection based on document content
+- **Multi-Model Consensus**: Support for GPT-5, Claude Opus 4.1, and GPT-4.1 consensus
+- **DSL Integration**: YAML-based workflow definitions with Jinja2 templating
+- **Dynamic Workflows**: Runtime workflow generation based on document analysis
+- **Quality Loop Automation**: Automated quality validation with configurable thresholds
+- **Parallel Agent Execution**: Simultaneous multi-agent processing for performance
+- **Code Generation**: Automated Python script creation for analysis and visualization
+
 ## 🤝 Contributing
 
 ### Development Setup

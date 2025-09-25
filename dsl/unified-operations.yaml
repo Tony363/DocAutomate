@@ -1,0 +1,274 @@
+# Unified DSL Schema for Document Operations
+# This schema defines how all document operations map to SuperClaude Framework agents
+# Every operation is delegated to Claude Code - no local processing
+
+version: "1.0.0"
+name: "unified_document_operations"
+description: "Universal DSL for document ingestion, analysis, remediation, and generation"
+
+# Operation type definitions
+operation_types:
+  ingest:
+    description: "Extract and parse document content"
+    primary_agent: "general-purpose"
+    fallback_agents: ["technical-writer", "requirements-analyst"]
+    capabilities_required: ["parsing", "extraction", "structure_analysis"]
+    
+  analyze:
+    description: "Multi-dimensional document analysis"
+    primary_agent: "auto"  # Let Claude decide based on content
+    parallel_agents:
+      - technical-writer: "clarity and completeness"
+      - requirements-analyst: "structure and coverage"
+      - security-engineer: "vulnerabilities and compliance"
+      - quality-engineer: "quality metrics and standards"
+    consensus_required: true
+    
+  remediate:
+    description: "Fix identified issues in documents"
+    primary_agent: "task-manage"
+    quality_threshold: 0.9
+    max_iterations: 5
+    loop_enabled: true
+    
+  validate:
+    description: "Validate document quality and completeness"
+    primary_agent: "quality-engineer"
+    consensus:
+      enabled: true
+      models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+      min_agreement: 2
+      
+  generate:
+    description: "Generate new document content or sections"
+    primary_agent: "backend-architect"  # For technical docs
+    agent_selection_rules:
+      - condition: "document_type == 'ui_component'"
+        agent: "frontend-architect"
+      - condition: "document_type == 'api_spec'"
+        agent: "backend-architect"
+      - condition: "document_type == 'security_policy'"
+        agent: "security-engineer"
+      - condition: "document_type == 'test_plan'"
+        agent: "quality-engineer"
+
+# Agent capability mappings
+agent_capabilities:
+  general-purpose:
+    strengths: ["versatility", "understanding", "extraction"]
+    document_types: ["*"]  # Can handle any type
+    
+  technical-writer:
+    strengths: ["clarity", "structure", "documentation"]
+    document_types: ["technical", "api", "readme", "guide"]
+    
+  requirements-analyst:
+    strengths: ["completeness", "traceability", "validation"]
+    document_types: ["requirements", "specifications", "contracts"]
+    
+  security-engineer:
+    strengths: ["vulnerability_detection", "compliance", "risk_assessment"]
+    document_types: ["security_policy", "audit", "compliance"]
+    
+  quality-engineer:
+    strengths: ["testing", "metrics", "validation", "standards"]
+    document_types: ["test_plan", "quality_report", "validation"]
+    
+  frontend-architect:
+    strengths: ["ui_design", "user_experience", "accessibility"]
+    document_types: ["ui_spec", "design_system", "component"]
+    
+  backend-architect:
+    strengths: ["api_design", "system_architecture", "scalability"]
+    document_types: ["api_spec", "architecture", "backend"]
+    
+  finance-engineer:
+    strengths: ["financial_analysis", "compliance", "calculations"]
+    document_types: ["invoice", "financial_report", "audit"]
+
+# Workflow patterns
+workflow_patterns:
+  standard_ingestion:
+    steps:
+      - type: "claude_agent"
+        agent: "general-purpose"
+        task: "Extract and parse document maintaining structure"
+        output: "structured_content"
+        
+      - type: "claude_analyze"
+        agent: "requirements-analyst"
+        task: "Analyze document structure and identify sections"
+        input: "{{ structured_content }}"
+        output: "document_structure"
+        
+  multi_agent_analysis:
+    parallel: true
+    steps:
+      - type: "claude_delegate"
+        agents: ["technical-writer", "requirements-analyst", "security-engineer"]
+        task: "Analyze document from your specialized perspective"
+        aggregate_results: true
+        
+      - type: "claude_consensus"
+        task: "Synthesize findings from all agents"
+        min_agreement: 0.7
+        
+  quality_iteration:
+    loop: true
+    max_iterations: 5
+    steps:
+      - type: "claude_agent"
+        agent: "{{ selected_agent }}"
+        task: "{{ improvement_task }}"
+        
+      - type: "quality_check"
+        threshold: 0.9
+        on_fail: "continue_loop"
+        on_pass: "exit_loop"
+        
+  consensus_validation:
+    steps:
+      - type: "claude_thinkdeep"
+        model: "gpt-5"
+        task: "Deep analysis of document"
+        thinking_mode: "high"
+        
+      - type: "claude_consensus"
+        models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+        task: "Validate findings and quality"
+        quorum: 2
+
+# Quality scoring rubric
+quality_scoring:
+  dimensions:
+    completeness:
+      weight: 0.3
+      criteria:
+        - all_sections_present: 0.4
+        - no_missing_information: 0.3
+        - examples_provided: 0.3
+        
+    clarity:
+      weight: 0.25
+      criteria:
+        - unambiguous_language: 0.4
+        - consistent_terminology: 0.3
+        - logical_flow: 0.3
+        
+    accuracy:
+      weight: 0.25
+      criteria:
+        - factually_correct: 0.5
+        - no_contradictions: 0.3
+        - validated_references: 0.2
+        
+    compliance:
+      weight: 0.2
+      criteria:
+        - meets_standards: 0.5
+        - follows_guidelines: 0.3
+        - security_compliant: 0.2
+
+# Prompt templates for agent invocation
+prompt_templates:
+  ingestion:
+    template: |
+      Using your {{ agent }} capabilities, extract and parse this document:
+      
+      Document Type: {{ document_type }}
+      Format: {{ document_format }}
+      
+      Content:
+      {{ document_content }}
+      
+      Requirements:
+      1. Preserve all structural elements
+      2. Maintain formatting where meaningful
+      3. Extract metadata and properties
+      4. Identify sections and hierarchy
+      5. Note any parsing issues or ambiguities
+      
+      Return structured JSON with content, structure, and metadata.
+      
+  analysis:
+    template: |
+      As {{ agent }}, analyze this document focusing on {{ focus_area }}:
+      
+      Document: {{ document_id }}
+      Content Preview: {{ content_preview }}
+      
+      Analysis Requirements:
+      {{ analysis_requirements }}
+      
+      Provide:
+      1. Key findings with evidence
+      2. Issues identified with severity
+      3. Recommendations for improvement
+      4. Quality score (0-100)
+      
+  remediation:
+    template: |
+      Using {{ agent }} expertise, remediate these issues:
+      
+      Document: {{ document_id }}
+      Issues: {{ issues_list }}
+      Quality Target: {{ quality_threshold }}
+      
+      For each issue:
+      1. Understand the problem
+      2. Generate appropriate fix
+      3. Validate fix doesn't break other parts
+      4. Ensure quality improvement
+      
+      Return remediated content with change log.
+      
+  validation:
+    template: |
+      As {{ agent }}, validate this document:
+      
+      Document: {{ document_id }}
+      Type: {{ document_type }}
+      Requirements: {{ validation_requirements }}
+      
+      Check:
+      {{ validation_checklist }}
+      
+      Return validation report with pass/fail status and score.
+
+# SuperClaude mode mappings
+mode_mappings:
+  complex_analysis: "task-manage"
+  quick_check: "uc"  # Ultra-compressed
+  exploration: "brainstorm"
+  deep_review: "introspect"
+  parallel_work: "orchestrate"
+  quality_loop: "loop"
+
+# MCP server utilization
+mcp_servers:
+  sequential:
+    use_for: ["complex_debugging", "deep_analysis", "root_cause"]
+  zen:
+    use_for: ["consensus", "multi_model", "validation"]
+  magic:
+    use_for: ["ui_components", "frontend_generation"]
+  playwright:
+    use_for: ["testing", "browser_validation"]
+  morphllm:
+    use_for: ["bulk_edits", "pattern_application"]
+
+# Execution configuration
+execution:
+  default_timeout: 120  # seconds
+  max_parallel_agents: 5
+  retry_on_failure: true
+  max_retries: 3
+  quality_threshold: 0.8
+  consensus_threshold: 0.7
+  
+# Metadata
+metadata:
+  author: "DocAutomate Framework"
+  framework: "SuperClaude"
+  delegation: "complete"  # All operations delegated to Claude
+  local_processing: "none"  # No local document processing
