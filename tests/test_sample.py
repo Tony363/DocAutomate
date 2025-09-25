@@ -10,6 +10,10 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 # Import our modules
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 from ingester import DocumentIngester
 from extractor import ActionExtractor
 from workflow import WorkflowEngine

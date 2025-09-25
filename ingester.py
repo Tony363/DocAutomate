@@ -32,6 +32,7 @@ class Document:
     status: str = "pending"
     extracted_actions: Optional[List[Dict]] = None
     workflow_runs: Optional[List[str]] = None
+    error: Optional[str] = None
 
 class DocumentIngester:
     """
@@ -111,31 +112,120 @@ class DocumentIngester:
             logger.error(f"Failed to ingest {file_path}: {str(e)}")
             raise
     
-    async def _extract_text(self, file_path: Path) -> str:
+    def _validate_extracted_text(self, text: str, file_path: Path) -> bool:
         """
-        Extract text from document using Claude Code Read tool
+        Validate that extracted text is valid content and not a permission error
+        
+        Args:
+            text: Extracted text to validate
+            file_path: Path to the original file
+            
+        Returns:
+            True if text appears to be valid content, False if it's an error message
         """
-        try:
-            # Try to use Claude Code for all document types
-            from claude_cli import AsyncClaudeCLI
-            cli = AsyncClaudeCLI()
+        if not text or len(text) < 50:
+            logger.warning(f"Extracted text too short ({len(text)} chars) for {file_path.name}")
+            return False
+        
+        # Check for known error patterns
+        error_phrases = [
+            'i need your permission',
+            'please grant permission',
+            'permission to read',
+            'allow access',
+            'grant access',
+            'claude code is required',
+            '[document:',
+            'please ensure claude code'
+        ]
+        
+        text_lower = text.lower()
+        for phrase in error_phrases:
+            if phrase in text_lower:
+                logger.warning(f"Extracted text contains error phrase: '{phrase}' for {file_path.name}")
+                return False
+        
+        return True
+    
+    async def _extract_text(self, file_path: Path, max_retries: int = 3) -> str:
+        """
+        Extract text from document with validation and retry logic
+        
+        Args:
+            file_path: Path to the document file
+            max_retries: Maximum number of extraction attempts
             
-            logger.info(f"Using Claude Code to read: {file_path}")
-            text = await cli.read_document_async(str(file_path))
-            logger.info(f"Successfully extracted {len(text)} characters from {file_path.name}")
-            return text
+        Returns:
+            Extracted text content
             
-        except (ImportError, FileNotFoundError) as e:
-            # Fallback if Claude Code is not available
-            logger.warning(f"Claude Code not available, using fallback: {e}")
-            
-            if file_path.suffix in ['.txt', '.md']:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    return f.read()
-            else:
-                # Return placeholder for unsupported formats without Claude
-                logger.warning(f"Cannot extract from {file_path.suffix} without Claude Code")
-                return f"[Document: {file_path.name}]\\n\\nClaude Code is required to extract text from {file_path.suffix} files. Please ensure Claude Code is installed."
+        Raises:
+            Exception if all extraction attempts fail
+        """
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Try to use Claude Code for all document types
+                from claude_cli import AsyncClaudeCLI
+                cli = AsyncClaudeCLI()
+                
+                logger.info(f"Extraction attempt {attempt + 1}/{max_retries} for: {file_path}")
+                text = await cli.read_document_async(str(file_path))
+                
+                # Validate the extracted text
+                if self._validate_extracted_text(text, file_path):
+                    logger.info(f"Successfully extracted and validated {len(text)} characters from {file_path.name}")
+                    return text
+                else:
+                    logger.warning(f"Attempt {attempt + 1} produced invalid text for {file_path.name}")
+                    if attempt < max_retries - 1:
+                        # Wait before retry with exponential backoff
+                        await asyncio.sleep(2 ** attempt)
+                    
+            except (ImportError, FileNotFoundError) as e:
+                # Fallback if Claude Code is not available
+                logger.warning(f"Claude Code not available on attempt {attempt + 1}: {e}")
+                
+                if file_path.suffix in ['.txt', '.md']:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        text = f.read()
+                        if self._validate_extracted_text(text, file_path):
+                            return text
+                else:
+                    # For PDF files, try PyPDF2 directly
+                    if file_path.suffix.lower() == '.pdf':
+                        try:
+                            import PyPDF2
+                            logger.info(f"Trying direct PyPDF2 extraction for: {file_path}")
+                            
+                            with open(file_path, 'rb') as f:
+                                pdf_reader = PyPDF2.PdfReader(f)
+                                text_parts = []
+                                for page in pdf_reader.pages:
+                                    text_parts.append(page.extract_text())
+                                text = '\n'.join(text_parts)
+                                
+                                if self._validate_extracted_text(text, file_path):
+                                    logger.info(f"PyPDF2 successfully extracted {len(text)} characters")
+                                    return text
+                        except Exception as pdf_error:
+                            logger.error(f"Direct PyPDF2 extraction failed: {pdf_error}")
+                            last_error = pdf_error
+                    
+                    # If all else fails, return error message
+                    if attempt == max_retries - 1:
+                        error_msg = f"Failed to extract text from {file_path.name} after {max_retries} attempts"
+                        logger.error(error_msg)
+                        return error_msg
+                        
+            except Exception as e:
+                logger.error(f"Extraction attempt {attempt + 1} failed: {e}")
+                last_error = e
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+        
+        # All attempts failed
+        raise Exception(f"Failed to extract text from {file_path} after {max_retries} attempts: {last_error}")
     
     async def _store_document(self, doc: Document):
         """Store document metadata and content"""

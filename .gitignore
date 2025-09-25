@@ -3,3 +3,9 @@ venv/
 .env
 __pycache__/*
 __pycache__/
+logs/
+*.log
+.DS_Store
+*.tmp
+*.temp
+*.pdf

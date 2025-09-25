@@ -1,0 +1,71 @@
+Here's the extracted text content from the NDA document:
+
+## NON-DISCLOSURE AGREEMENT
+
+**Date:** June 30, 2025 ("Effective Date")
+
+**Parties:**
+- **Company:** YOOBROO, INC., a Delaware corporation
+  - Address: 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028
+- **Recipient:** TONY LIU (individual)
+  - Address: [To be filled in]
+
+**Purpose:** Protect confidential information in connection with Recipient's engagement as a contractor to develop a Minimum Viable Product (MVP) for Yoobroo - Swipe Shop Trade (www.yoobroo.com)
+
+### Key Sections:
+
+**1. Confidential Information Includes:**
+- Business plans, product roadmaps, marketing strategies, financial information
+- Technical data (source code, APIs, database schemas, system architecture, MVP documents)
+- Customer data, user information, transaction records
+- Any non-public information marked/understood as confidential
+
+**2. Exceptions:**
+- Publicly available information (without breach)
+- Previously known to Recipient (with written records)
+- Independently developed
+- Third-party disclosure without restriction
+- Required by law (with prompt notice)
+
+**3. Recipient Obligations:**
+- Use only for MVP Development Agreement purposes (dated September ___, 2025)
+- No disclosure to third parties without written consent
+- Implement reasonable security measures
+- Immediate notification of unauthorized use
+
+**4. Return/Destruction:**
+- Within 5 days upon termination or request
+- Return all materials or destroy with written certification
+
+**5. Term:**
+- Effective during Development Agreement
+- Continues for 5 years after (until June 30, 2030)
+- Trade secrets protected until no longer qualifying
+
+**6. Penalties:**
+- Liability for all losses from breach (lost revenue, legal fees, reputational damage)
+- Injunctive relief available
+
+**7. No License/Ownership:**
+- No rights granted to Recipient
+- Information remains Company property
+
+**8. Governing Law:**
+- Delaware law applies
+- Binding arbitration in Los Angeles County, California
+- AAA Commercial Arbitration Rules
+- Prevailing party entitled to attorney's fees
+
+**9. Miscellaneous:**
+- Entire agreement clause
+- Written amendments only
+- Severability provision
+- No assignment without consent (Recipient)
+- Electronic signatures accepted
+
+**10. Signatures:**
+- Kai Lei (Founder & CEO)
+- Yuzheng Fu (Co-Founder)
+- Tony Liu (Recipient)
+
+**Note:** Document includes disclaimer recommending legal counsel consultation.
