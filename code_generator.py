@@ -7,13 +7,22 @@ Dynamic code generation for analysis, visualization, and automation
 import logging
 import json
 import asyncio
+import os
+import shutil
+import tempfile
+import hashlib
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from datetime import datetime
-import tempfile
-import hashlib
+
+# Data analysis imports (conditionally loaded in generated code)
+# import pandas as pd
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# import openpyxl
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +89,7 @@ Generated analysis script for document data
 Generated at: {timestamp}
 \"\"\"
 
-import pandas as pd
-import numpy as np
-import json
-from typing import Dict, Any, List
-import logging
+# Required imports already at module level
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -250,12 +255,9 @@ Generated visualization script for document data
 Generated at: {timestamp}
 \"\"\"
 
+# Additional visualization imports
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, List
-import logging
 
 # Set up visualization style
 plt.style.use('seaborn-v0_8')
@@ -466,13 +468,10 @@ Generated Excel manipulation script
 Generated at: {timestamp}
 \"\"\"
 
+# Excel manipulation imports
 import openpyxl
 from openpyxl.styles import Font, Fill, PatternFill, Alignment
 from openpyxl.formatting.rule import ColorScaleRule
-import pandas as pd
-from typing import Dict, Any, List
-import logging
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -853,12 +852,9 @@ Generated file operations script
 Generated at: {datetime.now().isoformat()}
 """
 
+# File operations imports
 import os
 import shutil
-from pathlib import Path
-from typing import Dict, Any, List
-import logging
-import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1010,11 +1006,7 @@ Generic automation script for document processing
 Generated at: {datetime.now().isoformat()}
 """
 
-import json
-import logging
-from typing import Dict, Any, List
-from pathlib import Path
-import datetime
+# Report generation - imports already included
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

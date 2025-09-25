@@ -22,7 +22,6 @@ import select
 import fcntl
 import termios
 import PyPDF2
-from io import BytesIO
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -554,61 +553,91 @@ class ClaudeCLI:
         Raises:
             Exception: If analysis fails
         """
-        # Prepare the full prompt
-        full_prompt = f"{prompt}\n\n"
-        
+        # Prepare the full prompt with stronger JSON enforcement
         if schema:
-            full_prompt += f"Please respond with valid JSON matching this schema:\n"
-            full_prompt += f"```json\n{json.dumps(schema, indent=2)}\n```\n\n"
-            full_prompt += "Important: Return ONLY the JSON object, no additional text.\n\n"
-        
-        full_prompt += f"Text to analyze:\n---\n{text[:3000]}\n---\n"  # Limit text for safety
+            # Much stronger JSON enforcement for schema-based requests
+            full_prompt = f"""{prompt}
+
+CRITICAL JSON OUTPUT REQUIREMENTS:
+1. You MUST respond with valid JSON only
+2. Use this exact schema: {json.dumps(schema, indent=2)}
+3. Do NOT include any explanatory text before or after the JSON
+4. Start your response with {{ or [
+5. End your response with }} or ]
+6. No markdown code blocks, no comments, just pure JSON
+
+Text to analyze:
+---
+{text[:3000]}
+---
+
+JSON OUTPUT (no other text):"""
+        else:
+            full_prompt = f"{prompt}\n\nText to analyze:\n---\n{text[:3000]}\n---\n"
         
         # Use claude with --print flag for non-interactive output
-        # Pass the prompt via stdin
         cmd = [self.claude_cmd, "--print"]
         
-        result = self._run_command(cmd, input_text=full_prompt)
+        # Try with retries if JSON parsing fails
+        max_attempts = 3 if schema else 1
+        import re
         
-        if result.success:
-            if schema:
-                try:
-                    # Parse JSON response
-                    return json.loads(result.output)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse JSON response: {e}")
-                    logger.debug(f"Raw output that failed to parse: {result.output[:200]}")
-                    # Attempt to extract JSON from response
-                    import re
-                    # First try to find a JSON array
-                    array_match = re.search(r'\[.*\]', result.output, re.DOTALL)
-                    if array_match:
-                        try:
-                            extracted = json.loads(array_match.group())
-                            logger.info(f"Successfully extracted JSON array from response")
-                            return extracted
-                        except json.JSONDecodeError:
-                            logger.warning("Found array pattern but it's not valid JSON")
-                    
-                    # Then try to find a JSON object
-                    json_match = re.search(r'\{.*\}', result.output, re.DOTALL)
-                    if json_match:
-                        try:
-                            extracted = json.loads(json_match.group())
-                            logger.info(f"Successfully extracted JSON object from response")
-                            return extracted
-                        except json.JSONDecodeError:
-                            logger.warning("Found object pattern but it's not valid JSON")
-                    
-                    # No JSON found, return the plain text with error indicator
-                    logger.warning(f"No valid JSON found in response. Returning plain text.")
-                    return {"result": result.output, "error": "JSON parsing failed"}
+        for attempt in range(max_attempts):
+            if attempt > 0:
+                # Strengthen JSON requirement on retries
+                logger.info(f"Retry {attempt}/{max_attempts - 1} with stronger JSON enforcement")
+                retry_prompt = f"IMPORTANT: Return ONLY valid JSON, no other text!\n\n{full_prompt}"
+                result = self._run_command(cmd, input_text=retry_prompt)
             else:
-                return {"result": result.output}
-        else:
-            error_msg = f"Analysis failed: {result.error or 'Unknown error'}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
+                result = self._run_command(cmd, input_text=full_prompt)
+            
+            if result.success:
+                if schema:
+                    # Try to parse as JSON
+                    output = result.output.strip()
+                    
+                    # Try direct parsing
+                    try:
+                        parsed = json.loads(output)
+                        logger.info("Successfully parsed JSON response directly")
+                        return parsed
+                    except json.JSONDecodeError as e:
+                        if attempt == 0:
+                            logger.warning(f"Failed to parse JSON response: {e}")
+                        
+                        # Enhanced JSON extraction patterns
+                        json_patterns = [
+                            (r'^\s*(\{.*\})\s*$', 'object'),  # Object at start/end
+                            (r'^\s*(\[.*\])\s*$', 'array'),   # Array at start/end
+                            (r'(\{[^{}]*\{[^{}]*\}[^{}]*\})', 'nested_object'),  # Nested object
+                            (r'(\[[^\[\]]*\])', 'simple_array'),  # Simple array
+                            (r'(\{[^{}]*\})', 'simple_object'),   # Simple object
+                        ]
+                        
+                        for pattern, pattern_type in json_patterns:
+                            matches = re.findall(pattern, output, re.DOTALL | re.MULTILINE)
+                            for match in matches:
+                                try:
+                                    parsed = json.loads(match)
+                                    logger.info(f"Successfully extracted JSON {pattern_type} from response")
+                                    return parsed
+                                except json.JSONDecodeError:
+                                    continue
+                        
+                        # On last attempt, return empty schema
+                        if attempt == max_attempts - 1:
+                            logger.warning("No valid JSON found after retries. Returning empty schema.")
+                            return {} if isinstance(schema, dict) else []
+                else:
+                    return {"result": result.output}
+            else:
+                if attempt == max_attempts - 1:
+                    error_msg = f"Analysis failed after {max_attempts} attempts: {result.error or 'Unknown error'}"
+                    logger.error(error_msg)
+                    raise Exception(error_msg)
+        
+        # Should not reach here
+        return {} if schema else {"result": ""}
     
     def execute_task(self, agent: str, action: str, params: Optional[Dict] = None) -> Dict:
         """

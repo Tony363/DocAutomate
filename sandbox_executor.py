@@ -18,7 +18,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
 import hashlib
-import threading
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -555,8 +554,7 @@ if __name__ == "__main__":
             
             # Test simple Python code
             test_code = '''
-import json
-import math
+# json already imported at module level
 
 # Process input data
 if 'INPUT_DATA' in locals():
