@@ -127,8 +127,17 @@ class WorkflowEngine:
         await self._save_state(run)
         
         try:
+            # Transform parameters to match workflow schema
+            transformed_params = self._transform_parameters(workflow_name, initial_parameters)
+            
+            # Validate and auto-fix common issues
+            fixed_params = self._validate_and_fix_parameters(workflow, transformed_params)
+            
             # Validate parameters
-            self._validate_parameters(workflow, initial_parameters)
+            self._validate_parameters(workflow, fixed_params)
+            
+            # Use the fixed parameters for execution
+            initial_parameters = fixed_params
             
             # Execute workflow steps
             for step in workflow.get('steps', []):
@@ -182,6 +191,77 @@ class WorkflowEngine:
         """Generate unique run ID"""
         import uuid
         return str(uuid.uuid4())[:8]
+    
+    def _transform_parameters(self, workflow_name: str, params: Dict) -> Dict:
+        """Transform extracted parameters to match workflow schema format"""
+        # Create a copy to avoid modifying original
+        transformed = params.copy()
+        
+        # Handle document_signature workflow
+        if workflow_name == 'document_signature':
+            # Convert individual parties to array
+            if 'party1' in transformed and 'party2' in transformed:
+                transformed['parties'] = [
+                    transformed.pop('party1'),
+                    transformed.pop('party2')
+                ]
+            elif 'party' in transformed and 'parties' not in transformed:
+                # Single party to array
+                transformed['parties'] = [transformed.pop('party')]
+            
+            # Ensure document_id is included
+            if 'document_id' not in transformed:
+                transformed['document_id'] = transformed.get('doc_id', '')
+        
+        # Handle document_review workflow
+        elif workflow_name == 'document_review':
+            # Ensure required fields exist
+            if 'document_type' not in transformed:
+                transformed['document_type'] = transformed.get('type', 'general')
+        
+        # Handle date fields across all workflows
+        from datetime import datetime
+        for key, value in list(transformed.items()):
+            if isinstance(value, datetime):
+                transformed[key] = value.isoformat()
+        
+        return transformed
+    
+    def _validate_and_fix_parameters(self, workflow_def: Dict, params: Dict) -> Dict:
+        """Validate and auto-fix common parameter issues"""
+        # Get required parameters from workflow definition
+        required_params = workflow_def.get('parameters', [])
+        
+        # Common parameter mappings
+        param_fixes = {
+            'parties': ['party1', 'party2', 'party'],  # Alternative names
+            'effective_date': ['date', 'start_date', 'effective'],
+            'document_type': ['type', 'doc_type', 'documentType'],
+            'document_id': ['doc_id', 'id', 'documentId'],
+        }
+        
+        # Try to fix missing required parameters
+        for param_def in required_params:
+            param_name = param_def.get('name')
+            if param_def.get('required', False) and param_name not in params:
+                # Try alternative parameter names
+                if param_name in param_fixes:
+                    for alt_name in param_fixes[param_name]:
+                        if alt_name in params:
+                            if param_name == 'parties':
+                                # Special handling for parties array
+                                if not isinstance(params[alt_name], list):
+                                    params[param_name] = [params[alt_name]]
+                                else:
+                                    params[param_name] = params[alt_name]
+                            else:
+                                params[param_name] = params[alt_name]
+                            # Remove the alternative after using it
+                            if alt_name != param_name:
+                                del params[alt_name]
+                            break
+        
+        return params
     
     def _validate_parameters(self, workflow: Dict, parameters: Dict):
         """Validate parameters against workflow requirements"""

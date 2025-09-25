@@ -198,6 +198,19 @@ async def process_document_background(document: Document, request_id: str = None
                     params = dict(action.parameters)
                     params['document_id'] = document.id
                     
+                    # Add parameter transformation for known issues
+                    if resolved_workflow == 'document_signature':
+                        # Transform party1/party2 to parties array if needed
+                        if 'parties' not in params:
+                            if 'party1' in params and 'party2' in params:
+                                params['parties'] = [params.pop('party1'), params.pop('party2')]
+                            elif 'party' in params:
+                                params['parties'] = [params.pop('party')]
+                    
+                    # Add missing document_type if not present
+                    if 'document_type' not in params:
+                        params['document_type'] = document.metadata.get('document_type', 'general')
+                    
                     run = await workflow_engine.execute_workflow(
                         workflow_name=resolved_workflow,
                         document_id=document.id,
@@ -205,6 +218,15 @@ async def process_document_background(document: Document, request_id: str = None
                     )
                     auto_executed_count += 1
                     logger.info(f"[{request_id}] Auto-executed workflow {action.workflow_name}: run_id={run.run_id}")
+                except ValueError as e:
+                    # Handle missing parameter errors specifically
+                    if "Required parameter" in str(e):
+                        logger.warning(f"[{request_id}] Missing required parameters for {action.workflow_name}: {e}")
+                        # Log the parameters for debugging
+                        logger.debug(f"[{request_id}] Available parameters: {list(params.keys())}")
+                    else:
+                        logger.error(f"[{request_id}] Validation error in workflow {action.workflow_name}: {e}")
+                    logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
                 except Exception as e:
                     logger.error(f"[{request_id}] Failed to auto-execute workflow {action.workflow_name}: {e}")
                     logger.debug(f"[{request_id}] Stack trace:", exc_info=True)

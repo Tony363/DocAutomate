@@ -1,0 +1,48 @@
+{
+  "run_id": "86953da6",
+  "workflow_name": "document_review",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "route_for_approval",
+  "parameters": {
+    "document_type": "Development Agreement",
+    "referenced_date": "September _____, 2025",
+    "related_to": "MVP Development",
+    "document_id": "be31df81bdf7fcfb"
+  },
+  "state": {
+    "steps": {
+      "validate_document": {
+        "status": "success",
+        "analysis": {
+          "result": "I need to analyze a Development Agreement document, but no text content was provided after \"Text to analyze:\". The section between the dividers (---) is empty.\n\nTo extract key terms, parties, obligations, and deadlines from a Development Agreement document, I need the actual document text. Please provide the Development Agreement content that you'd like me to analyze.\n\nOnce you provide the document, I'll extract and return the information in the requested JSON format with:\n- A summary of the agreement\n- Key insights about obligations and terms\n- Actionable recommendations for compliance\n- A confidence score\n\nPlease share the document text you'd like analyzed.",
+          "error": "JSON parsing failed"
+        }
+      },
+      "check_compliance": {
+        "status": "success",
+        "transformed": {
+          "status": "standard_review"
+        }
+      }
+    }
+  },
+  "started_at": "2025-09-25T08:04:52.264097",
+  "completed_at": "2025-09-25T08:05:08.128925",
+  "error": "'dict object' has no attribute 'validate_document'",
+  "outputs": {
+    "validate_document": {
+      "status": "success",
+      "analysis": {
+        "result": "I need to analyze a Development Agreement document, but no text content was provided after \"Text to analyze:\". The section between the dividers (---) is empty.\n\nTo extract key terms, parties, obligations, and deadlines from a Development Agreement document, I need the actual document text. Please provide the Development Agreement content that you'd like me to analyze.\n\nOnce you provide the document, I'll extract and return the information in the requested JSON format with:\n- A summary of the agreement\n- Key insights about obligations and terms\n- Actionable recommendations for compliance\n- A confidence score\n\nPlease share the document text you'd like analyzed.",
+        "error": "JSON parsing failed"
+      }
+    },
+    "check_compliance": {
+      "status": "success",
+      "transformed": {
+        "status": "standard_review"
+      }
+    }
+  }
+}

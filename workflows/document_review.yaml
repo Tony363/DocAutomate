@@ -63,7 +63,7 @@ steps:
         document_id: "{{ document_id }}"
         document_type: "{{ document_type }}"
         action_required: "{{ original_action_type }}"
-        validation_results: "{{ steps.validate_document.analysis }}"
+        validation_results: "{{ steps.get('validate_document', {}).get('analysis', {}) }}"
         
   - id: "notification"
     type: "send_email"
@@ -79,7 +79,7 @@ steps:
         Status: Pending Review
         
         Key findings from initial analysis:
-        {{ steps.validate_document.analysis.summary }}
+        {{ steps.get('validate_document', {}).get('analysis', {}).get('summary', 'Analysis pending') }}
         
         Please review and approve at your earliest convenience.
 
