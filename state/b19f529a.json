@@ -1,0 +1,16 @@
+{
+  "run_id": "b19f529a",
+  "workflow_name": "legal_compliance",
+  "document_id": "contract_main",
+  "status": "failed",
+  "current_step": null,
+  "parameters": {
+    "document_id": "contract_main",
+    "document_type": "contract"
+  },
+  "state": {},
+  "started_at": "2025-09-25T05:52:52.232127",
+  "completed_at": "2025-09-25T05:52:52.232419",
+  "error": "Required parameter 'trigger' not provided",
+  "outputs": {}
+}

@@ -1,0 +1,86 @@
+{
+  "run_id": "aa340ea4",
+  "workflow_name": "document_signature",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_signature_method",
+  "parameters": {
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "NDA",
+    "parties": [
+      "YOOBROO, INC.",
+      "TONY LIU"
+    ],
+    "effective_date": "2025-06-30",
+    "signature_fields": [
+      "Recipient signature",
+      "Recipient address"
+    ],
+    "original_action_type": "signature_required"
+  },
+  "state": {
+    "steps": {
+      "validate_parties": {
+        "status": "success",
+        "transformed": {
+          "total_parties": "2",
+          "signature_required": "2",
+          "document_status": "pending_signatures"
+        }
+      },
+      "prepare_signature_request": {
+        "status": "success",
+        "analysis": {
+          "summary": "NDA between YOOBROO, INC. and TONY LIU requires signature collection from the recipient (TONY LIU) with their signature and address, effective date 2025-06-30.",
+          "insights": [
+            "Document involves two parties with YOOBROO, INC. as the disclosing party and TONY LIU as the recipient",
+            "Only recipient signature and address are listed as requirements, suggesting YOOBROO, INC. may pre-sign or sign after recipient",
+            "Effective date is set for 2025-06-30, which is in the future relative to current date 2025-09-25",
+            "Standard NDA structure with typical recipient authentication requirements"
+          ],
+          "recommendations": [
+            "Execute sequential signing with TONY LIU signing first as recipient, then YOOBROO, INC. as disclosing party",
+            "Collect from TONY LIU: full legal signature, complete mailing address, and signature date",
+            "Collect from YOOBROO, INC.: authorized signatory name, title, signature, and company address if not pre-filled",
+            "Verify effective date alignment - consider if 2025-06-30 should be signature date or a specific future effective date",
+            "Include witness signatures or notarization if required by jurisdiction or company policy"
+          ],
+          "confidence": 0.85
+        }
+      }
+    }
+  },
+  "started_at": "2025-09-25T05:48:30.554571",
+  "completed_at": "2025-09-25T05:48:50.823128",
+  "error": "'dict object' has no attribute 'prepare_signature_request'",
+  "outputs": {
+    "validate_parties": {
+      "status": "success",
+      "transformed": {
+        "total_parties": "2",
+        "signature_required": "2",
+        "document_status": "pending_signatures"
+      }
+    },
+    "prepare_signature_request": {
+      "status": "success",
+      "analysis": {
+        "summary": "NDA between YOOBROO, INC. and TONY LIU requires signature collection from the recipient (TONY LIU) with their signature and address, effective date 2025-06-30.",
+        "insights": [
+          "Document involves two parties with YOOBROO, INC. as the disclosing party and TONY LIU as the recipient",
+          "Only recipient signature and address are listed as requirements, suggesting YOOBROO, INC. may pre-sign or sign after recipient",
+          "Effective date is set for 2025-06-30, which is in the future relative to current date 2025-09-25",
+          "Standard NDA structure with typical recipient authentication requirements"
+        ],
+        "recommendations": [
+          "Execute sequential signing with TONY LIU signing first as recipient, then YOOBROO, INC. as disclosing party",
+          "Collect from TONY LIU: full legal signature, complete mailing address, and signature date",
+          "Collect from YOOBROO, INC.: authorized signatory name, title, signature, and company address if not pre-filled",
+          "Verify effective date alignment - consider if 2025-06-30 should be signature date or a specific future effective date",
+          "Include witness signatures or notarization if required by jurisdiction or company policy"
+        ],
+        "confidence": 0.85
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "run_id": "ade45999",
+  "workflow_name": "legal_compliance",
+  "document_id": "compliance_001",
+  "status": "failed",
+  "current_step": "check_urgency",
+  "parameters": {
+    "document_id": "compliance_001",
+    "trigger": "data_breach",
+    "action": "immediate_written_notification",
+    "recipient": "Data Protection Authority",
+    "severity": "critical"
+  },
+  "state": {
+    "steps": {
+      "classify_compliance": {
+        "status": "success",
+        "analysis": {
+          "summary": "Data breach notification requirement with critical severity mandating immediate written notification to Data Protection Authority without specified deadline, indicating regulatory compliance obligation likely under GDPR or similar framework.",
+          "insights": [
+            "Absence of explicit deadline combined with 'immediate' requirement suggests GDPR 72-hour notification window applies",
+            "Critical severity classification aligns with personal data breach involving high risk to individuals' rights",
+            "Data Protection Authority designation indicates EU/EEA jurisdiction or GDPR-influenced legislation",
+            "Written notification requirement implies formal documentation and record-keeping obligations",
+            "Lack of specified recipients beyond DPA suggests additional stakeholder notifications may be required"
+          ],
+          "recommendations": [
+            "Activate incident response team within 1 hour and begin breach assessment documentation",
+            "Prepare initial notification to DPA within 24 hours even if investigation incomplete",
+            "Document breach discovery timestamp as 72-hour clock starts from awareness not occurrence",
+            "Assess if breach poses high risk to individuals requiring additional data subject notifications",
+            "Maintain detailed breach register including nature of data compromised and estimated affected individuals",
+            "Engage legal counsel specialized in data protection to ensure notification completeness",
+            "Prepare for potential follow-up requirements including remediation plans and compliance audits"
+          ],
+          "confidence": 0.85
+        }
+      }
+    }
+  },
+  "started_at": "2025-09-25T05:52:12.721451",
+  "completed_at": "2025-09-25T05:52:33.065941",
+  "error": "'dict object' has no attribute 'classify_compliance'",
+  "outputs": {
+    "classify_compliance": {
+      "status": "success",
+      "analysis": {
+        "summary": "Data breach notification requirement with critical severity mandating immediate written notification to Data Protection Authority without specified deadline, indicating regulatory compliance obligation likely under GDPR or similar framework.",
+        "insights": [
+          "Absence of explicit deadline combined with 'immediate' requirement suggests GDPR 72-hour notification window applies",
+          "Critical severity classification aligns with personal data breach involving high risk to individuals' rights",
+          "Data Protection Authority designation indicates EU/EEA jurisdiction or GDPR-influenced legislation",
+          "Written notification requirement implies formal documentation and record-keeping obligations",
+          "Lack of specified recipients beyond DPA suggests additional stakeholder notifications may be required"
+        ],
+        "recommendations": [
+          "Activate incident response team within 1 hour and begin breach assessment documentation",
+          "Prepare initial notification to DPA within 24 hours even if investigation incomplete",
+          "Document breach discovery timestamp as 72-hour clock starts from awareness not occurrence",
+          "Assess if breach poses high risk to individuals requiring additional data subject notifications",
+          "Maintain detailed breach register including nature of data compromised and estimated affected individuals",
+          "Engage legal counsel specialized in data protection to ensure notification completeness",
+          "Prepare for potential follow-up requirements including remediation plans and compliance audits"
+        ],
+        "confidence": 0.85
+      }
+    }
+  }
+}
