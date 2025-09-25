@@ -40,16 +40,27 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 - 🌐 **REST API**: Full-featured FastAPI with async processing and comprehensive documentation
 - 🔄 **Background Processing**: Non-blocking document ingestion with intelligent queue management
 
-## ✨ Latest Features
+## ✨ Latest Features & Fixes
 
-### **Intelligent Workflow Matching with Claude AI** *(September 2025 - NEW)*
+### **Critical Workflow Parameter Fixes** *(September 2025 - LATEST)*
+- **Intelligent Parameter Defaults**: Automatic parameter resolution for missing required fields
+- **Smart Field Inference**: Context-aware parameter generation from action types
+- **Enhanced Template Resolution**: Fixed Jinja2 template path issues in workflow definitions
+- **Validation Improvements**: Multi-tier validation with graceful fallback mechanisms
+
+#### Fixed Workflows:
+1. **`document_signature`**: Now auto-generates default signature fields when missing
+2. **`complete_missing_info`**: Intelligently infers missing field from action context
+3. **`document_management`**: Provides safe default actions when not specified
+
+### **Intelligent Workflow Matching with Claude AI** *(September 2025)*
 - **Claude-Powered Semantic Matching**: AI understands workflow intent even with name variations
 - **5-Tier Fallback Strategy**: Direct → Aliases → Claude → Fuzzy → Fallback for maximum reliability
 - **Automatic Resolution**: Handles `nda_signature`, `complete_missing_information`, and other variations
 - **Confidence Scoring**: Each match includes confidence level for audit and validation
 - **Performance Caching**: Intelligent caching of workflow matches for improved performance
 
-### **Unified Document Workflow DSL** *(September 2025 - NEW)*
+### **Unified Document Workflow DSL** *(September 2025)*
 - **Domain-Specific Language**: Unified DSL for all document types (PDFs, contracts, invoices, forms)
 - **4 New Workflow Definitions**: `document_signature`, `complete_missing_info`, `legal_compliance`, `document_management`
 - **Core DSL Primitives**: EXTRACT, VALIDATE, COMPLETE, SIGN, NOTIFY, STORE, TRIGGER, DELEGATE
@@ -68,6 +79,7 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 - **Permission Error Recovery**: Smart detection and recovery from permission-related failures  
 - **Timeout Management**: Configurable timeouts with automatic adjustment for large files
 - **Validation Gates**: Multi-stage validation ensuring data integrity throughout processing
+- **Parameter Validation**: Intelligent defaults and transformations for missing parameters
 
 ### **Production-Ready Improvements**  
 - **Environment Configuration**: Comprehensive environment variable support
@@ -2716,6 +2728,414 @@ stateDiagram-v2
     ErrorHandling --> RetryExtraction: Retry
     ErrorHandling --> [*]: Abort
     RetryExtraction --> TextExtraction
+```
+
+### Parameter Validation & Intelligent Defaults Flow
+
+```mermaid
+flowchart TD
+    subgraph "Workflow Execution Request"
+        REQ[Incoming Request]
+        PARAMS[Parameters]
+    end
+    
+    subgraph "5-Tier Validation Pipeline"
+        V1[1. Direct Match Check]
+        V2[2. Alias Resolution]
+        V3[3. Claude AI Matching]
+        V4[4. Fuzzy Matching]
+        V5[5. Fallback Workflow]
+    end
+    
+    subgraph "Parameter Validation"
+        P1[Check Required Params]
+        P2[Intelligent Defaults]
+        P3[Context Inference]
+        P4[Transform Parameters]
+    end
+    
+    subgraph "Intelligent Default Generation"
+        D1[document_signature:<br/>signature_fields = signature, date, initials]
+        D2[complete_missing_info:<br/>field = inferred from action_type]
+        D3[document_management:<br/>action = return_all_information]
+    end
+    
+    subgraph "Execution"
+        EXEC[Execute Workflow]
+        RESULT[Return Result]
+    end
+    
+    REQ --> V1
+    V1 -->|Not Found| V2
+    V2 -->|Not Found| V3
+    V3 -->|Not Found| V4
+    V4 -->|Not Found| V5
+    
+    V1 -->|Found| P1
+    V2 -->|Found| P1
+    V3 -->|Found| P1
+    V4 -->|Found| P1
+    V5 --> P1
+    
+    P1 -->|Missing| P2
+    P2 --> P3
+    P3 --> P4
+    P1 -->|Complete| P4
+    
+    P2 --> D1
+    P2 --> D2
+    P2 --> D3
+    
+    P4 --> EXEC
+    EXEC --> RESULT
+```
+
+## 🌐 System Generalization Capabilities
+
+### How DocAutomate Generalizes Across Document Types
+
+DocAutomate's architecture is designed for **universal document processing** through its Unified DSL (Domain-Specific Language) that abstracts document operations into reusable primitives. This allows the system to handle **any document type** without requiring custom code for each format.
+
+### Core Generalization Principles
+
+#### 1. **DSL Primitives as Building Blocks**
+The system uses 8 fundamental operations that compose into complex workflows:
+
+```yaml
+EXTRACT    → Content analysis (text, tables, metadata)
+VALIDATE   → Data verification (schema, format, rules)
+COMPLETE   → Missing information resolution
+SIGN       → Signature collection and verification
+NOTIFY     → Stakeholder communication
+STORE      → Persistent storage and retrieval
+TRIGGER    → Event-driven automation
+DELEGATE   → Intelligent agent routing
+```
+
+#### 2. **Document Type Abstraction**
+All documents are processed through the same pipeline regardless of format:
+
+```mermaid
+graph LR
+    subgraph "Any Document Input"
+        PDF[PDFs]
+        CONTRACT[Contracts]
+        INVOICE[Invoices]
+        FORM[Forms]
+        EXCEL[Excel]
+        WORD[Word]
+        IMAGE[Images]
+        EMAIL[Emails]
+    end
+    
+    subgraph "Unified Processing"
+        PIPELINE[Universal Pipeline]
+        DSL[DSL Interpreter]
+        WORKFLOW[Workflow Engine]
+    end
+    
+    subgraph "Customized Output"
+        RESULT[Document-Specific Results]
+    end
+    
+    PDF --> PIPELINE
+    CONTRACT --> PIPELINE
+    INVOICE --> PIPELINE
+    FORM --> PIPELINE
+    EXCEL --> PIPELINE
+    WORD --> PIPELINE
+    IMAGE --> PIPELINE
+    EMAIL --> PIPELINE
+    
+    PIPELINE --> DSL
+    DSL --> WORKFLOW
+    WORKFLOW --> RESULT
+```
+
+#### 3. **Workflow Composition Pattern**
+Complex workflows are composed from simple primitives:
+
+```yaml
+# Example: Any Legal Document Workflow
+legal_document_workflow:
+  steps:
+    - EXTRACT: Get document content and metadata
+    - VALIDATE: Check legal requirements
+    - COMPLETE: Fill missing clauses
+    - SIGN: Collect required signatures
+    - NOTIFY: Alert legal team
+    - STORE: Archive with compliance metadata
+    - TRIGGER: Initiate review schedule
+```
+
+### Real-World Generalization Examples
+
+#### Example 1: From NDA to Employment Contract
+The same workflow handles both with parameter changes:
+
+```bash
+# NDA Processing
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -d '{
+    "workflow_name": "document_signature",
+    "document_type": "NDA",
+    "parties": ["Company", "Vendor"],
+    "signature_fields": ["vendor_signature", "date"]
+  }'
+
+# Employment Contract - Same workflow, different parameters
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -d '{
+    "workflow_name": "document_signature",
+    "document_type": "employment_contract",
+    "parties": ["Company", "Employee"],
+    "signature_fields": ["employee_signature", "hr_signature", "date", "witness"]
+  }'
+```
+
+#### Example 2: Universal Data Extraction
+One workflow extracts data from any structured document:
+
+```python
+# The same EXTRACT primitive handles:
+- Financial reports → Revenue, expenses, margins
+- Invoices → Line items, totals, tax
+- Forms → Field values, checkboxes, selections
+- Contracts → Parties, terms, obligations
+- Emails → Sender, recipients, attachments
+```
+
+#### Example 3: Cross-Industry Application
+The framework adapts to different industries through configuration:
+
+```yaml
+# Healthcare
+workflow: patient_consent
+primitives: [EXTRACT, VALIDATE, SIGN, STORE]
+compliance: HIPAA
+
+# Finance
+workflow: loan_application  
+primitives: [EXTRACT, VALIDATE, COMPLETE, SIGN, TRIGGER]
+compliance: SOX, GDPR
+
+# Legal
+workflow: contract_review
+primitives: [EXTRACT, VALIDATE, DELEGATE, NOTIFY]
+compliance: Bar Association Rules
+
+# Real Estate
+workflow: property_deed
+primitives: [EXTRACT, SIGN, NOTIFY, STORE]
+compliance: State Recording Laws
+```
+
+### Extensibility Architecture
+
+#### Adding New Document Types
+To support a new document type, you only need to:
+
+1. **Define extraction rules** (optional - AI handles most cases)
+2. **Map to existing primitives** (usually automatic)
+3. **Configure workflow parameters** (simple YAML)
+
+Example: Adding Support for Medical Records
+
+```yaml
+# workflows/medical_record.yaml
+name: "medical_record"
+description: "Process medical records with HIPAA compliance"
+
+# Uses existing DSL primitives
+steps:
+  - type: EXTRACT
+    config:
+      fields: ["patient_id", "diagnosis", "treatment"]
+      
+  - type: VALIDATE
+    config:
+      compliance: "HIPAA"
+      
+  - type: COMPLETE
+    config:
+      required_fields: ["physician_signature", "date"]
+      
+  - type: STORE
+    config:
+      encryption: true
+      retention_years: 7
+```
+
+### Intelligent Adaptation Features
+
+#### 1. **AI-Powered Field Inference**
+The system intelligently identifies fields without explicit configuration:
+
+```python
+# System automatically infers from context:
+"Recipient address" → address_field
+"Sign here" → signature_field  
+"Due by" → deadline_field
+"Amount owed" → payment_field
+```
+
+#### 2. **Dynamic Workflow Selection**
+Claude AI matches documents to workflows based on content:
+
+```python
+# Input: "This agreement requires signature by both parties"
+# AI Response: workflow = "document_signature"
+
+# Input: "Please complete the missing customer information"  
+# AI Response: workflow = "complete_missing_info"
+
+# Input: "Document must be destroyed after project completion"
+# AI Response: workflow = "document_management"
+```
+
+#### 3. **Context-Aware Parameter Generation**
+Missing parameters are intelligently generated:
+
+```python
+# If document mentions "quarterly review"
+# System adds: trigger = "quarterly", schedule = "3_months"
+
+# If document contains "confidential"
+# System adds: security_level = "high", encryption = true
+```
+
+### Performance & Scalability
+
+The generalized architecture enables:
+
+- **Processing Speed**: One pipeline for all documents (no switching overhead)
+- **Maintenance**: Update once, works everywhere
+- **Training**: Single system to learn
+- **Integration**: One API for all document types
+- **Scaling**: Horizontal scaling works for all workflows
+
+### Future Extensibility
+
+The DSL-based approach allows easy addition of:
+
+1. **New Primitives**: Add OCR, TRANSLATE, REDACT, etc.
+2. **New Formats**: Video transcripts, audio recordings, CAD files
+3. **New Channels**: Slack, Teams, Email, SMS integration
+4. **New Compliance**: Industry-specific regulations
+5. **New AI Models**: Plug in GPT, Gemini, Claude variants
+
+## 🚀 Advanced Workflow Execution Examples
+
+### Complete End-to-End Examples
+
+#### 1. Multi-Step NDA Processing
+```bash
+# Step 1: Upload NDA
+DOCUMENT_ID=$(curl -X POST "http://localhost:8001/documents/upload" \
+  -F "file=@nda.pdf" \
+  -F "auto_process=true" \
+  | jq -r '.document_id')
+
+# Step 2: Extract Actions
+curl -X POST "http://localhost:8001/documents/$DOCUMENT_ID/extract" \
+  -H "Content-Type: application/json"
+
+# Step 3: Execute Signature Workflow
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"document_id\": \"$DOCUMENT_ID\",
+    \"workflow_name\": \"document_signature\",
+    \"parameters\": {
+      \"parties\": [\"Company\", \"Contractor\"],
+      \"signature_fields\": [\"signature\", \"date\", \"initials\"]
+    }
+  }"
+
+# Step 4: Check Status
+curl -X GET "http://localhost:8001/documents/$DOCUMENT_ID"
+```
+
+#### 2. Batch Document Processing
+```bash
+# Process multiple documents with one request
+curl -X POST "http://localhost:8001/batch/process" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "documents": [
+      {"file": "invoice1.pdf", "workflow": "process_invoice"},
+      {"file": "contract.pdf", "workflow": "document_signature"},
+      {"file": "form.pdf", "workflow": "complete_missing_info"}
+    ],
+    "parallel": true,
+    "notification_email": "admin@company.com"
+  }'
+```
+
+#### 3. Compliance Verification Pipeline
+```bash
+# Upload and verify compliance
+curl -X POST "http://localhost:8001/compliance/verify" \
+  -F "file=@confidential_agreement.pdf" \
+  -F "compliance_standards=[\"SOX\", \"GDPR\", \"CCPA\"]" \
+  -F "auto_remediate=true" \
+  -F "generate_report=true"
+```
+
+#### 4. Document Lifecycle Management
+```bash
+# Schedule document for retention/destruction
+curl -X POST "http://localhost:8001/lifecycle/schedule" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "contract_001",
+    "retention_policy": {
+      "retain_years": 7,
+      "destruction_method": "secure_shred",
+      "notification_days_before": 30,
+      "require_approval": true,
+      "approvers": ["legal@company.com", "compliance@company.com"]
+    },
+    "triggers": {
+      "contract_end": "2025-12-31",
+      "early_termination": "30_days_notice"
+    }
+  }'
+```
+
+## 📊 Monitoring & Analytics
+
+### Workflow Performance Metrics
+```bash
+# Get workflow analytics
+curl -X GET "http://localhost:8001/analytics/workflows?period=7d" \
+  -H "accept: application/json"
+```
+
+**Response:**
+```json
+{
+  "period": "7d",
+  "workflows": {
+    "document_signature": {
+      "executions": 145,
+      "success_rate": 0.94,
+      "avg_duration_seconds": 42.3,
+      "parameter_validation_fixes": 23
+    },
+    "complete_missing_info": {
+      "executions": 89,
+      "success_rate": 0.91,
+      "avg_duration_seconds": 38.7,
+      "fields_inferred": 67
+    }
+  },
+  "ai_usage": {
+    "claude_calls": 234,
+    "tokens_used": 1250000,
+    "cost_usd": 12.50
+  }
+}
 ```
 
 ---
