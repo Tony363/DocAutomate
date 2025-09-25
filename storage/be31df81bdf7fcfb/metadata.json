@@ -1,0 +1,113 @@
+{
+  "id": "be31df81bdf7fcfb",
+  "filename": "tmpn1babzqb.pdf",
+  "content_type": "application/pdf",
+  "text": "NON-DISCLOSURE AGREEMENT\nAGREEMENT made this 30th day of June, 2025 (\"E\ufb00ective Date\"), by and between YOOBROO, INC., a Delaware corporation with its principal place of business at 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028 (\"Company\"), and TONY LIU, an individual residing at _________________________________ (\"Recipient\").\nRECITALS\nWHEREAS, Company is developing an innovative e-commerce and trading platform operating as \"Yoobroo - Swipe Shop Trade\" at www.yoobroo.com;WHEREAS, in connection with Recipient\u2019s engagement as a contractor to develop a Minimum Viable Product (MVP) for the Company, Recipient may have access to Con\ufb01dential Information;WHEREAS, the parties wish to protect such Con\ufb01dential Information to prevent unauthorized use or disclosure;NOW THEREFORE, in consideration of the mutual covenants contained herein, the parties agree as follows:\n1. DEFINITION OF CONFIDENTIAL INFORMATION\n\"Con\ufb01dential Information\" includes, but is not limited to:  \nBusiness plans, product roadmaps, marketing strategies, and \ufb01nancial information of the Company.  \nTechnical data, including source code, APIs, database schemas, system architecture, and MVP-related documents.  \nCustomer data, user information, and transaction records.  \nAny other non-public information disclosed by the Company, whether in writing, orally, or electronically, marked as con\ufb01dential or reasonably understood to be con\ufb01dential.\n2. EXCEPTIONS\nCon\ufb01dential Information does not include information that:  \nIs or becomes publicly available without breach of this Agreement by Recipient.  \nWas lawfully known to Recipient prior to disclosure by the Company, as evidenced by written records.  \nIs independently developed by Recipient without use of or reference to the Company\u2019s Con\ufb01dential Information.  \nIs disclosed to Recipient by a third party without restriction and without breach of any obligation to the Company.  \nIs required to be disclosed by law, provided Recipient gives the Company prompt written notice and cooperates to limit disclosure.\n3. OBLIGATIONS OF RECIPIENT\nRecipient agrees to:  \nUse Con\ufb01dential Information solely for the purpose of performing services under the MVP Development Agreement dated September _____, 2025 (\"Development Agreement\").  \nNot disclose, publish, or otherwise share Con\ufb01dential Information with any third party, except with the Company\u2019s prior written consent or as required by law.  \nTake reasonable measures to protect Con\ufb01dential Information, including using secure storage and encrypted devices to prevent unauthorized access.  \nNotify the Company immediately in writing of any unauthorized use or disclosure of Con\ufb01dential Information.\n4. RETURN OR DESTRUCTION OF CONFIDENTIAL INFORMATION\nUpon termination of the Development Agreement or at the Company\u2019s written request, Recipient shall, within \ufb01ve (5) days:  \n\nReturn all Con\ufb01dential Information (including electronic and physical copies) to the Company; or  \nDestroy such information and certify in writing to the Company that destruction has occurred, except where retention is required by law.\n5. TERM\nThis Agreement\u2019s obligations remain in e\ufb00ect during the term of the Development Agreement and for \ufb01ve (5) years thereafter (until June 30, 2030). Obligations regarding trade secrets continue until the information no longer constitutes a trade secret under applicable law.\n6. PENALTIES FOR BREACH\nIf Recipient intentionally or through gross negligence breaches this Agreement (e.g., disclosing source code to a competitor), Recipient shall be liable for all losses incurred by the Company, including but not limited to lost revenue, legal fees, and reputational damage. The Company may seek injunctive relief to prevent further disclosure or use of Con\ufb01dential Information, in addition to any other remedies available at law or equity.\n7. NO LICENSE OR OWNERSHIP\nThis Agreement does not grant Recipient any license, right, or ownership interest in the Con\ufb01dential Information, which remains the exclusive property of the Company.\n8. GOVERNING LAW AND DISPUTE RESOLUTION\nThis Agreement is governed by the laws of the State of Delaware, excluding con\ufb02ict of law principles. Any disputes arising under this Agreement shall be resolved through binding arbitration in Los Angeles County, California, under the American Arbitration Association\u2019s Commercial Arbitration Rules, conducted in English with one arbitrator. The prevailing party shall be entitled to reasonable attorney\u2019s fees and costs.\n9. MISCELLANEOUS\n9.1 Entire Agreement\nThis Agreement constitutes the entire agreement between the parties regarding the subject matter and supersedes all prior negotiations or agreements.\n9.2 Amendment\nThis Agreement may only be amended by a written instrument signed by both parties.\n9.3 Severability\nIf any provision is invalid or unenforceable, the remaining provisions remain in e\ufb00ect.\n9.4 Assignment\nRecipient may not assign this Agreement without the Company\u2019s written consent. The Company may assign it to a successor entity.\n9.5 Counterparts\nThis Agreement may be executed in counterparts, including electronic signatures (e.g., DocuSign), each considered an original.\n10. EXECUTION\nIN WITNESS WHEREOF , the parties have executed this Agreement as of the date \ufb01rst written above.\nYOOBROO, INC.\nBy: _________________________Kai LeiFounder & Chief Executive O\ufb03cerDate: _______________________\nBy: _________________________Yuzheng Fu coFounder  O\ufb03cerDate: _______________________\nRECIPIENT\nBy: _________________________Tony LiuDate: _______________________\nDisclaimer: This Agreement is for informational purposes only and is not legal advice. Both parties should consult quali\ufb01ed legal counsel to ensure compliance with applicable laws and protect their interests.",
+  "metadata": {
+    "size_bytes": 28397,
+    "file_path": "/tmp/tmpn1babzqb.pdf",
+    "extension": ".pdf"
+  },
+  "ingested_at": "2025-09-25T04:55:27.666996",
+  "status": "processed",
+  "extracted_actions": [
+    {
+      "action_type": "custom",
+      "workflow_name": "collect_signature",
+      "description": "NDA requires signature from recipient Tony Liu",
+      "parameters": {
+        "document_type": "NDA",
+        "signatory": "Tony Liu",
+        "signatory_role": "Recipient",
+        "effective_date": "2025-06-30",
+        "company": "Yoobroo, Inc.",
+        "original_action_type": "signature_required"
+      },
+      "entities": [
+        {
+          "name": "recipient_name",
+          "value": "Tony Liu",
+          "confidence": 1.0,
+          "location": "header"
+        },
+        {
+          "name": "company_name",
+          "value": "Yoobroo, Inc.",
+          "confidence": 1.0,
+          "location": "header"
+        },
+        {
+          "name": "effective_date",
+          "value": "2025-06-30",
+          "confidence": 1.0,
+          "location": "header"
+        }
+      ],
+      "confidence_score": 0.95,
+      "confidence_level": "high",
+      "priority": 1,
+      "deadline": null
+    },
+    {
+      "action_type": "custom",
+      "workflow_name": "collect_recipient_address",
+      "description": "Collect residential address for Tony Liu",
+      "parameters": {
+        "recipient": "Tony Liu",
+        "field_type": "residential_address",
+        "required": true,
+        "original_action_type": "address_collection"
+      },
+      "entities": [
+        {
+          "name": "recipient_name",
+          "value": "Tony Liu",
+          "confidence": 1.0,
+          "location": "header"
+        }
+      ],
+      "confidence_score": 0.95,
+      "confidence_level": "high",
+      "priority": 1,
+      "deadline": null
+    },
+    {
+      "action_type": "custom",
+      "workflow_name": "complete_development_agreement_date",
+      "description": "Complete the date for MVP Development Agreement reference",
+      "parameters": {
+        "document_reference": "MVP Development Agreement",
+        "month": "September",
+        "year": "2025",
+        "field_to_complete": "day",
+        "original_action_type": "date_completion"
+      },
+      "entities": [
+        {
+          "name": "agreement_type",
+          "value": "MVP Development Agreement",
+          "confidence": 1.0,
+          "location": "section_3"
+        },
+        {
+          "name": "agreement_month",
+          "value": "September",
+          "confidence": 1.0,
+          "location": "section_3"
+        },
+        {
+          "name": "agreement_year",
+          "value": "2025",
+          "confidence": 1.0,
+          "location": "section_3"
+        }
+      ],
+      "confidence_score": 0.9,
+      "confidence_level": "high",
+      "priority": 2,
+      "deadline": null
+    }
+  ],
+  "workflow_runs": [],
+  "error": null
+}
