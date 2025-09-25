@@ -42,6 +42,13 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 
 ## ✨ Latest Features
 
+### **Intelligent Workflow Matching with Claude AI** *(September 2025 - NEW)*
+- **Claude-Powered Semantic Matching**: AI understands workflow intent even with name variations
+- **5-Tier Fallback Strategy**: Direct → Aliases → Claude → Fuzzy → Fallback for maximum reliability
+- **Automatic Resolution**: Handles `nda_signature`, `complete_missing_information`, and other variations
+- **Confidence Scoring**: Each match includes confidence level for audit and validation
+- **Performance Caching**: Intelligent caching of workflow matches for improved performance
+
 ### **Unified Document Workflow DSL** *(September 2025 - NEW)*
 - **Domain-Specific Language**: Unified DSL for all document types (PDFs, contracts, invoices, forms)
 - **4 New Workflow Definitions**: `document_signature`, `complete_missing_info`, `legal_compliance`, `document_management`
@@ -168,7 +175,11 @@ graph TB
     
     subgraph "Processing Pipeline"
         E --> I[Action Extractor]
-        I --> J[Workflow Engine]
+        I --> WM[Workflow Matcher]
+        WM -->|Claude AI| WM1[Semantic Matching]
+        WM -->|Static| WM2[Alias Resolution]
+        WM -->|Fuzzy| WM3[Token Matching]
+        WM --> J[Workflow Engine]
         J --> K[Code Generator]
         K --> L[Sandbox Executor]
     end
@@ -482,7 +493,41 @@ All errors follow RFC 7807 Problem Details format
 
 ### Core Endpoints
 
-#### 1. Upload Document with Enhanced PDF Processing
+#### 1. API Root
+
+**GET** `/`
+
+Get API information and available endpoints.
+
+```bash
+curl -X GET "http://localhost:8001/"
+```
+
+**Response:**
+```json
+{
+  "name": "DocAutomate API",
+  "version": "2.0.0",
+  "description": "Enterprise document processing and workflow automation",
+  "documentation": "/docs",
+  "openapi": "/openapi.json",
+  "features": {
+    "superclaude_framework": true,
+    "intelligent_workflow_matching": true,
+    "claude_semantic_matching": true,
+    "pdf_processing": "pty_based",
+    "code_generation": true,
+    "sandbox_execution": true
+  },
+  "endpoints": [
+    {"path": "/documents", "methods": ["GET", "POST"]},
+    {"path": "/workflows", "methods": ["GET", "POST"]},
+    {"path": "/health", "methods": ["GET"]}
+  ]
+}
+```
+
+#### 2. Upload Document with Enhanced PDF Processing
 
 **POST** `/documents/upload`
 
@@ -831,7 +876,142 @@ curl -X GET "http://localhost:8001/documents/a7b8c9d012345678" \
 }
 ```
 
-#### 4. Execute SuperClaude-Enhanced Workflow
+#### 4. Extract Actions from Document
+
+**POST** `/documents/{document_id}/extract`
+
+Manually trigger action extraction for a specific document.
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8001/documents/doc_123/extract" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "force_reprocess": true,
+    "confidence_threshold": 0.85
+  }'
+```
+
+**Response:**
+```json
+{
+  "document_id": "doc_123",
+  "actions_extracted": 3,
+  "actions": [
+    {
+      "action_type": "signature_request",
+      "workflow_name": "document_signature",
+      "confidence_score": 0.92,
+      "parameters": {...}
+    }
+  ],
+  "processing_time": 2.34
+}
+```
+
+#### 5. List Available Workflows
+
+**GET** `/workflows`
+
+Get all available workflow definitions in the system.
+
+```bash
+curl -X GET "http://localhost:8001/workflows"
+```
+
+**Response:**
+```json
+{
+  "workflows": [
+    {
+      "name": "document_signature",
+      "description": "Handle document signature requirements",
+      "required_parameters": ["document_type", "parties", "signature_fields"],
+      "optional_parameters": ["effective_date", "notification_email"]
+    },
+    {
+      "name": "complete_missing_info",
+      "description": "Complete missing information in forms",
+      "required_parameters": ["field", "party"],
+      "optional_parameters": ["required", "validation_rules"]
+    }
+  ],
+  "total": 6
+}
+```
+
+#### 6. Get Workflow Details
+
+**GET** `/workflows/{workflow_name}`
+
+Get detailed information about a specific workflow.
+
+```bash
+curl -X GET "http://localhost:8001/workflows/document_signature"
+```
+
+**Response:**
+```json
+{
+  "name": "document_signature",
+  "description": "Handle document signature requirements",
+  "version": "1.0",
+  "parameters": {
+    "required": ["document_type", "parties", "signature_fields"],
+    "optional": ["effective_date", "notification_email", "reminder_schedule"]
+  },
+  "actions": [
+    {"action": "validate", "type": "validation"},
+    {"action": "collect_signatures", "type": "signature"},
+    {"action": "notify_parties", "type": "notification"}
+  ],
+  "supported_document_types": ["NDA", "Contract", "Agreement"],
+  "average_completion_time": "5-10 minutes"
+}
+```
+
+#### 7. List Workflow Runs
+
+**GET** `/workflows/runs`
+
+Get all workflow run history with filtering options.
+
+```bash
+# Get all runs
+curl -X GET "http://localhost:8001/workflows/runs"
+
+# Filter by status
+curl -X GET "http://localhost:8001/workflows/runs?status=completed"
+
+# Filter by workflow name
+curl -X GET "http://localhost:8001/workflows/runs?workflow_name=document_signature"
+
+# Filter by date range
+curl -X GET "http://localhost:8001/workflows/runs?start_date=2025-09-01&end_date=2025-09-30"
+```
+
+**Response:**
+```json
+{
+  "runs": [
+    {
+      "run_id": "run_abc123",
+      "workflow_name": "document_signature",
+      "document_id": "doc_001",
+      "status": "completed",
+      "started_at": "2025-09-25T14:00:00Z",
+      "completed_at": "2025-09-25T14:05:30Z",
+      "duration_seconds": 330,
+      "quality_score": 0.95
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 8. Execute SuperClaude-Enhanced Workflow
 
 **POST** `/workflows/execute`
 
@@ -1602,6 +1782,92 @@ Report:      EXTRACT → VALIDATE → DELEGATE → COMPLETE → STORE
 | `document_management` | VALIDATE → STORE → TRIGGER → DELEGATE | All document types |
 | `excel_automation` | EXTRACT → DELEGATE → COMPLETE | Financial reports, Data exports |
 | `process_invoice` | VALIDATE → NOTIFY → TRIGGER | Invoices, Bills, Receipts |
+
+### 🧠 Intelligent Workflow Matching System (NEW)
+
+DocAutomate includes an advanced workflow matching system that uses Claude AI for semantic understanding and intelligent resolution of workflow names. This ensures that even when extracted workflow names don't exactly match defined workflows, the system can intelligently route to the correct workflow.
+
+#### Matching Strategy
+
+The system employs a 5-tier fallback strategy for maximum reliability:
+
+1. **Direct Match**: Exact workflow name exists in the system
+2. **Static Aliases**: Pre-configured mappings for common variations
+3. **Claude Semantic Matching**: AI-powered understanding of intent and context
+4. **Fuzzy Token Matching**: Jaccard similarity-based matching
+5. **Generic Fallback**: Default to most appropriate general workflow
+
+#### Workflow Aliases
+
+Common workflow name variations are automatically resolved:
+
+| Requested Workflow | Resolved To | Confidence |
+|--------------------|--------------|------------|
+| `nda_signature` | `document_signature` | 0.90 |
+| `contract_signature` | `document_signature` | 0.90 |
+| `sign_document` | `document_signature` | 0.90 |
+| `complete_missing_information` | `complete_missing_info` | 0.90 |
+| `complete_recipient_info` | `complete_missing_info` | 0.90 |
+| `complete_agreement_date` | `complete_missing_info` | 0.90 |
+| `confidential_info_return` | `document_management` | 0.90 |
+| `legal_review` | `legal_compliance` | 0.90 |
+| `invoice_processing` | `process_invoice` | 0.90 |
+
+#### Claude Semantic Understanding
+
+When static aliases don't match, the system uses Claude AI to understand the semantic intent:
+
+```python
+# Example: System receives "nda_confidentiality_agreement_execution"
+# Claude analyzes:
+#   - "nda" → Non-disclosure agreement (legal document)
+#   - "execution" → Signing/signature process
+#   - Context: Legal document requiring signature
+# Result: Routes to "document_signature" with 0.85 confidence
+```
+
+#### Configuration
+
+The workflow matcher can be configured via environment variables:
+
+```bash
+# Enable/disable Claude semantic matching
+ENABLE_CLAUDE_MATCHING=true
+
+# Set minimum confidence threshold for auto-execution
+WORKFLOW_CONFIDENCE_THRESHOLD=0.7
+
+# Configure cache TTL for workflow matches (seconds)
+WORKFLOW_MATCH_CACHE_TTL=3600
+
+# Enable verbose logging for matching decisions
+WORKFLOW_MATCH_VERBOSE=true
+```
+
+#### API Integration
+
+The workflow matching happens transparently during document processing:
+
+```bash
+# Even if the document extraction identifies "nda_signature" workflow
+# The system automatically resolves it to "document_signature"
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "doc_001",
+    "workflow_name": "nda_signature",  # Automatically resolved
+    "parameters": {...}
+  }'
+
+# Response includes matching details:
+{
+  "workflow_executed": "document_signature",
+  "original_request": "nda_signature",
+  "match_confidence": 0.90,
+  "match_reason": "static_alias",
+  "run_id": "run_abc123"
+}
+```
 
 ## 🎯 Use Cases & Examples
 

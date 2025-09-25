@@ -1,0 +1,21 @@
+{
+  "run_id": "61f13f4d",
+  "workflow_name": "document_signature",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": null,
+  "parameters": {
+    "document_type": "NDA",
+    "party1": "YOOBROO, INC.",
+    "party2": "TONY LIU",
+    "effective_date": "2025-06-30",
+    "signature_field": "recipient_address",
+    "original_action_type": "signature_required",
+    "document_id": "be31df81bdf7fcfb"
+  },
+  "state": {},
+  "started_at": "2025-09-25T07:40:41.422775",
+  "completed_at": "2025-09-25T07:40:41.423275",
+  "error": "Required parameter 'parties' not provided",
+  "outputs": {}
+}

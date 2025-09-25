@@ -1,0 +1,71 @@
+{
+  "run_id": "0f1f4bd1",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "field": "recipient_address",
+    "recipient_name": "TONY LIU",
+    "required": true,
+    "original_action_type": "address_completion",
+    "document_id": "be31df81bdf7fcfb"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The recipient_address field requires a complete mailing address for document delivery or shipping purposes",
+          "insights": [
+            "Field type is clearly 'address' based on the field name and context hint",
+            "The 'address_completion' context suggests this needs to be a full, deliverable address",
+            "As a recipient address, this is likely for shipping, mailing, or delivery purposes",
+            "No party specified indicates this could be for any recipient type (individual or organization)"
+          ],
+          "recommendations": [
+            "Implement address autocomplete/validation using a service like Google Places API or similar",
+            "Require standard address components: street address, city, state/province, postal code, country",
+            "Set this as a high priority field since delivery addresses are critical for fulfillment",
+            "Consider adding optional fields for apartment/suite numbers and special delivery instructions",
+            "Validate addresses in real-time to prevent delivery failures"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T07:40:41.423779",
+  "completed_at": "2025-09-25T07:41:00.503050",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The recipient_address field requires a complete mailing address for document delivery or shipping purposes",
+        "insights": [
+          "Field type is clearly 'address' based on the field name and context hint",
+          "The 'address_completion' context suggests this needs to be a full, deliverable address",
+          "As a recipient address, this is likely for shipping, mailing, or delivery purposes",
+          "No party specified indicates this could be for any recipient type (individual or organization)"
+        ],
+        "recommendations": [
+          "Implement address autocomplete/validation using a service like Google Places API or similar",
+          "Require standard address components: street address, city, state/province, postal code, country",
+          "Set this as a high priority field since delivery addresses are critical for fulfillment",
+          "Consider adding optional fields for apartment/suite numbers and special delivery instructions",
+          "Validate addresses in real-time to prevent delivery failures"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

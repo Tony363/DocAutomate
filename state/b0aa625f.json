@@ -1,0 +1,70 @@
+{
+  "run_id": "b0aa625f",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "document_reference": "MVP Development Agreement",
+    "month": "September",
+    "year": "2025",
+    "field": "day",
+    "original_action_type": "date_completion",
+    "document_id": "be31df81bdf7fcfb"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The 'day' field is a date type requiring day-of-month or full date input for completion tracking purposes",
+          "insights": [
+            "Field name 'day' with date_completion context indicates date-related data collection",
+            "September 2025 temporal context suggests forward-looking completion dates",
+            "Ambiguous whether this expects day-of-month (1-30) or full date format",
+            "No party specified indicates general applicability across entities"
+          ],
+          "recommendations": [
+            "Implement as date type with full date picker (MM/DD/YYYY or DD/MM/YYYY based on locale)",
+            "Add validation for valid dates within reasonable range (e.g., current date to 2 years future)",
+            "Consider renaming to 'completion_date' for clarity if full date intended",
+            "Set medium-high priority as completion dates are typically critical for workflow tracking"
+          ],
+          "confidence": 0.75
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T07:41:14.120403",
+  "completed_at": "2025-09-25T07:41:32.167587",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The 'day' field is a date type requiring day-of-month or full date input for completion tracking purposes",
+        "insights": [
+          "Field name 'day' with date_completion context indicates date-related data collection",
+          "September 2025 temporal context suggests forward-looking completion dates",
+          "Ambiguous whether this expects day-of-month (1-30) or full date format",
+          "No party specified indicates general applicability across entities"
+        ],
+        "recommendations": [
+          "Implement as date type with full date picker (MM/DD/YYYY or DD/MM/YYYY based on locale)",
+          "Add validation for valid dates within reasonable range (e.g., current date to 2 years future)",
+          "Consider renaming to 'completion_date' for clarity if full date intended",
+          "Set medium-high priority as completion dates are typically critical for workflow tracking"
+        ],
+        "confidence": 0.75
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
