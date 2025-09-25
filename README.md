@@ -9,30 +9,40 @@
 
 ## 🚀 Overview
 
-DocAutomate is an enterprise-ready intelligent document processing framework that combines AI-powered document analysis, workflow automation, and code generation. Built on **Claude Code CLI** with the **SuperClaude Framework**, it provides intelligent agent routing, multi-model consensus validation, and dynamic workflow execution.
+DocAutomate is a **pure API orchestration layer** that delegates ALL document processing to Claude Code agents through the SuperClaude Framework. With **ZERO local processing logic**, it serves as a universal document processor that generalizes to ANY document type - medical records, legal contracts, financial reports, technical documentation, and more.
+
+### Architecture Principle: Complete Delegation
+```
+API Request → DSL Workflow → Claude Agent → Response
+```
+- **NO** local document processing logic
+- **ALL** intelligence resides in Claude Code
+- **DSL** defines WHAT to do, not HOW
+- **Agents** handle all actual processing
 
 ### Core Features
 
-- 🤖 **Claude Code Integration**: Full SuperClaude Framework with specialized agents and MCP servers
-- 📊 **Multi-Agent Analysis**: Parallel processing with technical-writer, security-engineer, and quality-engineer agents
-- 🔄 **Dynamic Workflows**: YAML-based workflow engine with intelligent parameter resolution
-- 🎯 **Orchestration API**: Complete document processing pipeline with consensus validation
-- 📈 **Code Generation**: Automated Python script creation for analysis and visualization
-- 🛡️ **Quality Assurance**: Automated validation loops with configurable quality thresholds
-- 🌐 **REST API**: FastAPI with async processing and comprehensive documentation
-- 🔧 **DSL Workflows**: Generalizable workflow patterns for any document type
+- 🤖 **Pure Claude Code Delegation**: ALL operations processed by Claude agents, zero local logic
+- 🌍 **Universal Document Support**: Medical, legal, financial, technical - ANY document type
+- 📊 **Multi-Agent Orchestration**: Parallel execution with specialized domain agents
+- 🔄 **DSL-Driven Workflows**: YAML configurations that generalize to any use case
+- 🎯 **Intelligent Routing**: Automatic agent selection based on document content
+- 📈 **Quality Loops**: Iterative improvement until quality thresholds met
+- 🛡️ **Multi-Model Consensus**: Validation across GPT-5, Claude Opus 4.1, GPT-4.1
+- 🌐 **Stateless REST API**: Horizontally scalable orchestration layer
+- ♾️ **Infinite Extensibility**: Add capabilities through DSL without code changes
 
 ## 📋 Table of Contents
 
 - [Architecture](#-architecture)
+- [System Generalization](#-system-generalization)
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [API Documentation](#-api-documentation)
 - [Claude Code Integration](#-claude-code-integration)
+- [DSL Configuration](#-dsl-configuration)
 - [Workflow System](#-workflow-system)
-- [Orchestration Endpoints](#-orchestration-endpoints)
-- [Configuration](#-configuration)
-- [Examples](#-examples)
+- [Real-World Applications](#-real-world-applications)
 - [Production Deployment](#-production-deployment)
 
 ## 🏗️ Architecture
@@ -138,6 +148,85 @@ graph TB
 ```
 
 The architecture shows Claude Code as the primary processing engine, with DocAutomate providing the orchestration layer, workflow management, and API interface.
+
+## 🌐 System Generalization
+
+DocAutomate generalizes to **ANY document type** through Claude Code's multi-modal understanding:
+
+### Universal Processing Pipeline
+
+```mermaid
+graph LR
+    subgraph "Any Document Type"
+        MED[Medical Records]
+        LEG[Legal Contracts]
+        FIN[Financial Reports]
+        TECH[Technical Docs]
+        INV[Invoices]
+        IMG[Images/Screenshots]
+    end
+
+    subgraph "Claude Code Engine"
+        CLASS[Document Classification]
+        ROUTE[Agent Routing]
+        PROC[Processing]
+        VAL[Validation]
+    end
+
+    subgraph "Specialized Agents"
+        MEDA[medical-review]
+        LEGA[legal-review]
+        FINA[financial-audit]
+        TECHA[technical-writer]
+        SECA[security-engineer]
+        QUAL[quality-engineer]
+    end
+
+    MED --> CLASS
+    LEG --> CLASS
+    FIN --> CLASS
+    TECH --> CLASS
+    INV --> CLASS
+    IMG --> CLASS
+
+    CLASS --> ROUTE
+    ROUTE --> MEDA
+    ROUTE --> LEGA
+    ROUTE --> FINA
+    ROUTE --> TECHA
+    
+    MEDA --> PROC
+    LEGA --> PROC
+    FINA --> PROC
+    TECHA --> PROC
+    
+    PROC --> VAL
+    VAL --> SECA
+    VAL --> QUAL
+```
+
+### Domain Extensibility
+
+Add new document types without changing code - only DSL configuration:
+
+```yaml
+# dsl/agent-mappings.yaml - Add new domain
+medical:
+  primary: "medical-review"
+  validators: ["hipaa-compliance", "privacy-officer"]
+  templates: "medical_remediation"
+  
+financial:
+  primary: "financial-audit"
+  validators: ["sox-compliance", "fraud-detector"]
+  templates: "financial_remediation"
+  
+# Your new domain
+construction:
+  primary: "construction-inspector"
+  validators: ["building-codes", "safety-reviewer"]
+  templates: "construction_remediation"
+```
 
 ## 🚀 Quick Start
 
@@ -545,6 +634,70 @@ curl "http://localhost:8001/health"
 }
 ```
 
+## 🔧 DSL Configuration
+
+### Unified Operations Schema
+
+The DSL defines all document operations without code:
+
+```yaml
+# dsl/unified-operations.yaml
+operation_types:
+  ingest:
+    primary_agent: "general-purpose"
+    mcp_servers: ["filesystem", "sequential"]
+    
+  analyze:
+    primary_agent: "requirements-analyst"
+    secondary_agents: ["technical-writer", "security-engineer"]
+    parallel_execution: true
+    
+  remediate:
+    primary_agent: "quality-engineer"
+    validation_models: ["gpt-5", "claude-opus-4.1"]
+    quality_threshold: 0.9
+    
+  validate:
+    consensus_required: true
+    models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+    agreement_threshold: 0.85
+
+quality_scoring:
+  rubric:
+    completeness: 0.3
+    accuracy: 0.3
+    clarity: 0.2
+    compliance: 0.2
+```
+
+### Agent Mappings
+
+Intelligent routing based on document characteristics:
+
+```yaml
+# dsl/agent-mappings.yaml
+document_type_mappings:
+  contract:
+    primary: "legal-review"
+    validators: ["compliance-officer"]
+    
+  medical_record:
+    primary: "medical-review"
+    validators: ["privacy-officer", "hipaa-compliance"]
+    
+  technical_spec:
+    primary: "technical-writer"
+    validators: ["quality-engineer", "security-engineer"]
+
+selection_rules:
+  - condition: "high_risk"
+    action: "add_security_engineer"
+  - condition: "financial_data"
+    action: "add_compliance_officer"
+  - condition: "personal_data"
+    action: "add_privacy_officer"
+```
+
 ## 🤖 Claude Code Integration
 
 ### SuperClaude Framework Components
@@ -785,6 +938,156 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+```
+
+## 🌍 Real-World Applications
+
+### Medical Records Processing
+
+Process HIPAA-compliant medical records with privacy validation:
+
+```bash
+# Upload medical record
+curl -X POST "http://localhost:8001/documents/upload" \
+  -F "file=@patient_record.pdf" \
+  -F "auto_process=true"
+
+# Execute medical compliance workflow
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "med_001",
+    "workflow_type": "medical_compliance",
+    "agents": ["medical-review", "privacy-officer", "quality-engineer"],
+    "config": {
+      "compliance_standards": ["HIPAA", "HL7"],
+      "redaction_required": true,
+      "quality_threshold": 0.95
+    }
+  }'
+
+# Response
+{
+  "orchestration_id": "orch_med_001",
+  "status": "success",
+  "compliance_score": 98,
+  "issues_found": ["missing_patient_consent_section"],
+  "remediation_applied": true
+}
+```
+
+### Financial Report Validation
+
+Validate financial reports for SOX compliance:
+
+```bash
+# Process quarterly report
+curl -X POST "http://localhost:8001/orchestrate/workflow" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "fin_q4_2024",
+    "workflow_type": "financial_audit",
+    "agents": ["financial-auditor", "compliance-officer", "fraud-detector"],
+    "config": {
+      "standards": ["SOX", "GAAP"],
+      "risk_threshold": 0.05,
+      "audit_level": "comprehensive"
+    }
+  }'
+
+# Response
+{
+  "orchestration_id": "orch_fin_001",
+  "audit_score": 94,
+  "compliance_status": "passed",
+  "risk_factors": [],
+  "recommendations": ["enhance_disclosure_notes"]
+}
+```
+
+### Technical Documentation Review
+
+Analyze and improve technical specifications:
+
+```bash
+# Multi-agent technical review
+curl -X POST "http://localhost:8001/documents/{doc_id}/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agents": ["technical-writer", "security-engineer", "quality-engineer"],
+    "parallel": true,
+    "config": {
+      "check_security": true,
+      "validate_completeness": true,
+      "code_examples_required": true
+    }
+  }'
+
+# Generate improved version
+curl -X POST "http://localhost:8001/documents/{doc_id}/remediate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "technical_documentation",
+    "improvements": ["add_code_examples", "clarify_architecture", "add_security_section"]
+  }'
+```
+
+### Invoice Processing
+
+Automated invoice extraction and validation:
+
+```bash
+# Process invoice with data extraction
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_name": "invoice_processing",
+    "document_id": "inv_2024_001",
+    "parameters": {
+      "extract_line_items": true,
+      "validate_calculations": true,
+      "vendor_verification": true
+    }
+  }'
+
+# Response includes extracted data
+{
+  "run_id": "run_inv_001",
+  "status": "success",
+  "extracted_data": {
+    "vendor": "Acme Corp",
+    "invoice_number": "INV-2024-001",
+    "total": 5000.00,
+    "tax": 400.00,
+    "line_items": [...]
+  },
+  "validation_passed": true
+}
+```
+
+### Custom Domain Integration
+
+Add any new document type via DSL:
+
+```yaml
+# workflows/insurance_claim.yaml
+name: "insurance_claim_processor"
+steps:
+  - type: "claude_delegate"
+    config:
+      agent: "insurance-reviewer"  # Custom agent
+      task: "Extract claim details and validate coverage"
+      
+  - type: "api_call"
+    config:
+      url: "https://insurance.company.com/claims/validate"
+      method: "POST"
+      body: "{{ steps.extract_claim.output }}"
+      
+  - type: "claude_consensus"
+    config:
+      models: ["gpt-5", "claude-opus-4.1"]
+      validation_type: "fraud_detection"
 ```
 
 ## 📝 Examples
@@ -1160,15 +1463,15 @@ Key metrics to monitor:
 
 ## 📈 Recent Updates
 
-### Version 2.0.0 - Major Enhancement
-- **Universal Document Processor**: New generalized workflow for any document type
-- **Enhanced Agent Routing**: Intelligent agent selection based on document content
-- **Multi-Model Consensus**: Support for GPT-5, Claude Opus 4.1, and GPT-4.1 consensus
-- **DSL Integration**: YAML-based workflow definitions with Jinja2 templating
-- **Dynamic Workflows**: Runtime workflow generation based on document analysis
-- **Quality Loop Automation**: Automated quality validation with configurable thresholds
-- **Parallel Agent Execution**: Simultaneous multi-agent processing for performance
-- **Code Generation**: Automated Python script creation for analysis and visualization
+### Version 2.0.0 - Pure Claude Code Delegation
+- **Complete Transformation**: ALL document processing now delegates to Claude Code agents
+- **Universal Document Processor**: Generalizes to ANY document type (medical, legal, financial, technical)
+- **Zero Local Processing**: No document logic in DocAutomate - pure API orchestration layer
+- **DSL-Driven Architecture**: YAML configurations define workflows without code changes
+- **Multi-Model Consensus**: GPT-5, Claude Opus 4.1, and GPT-4.1 validation
+- **Quality Loop Automation**: Iterative improvement until quality thresholds met
+- **Parallel Agent Execution**: Concurrent multi-agent processing
+- **Infinite Extensibility**: Add new document types and operations via DSL only
 
 ## 🤝 Contributing
 
@@ -1213,6 +1516,70 @@ The project uses:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🔄 Implementation Architecture
+
+### Pure Delegation Pattern
+
+DocAutomate operates as a stateless orchestration layer:
+
+```
+API Request → DSL Workflow → Claude Agent Invocation → Response
+```
+
+**Key Components:**
+
+1. **Unified DSL Schema** (`dsl/unified-operations.yaml`)
+   - Defines all operations and agent mappings
+   - No processing logic, only orchestration rules
+   - Quality scoring rubrics and thresholds
+
+2. **Agent Providers** (`agent_providers.py`)
+   - Pure delegation to Claude CLI
+   - DSL-driven prompt generation
+   - Automatic mode and MCP server selection
+
+3. **Universal Workflow** (`workflows/universal-document.yaml`)
+   - Single workflow for all document types
+   - Dynamic agent selection based on content
+   - Quality loops until thresholds met
+
+4. **Claude Service** (`services/claude_service.py`)
+   - Orchestration with full DSL integration
+   - Multi-agent coordination
+   - Consensus validation management
+
+### Processing Flows
+
+**Document Ingestion:**
+```
+1. API receives document
+2. DSL determines operation type
+3. Claude classifies document (if auto)
+4. Agent selected from mappings
+5. Claude agent processes document
+6. Results returned via API
+```
+
+**Multi-Agent Analysis:**
+```
+1. DSL identifies parallel agents
+2. Service invokes agents concurrently
+3. Each agent analyzes via Claude CLI
+4. Results aggregated
+5. Consensus validation (if enabled)
+6. Synthesized findings returned
+```
+
+**Quality Iteration:**
+```
+1. Initial processing by agent
+2. Quality score calculated
+3. If below threshold: loop
+4. Claude improves document
+5. Re-validate quality
+6. Repeat until threshold met
+```
+
 ## 🆘 Support
 
 - **Documentation**: [Full API Docs](http://localhost:8001/docs)
@@ -1222,6 +1589,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**DocAutomate Framework** - Intelligent Document Processing with Claude Code Integration
+**DocAutomate Framework** - Universal Document Processing via Pure Claude Code Delegation
 
 Built with ❤️ by the DocAutomate team
