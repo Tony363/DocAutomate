@@ -248,6 +248,18 @@ class WorkflowEngine:
                 elif 'recipient' in action_type:
                     transformed['field'] = 'recipient_information'
         
+        # Handle document_management workflow
+        elif workflow_name == 'document_management':
+            # Handle action parameter variations
+            if 'actions' in transformed and 'action' not in transformed:
+                transformed['action'] = transformed.pop('actions')
+            elif 'management_action' in transformed and 'action' not in transformed:
+                # Convert single action to array
+                transformed['action'] = [transformed.pop('management_action')]
+            elif 'action' in transformed and not isinstance(transformed['action'], list):
+                # Ensure action is always an array
+                transformed['action'] = [transformed['action']]
+        
         # Handle date fields across all workflows
         from datetime import datetime
         for key, value in list(transformed.items()):
@@ -312,6 +324,11 @@ class WorkflowEngine:
                 params['field'] = 'information_needed'
             logger.info(f"Added default field '{params['field']}' for complete_missing_info workflow")
         
+        if workflow_name == 'document_management' and 'action' not in params:
+            # Default to return action as it's safer than destroy
+            params['action'] = ['return_all_information']
+            logger.info(f"Added default action for document_management workflow")
+        
         return params
     
     def _validate_parameters(self, workflow: Dict, parameters: Dict):
@@ -353,11 +370,26 @@ class WorkflowEngine:
         state: Dict
     ) -> Dict:
         """Resolve Jinja2 template variables in configuration"""
+        from jinja2 import Template, Undefined, UndefinedError
+        from jinja2.exceptions import TemplateSyntaxError
+        
         def resolve_value(value):
             if isinstance(value, str) and '{{' in value:
-                template = Template(value)
-                context = {**parameters, 'steps': state}
-                return template.render(context)
+                try:
+                    template = Template(value)
+                    context = {**parameters, 'steps': state}
+                    result = template.render(context)
+                    # Check if result contains undefined placeholders
+                    if 'Undefined' in result:
+                        logger.warning(f"Template contains undefined variables: {value}")
+                        return ""
+                    return result
+                except (AttributeError, UndefinedError, TemplateSyntaxError) as e:
+                    logger.warning(f"Template resolution failed for '{value}': {e}, using empty string")
+                    return ""
+                except Exception as e:
+                    logger.error(f"Unexpected error in template resolution: {e}")
+                    return value  # Return original value on unexpected errors
             elif isinstance(value, dict):
                 return {k: resolve_value(v) for k, v in value.items()}
             elif isinstance(value, list):

@@ -1,0 +1,99 @@
+{
+  "run_id": "c46f2116",
+  "workflow_name": "document_signature",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_signature_method",
+  "parameters": {
+    "document_type": "NDA",
+    "effective_date": "2025-06-30",
+    "signature_required": true,
+    "original_action_type": "document_signature",
+    "document_id": "be31df81bdf7fcfb",
+    "parties": [
+      "YOOBROO, INC.",
+      "TONY LIU"
+    ]
+  },
+  "state": {
+    "steps": {
+      "validate_parties": {
+        "status": "success",
+        "transformed": {
+          "total_parties": "2",
+          "signature_required": "3",
+          "document_status": "pending_signatures"
+        }
+      },
+      "prepare_signature_request": {
+        "status": "success",
+        "analysis": {
+          "summary": "NDA between YOOBROO, INC. and TONY LIU requiring signatures, dates, and initials from both parties with an effective date of 2025-06-30. Standard two-party signature collection process with no apparent sequential signing requirement.",
+          "insights": [
+            "Both parties (YOOBROO, INC. and TONY LIU) require full signature fields",
+            "Document requires three authentication elements per party: signature, date, and initials",
+            "Effective date is set for future date (2025-06-30), allowing flexibility in signature collection timing",
+            "No indication of witness or notarization requirements in the provided requirements",
+            "Standard bilateral NDA structure suggests parallel signing is acceptable"
+          ],
+          "recommendations": [
+            "Enable parallel signing to expedite the process - both parties can sign simultaneously",
+            "Set up signature fields for YOOBROO, INC. representative: signature line, date field, and initials box",
+            "Set up identical signature fields for TONY LIU: signature line, date field, and initials box",
+            "Include clear labeling for each field to avoid confusion (e.g., 'Company Representative Signature', 'Individual Signature')",
+            "Add validation to ensure all required fields are completed before document is marked as fully executed",
+            "Consider adding optional fields for printed name and title for the YOOBROO, INC. representative",
+            "Implement automatic date stamping when signatures are applied to ensure accuracy",
+            "Set reminder notifications if signatures are not collected within reasonable timeframe before effective date"
+          ],
+          "confidence": 0.92
+        }
+      },
+      "check_signature_method": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T08:55:58.450708",
+  "completed_at": "2025-09-25T08:56:19.359744",
+  "error": "Step check_signature_method failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "validate_parties": {
+      "status": "success",
+      "transformed": {
+        "total_parties": "2",
+        "signature_required": "3",
+        "document_status": "pending_signatures"
+      }
+    },
+    "prepare_signature_request": {
+      "status": "success",
+      "analysis": {
+        "summary": "NDA between YOOBROO, INC. and TONY LIU requiring signatures, dates, and initials from both parties with an effective date of 2025-06-30. Standard two-party signature collection process with no apparent sequential signing requirement.",
+        "insights": [
+          "Both parties (YOOBROO, INC. and TONY LIU) require full signature fields",
+          "Document requires three authentication elements per party: signature, date, and initials",
+          "Effective date is set for future date (2025-06-30), allowing flexibility in signature collection timing",
+          "No indication of witness or notarization requirements in the provided requirements",
+          "Standard bilateral NDA structure suggests parallel signing is acceptable"
+        ],
+        "recommendations": [
+          "Enable parallel signing to expedite the process - both parties can sign simultaneously",
+          "Set up signature fields for YOOBROO, INC. representative: signature line, date field, and initials box",
+          "Set up identical signature fields for TONY LIU: signature line, date field, and initials box",
+          "Include clear labeling for each field to avoid confusion (e.g., 'Company Representative Signature', 'Individual Signature')",
+          "Add validation to ensure all required fields are completed before document is marked as fully executed",
+          "Consider adding optional fields for printed name and title for the YOOBROO, INC. representative",
+          "Implement automatic date stamping when signatures are applied to ensure accuracy",
+          "Set reminder notifications if signatures are not collected within reasonable timeframe before effective date"
+        ],
+        "confidence": 0.92
+      }
+    },
+    "check_signature_method": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

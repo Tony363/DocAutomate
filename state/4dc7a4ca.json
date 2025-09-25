@@ -1,0 +1,89 @@
+{
+  "run_id": "4dc7a4ca",
+  "workflow_name": "document_signature",
+  "document_id": "test_doc_001",
+  "status": "failed",
+  "current_step": "check_signature_method",
+  "parameters": {
+    "document_id": "test_doc_001",
+    "parties": [
+      "Party A",
+      "Party B"
+    ],
+    "effective_date": "2024-01-01",
+    "original_action_type": "signature_request"
+  },
+  "state": {
+    "steps": {
+      "validate_parties": {
+        "status": "success",
+        "transformed": {
+          "total_parties": "2",
+          "signature_required": "3",
+          "document_status": "pending_signatures"
+        }
+      },
+      "prepare_signature_request": {
+        "status": "success",
+        "analysis": {
+          "summary": "Document requires signatures from two parties (Party A and Party B) with standard signature fields including signature, date, and initials. Sequential signing order recommended with Party A signing first, followed by Party B.",
+          "insights": [
+            "Two-party agreement requiring bilateral execution",
+            "Standard signature requirements include signature, date, and initials for each party",
+            "Effective date of 2024-01-01 suggests document may be backdated or pre-scheduled",
+            "No document type specified, which may require clarification for proper signature placement"
+          ],
+          "recommendations": [
+            "Implement sequential signing with Party A initiating the signature process",
+            "Create signature blocks with three fields per party: signature line, date field, and initials box",
+            "Add witness signature lines if document type requires notarization or witnessing",
+            "Include clear labels for each signature field to avoid confusion",
+            "Consider adding a completion certificate or final execution date field after all signatures are collected"
+          ],
+          "confidence": 0.85
+        }
+      },
+      "check_signature_method": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T08:52:22.600526",
+  "completed_at": "2025-09-25T08:52:37.735937",
+  "error": "Step check_signature_method failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "validate_parties": {
+      "status": "success",
+      "transformed": {
+        "total_parties": "2",
+        "signature_required": "3",
+        "document_status": "pending_signatures"
+      }
+    },
+    "prepare_signature_request": {
+      "status": "success",
+      "analysis": {
+        "summary": "Document requires signatures from two parties (Party A and Party B) with standard signature fields including signature, date, and initials. Sequential signing order recommended with Party A signing first, followed by Party B.",
+        "insights": [
+          "Two-party agreement requiring bilateral execution",
+          "Standard signature requirements include signature, date, and initials for each party",
+          "Effective date of 2024-01-01 suggests document may be backdated or pre-scheduled",
+          "No document type specified, which may require clarification for proper signature placement"
+        ],
+        "recommendations": [
+          "Implement sequential signing with Party A initiating the signature process",
+          "Create signature blocks with three fields per party: signature line, date field, and initials box",
+          "Add witness signature lines if document type requires notarization or witnessing",
+          "Include clear labels for each signature field to avoid confusion",
+          "Consider adding a completion certificate or final execution date field after all signatures are collected"
+        ],
+        "confidence": 0.85
+      }
+    },
+    "check_signature_method": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

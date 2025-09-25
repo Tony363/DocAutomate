@@ -79,7 +79,7 @@ steps:
             document_id: "{{ document_id }}"
             parties: "{{ parties }}"
             fields: "{{ signature_fields }}"
-            routing_order: "{{ steps.prepare_signature_request.analysis.signature_order }}"
+            routing_order: "{{ steps.prepare_signature_request.signature_order | default('sequential') }}"
       if_false:
         type: "api_call"
         config:

@@ -1,0 +1,75 @@
+{
+  "run_id": "33515317",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "agreement_type": "MVP Development Agreement",
+    "month": "September",
+    "year": "2025",
+    "missing_field": "day",
+    "original_action_type": "date_completion",
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "general"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The 'day' field appears to be a date-related field for capturing completion dates, likely requiring day-of-month validation within the September 2025 context.",
+          "insights": [
+            "Field name 'day' with 'date_completion' context strongly indicates a date type field",
+            "September 2025 context suggests validation should ensure day values are within 1-30 range",
+            "The field likely works in conjunction with month/year fields to form a complete date",
+            "Type hint 'date_completion' implies this tracks when something was completed or will be completed"
+          ],
+          "recommendations": [
+            "Set field type as 'date' with specific day-of-month validation",
+            "Implement validation rules: numeric only, range 1-30 for September",
+            "Use input format: DD (two-digit day format, e.g., 01, 15, 30)",
+            "Assign high priority as date fields are typically critical for document completion",
+            "Consider adding calendar picker UI for better user experience",
+            "Ensure proper date formatting and validation in conjunction with month/year fields"
+          ],
+          "confidence": 0.92
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T08:57:04.169523",
+  "completed_at": "2025-09-25T08:57:23.835772",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The 'day' field appears to be a date-related field for capturing completion dates, likely requiring day-of-month validation within the September 2025 context.",
+        "insights": [
+          "Field name 'day' with 'date_completion' context strongly indicates a date type field",
+          "September 2025 context suggests validation should ensure day values are within 1-30 range",
+          "The field likely works in conjunction with month/year fields to form a complete date",
+          "Type hint 'date_completion' implies this tracks when something was completed or will be completed"
+        ],
+        "recommendations": [
+          "Set field type as 'date' with specific day-of-month validation",
+          "Implement validation rules: numeric only, range 1-30 for September",
+          "Use input format: DD (two-digit day format, e.g., 01, 15, 30)",
+          "Assign high priority as date fields are typically critical for document completion",
+          "Consider adding calendar picker UI for better user experience",
+          "Ensure proper date formatting and validation in conjunction with month/year fields"
+        ],
+        "confidence": 0.92
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
