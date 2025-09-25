@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-Claude Service for API Integration
-Provides high-level Claude Code operations for DocAutomate API
+Claude Service - Pure Claude Code Orchestration
+All document operations delegate to Claude Code agents via SuperClaude Framework
+No local document processing - pure API wrapper for Claude CLI invocations
 """
 
 import json
 import logging
+import yaml
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 import asyncio
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
+from jinja2 import Template
 
 # Import claude_cli module
 import sys
@@ -50,14 +53,55 @@ class RemediationResult:
 
 class ClaudeService:
     """
-    High-level service for Claude Code integration
-    Provides orchestration capabilities for DocAutomate API
+    Pure Claude Code Orchestration Service
+    All operations delegate to Claude agents - no local processing
     """
     
     def __init__(self):
-        """Initialize Claude service with CLI wrapper"""
+        """Initialize service with DSL configurations and CLI wrapper"""
         self.cli = AsyncClaudeCLI()
-        logger.info("Claude Service initialized")
+        self._load_dsl_configurations()
+        logger.info("Claude Service initialized with pure delegation pattern")
+    
+    def _load_dsl_configurations(self):
+        """Load DSL configurations for orchestration"""
+        # Load unified operations DSL
+        dsl_path = Path(__file__).parent.parent / "dsl" / "unified-operations.yaml"
+        if dsl_path.exists():
+            with open(dsl_path, 'r') as f:
+                self.dsl_config = yaml.safe_load(f)
+        else:
+            self.dsl_config = {}
+            logger.warning("DSL configuration not found, using defaults")
+        
+        # Load agent mappings
+        mappings_path = Path(__file__).parent.parent / "dsl" / "agent-mappings.yaml"
+        if mappings_path.exists():
+            with open(mappings_path, 'r') as f:
+                self.agent_mappings = yaml.safe_load(f)
+        else:
+            self.agent_mappings = {}
+            logger.warning("Agent mappings not found, using defaults")
+    
+    def _get_prompt_template(self, operation: str) -> str:
+        """Get prompt template from DSL for operation"""
+        templates = self.dsl_config.get('prompt_templates', {})
+        return templates.get(operation, {}).get('template', '')
+    
+    def _select_agents_for_operation(self, operation: str, document_type: str) -> Dict[str, Any]:
+        """Select appropriate agents based on DSL mappings"""
+        # Check operation mappings
+        op_config = self.dsl_config.get('operation_types', {}).get(operation, {})
+        
+        # Check document type mappings
+        doc_config = self.agent_mappings.get('document_type_mappings', {}).get(document_type, {})
+        
+        return {
+            'primary': op_config.get('primary_agent') or doc_config.get('primary') or 'general-purpose',
+            'secondary': op_config.get('fallback_agents', []) or doc_config.get('secondary', []),
+            'parallel': op_config.get('parallel_agents', []),
+            'consensus_required': op_config.get('consensus_required', False) or doc_config.get('consensus_required', False)
+        }
     
     async def multi_agent_analysis(self, 
                                   document_content: str,

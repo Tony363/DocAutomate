@@ -1,0 +1,308 @@
+name: "universal_document_processor"
+description: "Universal workflow for any document - pure Claude Code delegation"
+version: "2.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Unique document identifier"
+  
+  - name: "document_content"
+    type: "string"
+    required: true
+    description: "Document content to process"
+    
+  - name: "document_type"
+    type: "string"
+    required: false
+    default: "auto"
+    description: "Document type or 'auto' for automatic detection"
+    
+  - name: "operation"
+    type: "string"
+    required: true
+    description: "Operation: ingest|analyze|remediate|validate|generate"
+    
+  - name: "quality_threshold"
+    type: "number"
+    required: false
+    default: 0.9
+    description: "Minimum quality score required"
+    
+  - name: "enable_consensus"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Enable multi-model consensus validation"
+    
+  - name: "parallel_agents"
+    type: "boolean"
+    required: false
+    default: true
+    description: "Enable parallel agent execution"
+
+steps:
+  # Step 1: Document Classification (if type is auto)
+  - id: "classify_document"
+    type: "claude_delegate"
+    description: "Classify document type using Claude"
+    condition: "{{ document_type == 'auto' }}"
+    config:
+      agent: "root-cause-analyst"
+      task: |
+        Analyze this document and determine its type:
+        {{ document_content[:1000] }}...
+        
+        Classify as one of:
+        - invoice, contract, nda, technical_doc, api_spec, security_policy, etc.
+        
+        Return: document_type, confidence_score, key_characteristics
+      mode: "task-manage"
+      output: "classification"
+  
+  # Step 2: Agent Selection based on operation and document type
+  - id: "select_agents"
+    type: "claude_analyze"
+    description: "Select appropriate agents for the operation"
+    config:
+      prompt: |
+        Operation: {{ operation }}
+        Document Type: {{ steps.classify_document.classification.document_type or document_type }}
+        
+        Based on the DSL agent mappings, select the best agents for this operation.
+        Consider parallel execution opportunities.
+        
+        Return: primary_agent, secondary_agents[], parallel_capable
+      data:
+        dsl_mappings: "{{ load_file('dsl/agent-mappings.yaml') }}"
+      output: "agent_selection"
+  
+  # Step 3: Execute operation with selected agents
+  - id: "execute_operation"
+    type: "conditional"
+    description: "Route to appropriate operation handler"
+    config:
+      condition_map:
+        - condition: "{{ operation == 'ingest' }}"
+          step: "ingest_document"
+        - condition: "{{ operation == 'analyze' }}"
+          step: "analyze_document"
+        - condition: "{{ operation == 'remediate' }}"
+          step: "remediate_document"
+        - condition: "{{ operation == 'validate' }}"
+          step: "validate_document"
+        - condition: "{{ operation == 'generate' }}"
+          step: "generate_document"
+  
+  # Ingestion Operation
+  - id: "ingest_document"
+    type: "claude_agent"
+    description: "Ingest document using appropriate agent"
+    condition: "{{ operation == 'ingest' }}"
+    config:
+      agent: "{{ steps.select_agents.agent_selection.primary_agent or 'general-purpose' }}"
+      task: |
+        Extract and parse this document:
+        {{ document_content }}
+        
+        Requirements:
+        1. Preserve structure and formatting
+        2. Extract all metadata
+        3. Identify sections and hierarchy
+        4. Create searchable index
+        5. Note any parsing issues
+        
+        Return structured JSON with content, structure, metadata.
+      mode: "task-manage"
+      output: "ingested_document"
+  
+  # Analysis Operation (Multi-Agent)
+  - id: "analyze_document"
+    type: "parallel"
+    description: "Multi-agent parallel analysis"
+    condition: "{{ operation == 'analyze' and parallel_agents }}"
+    config:
+      agents:
+        - agent: "technical-writer"
+          task: "Analyze document clarity, structure, and completeness"
+        - agent: "requirements-analyst"
+          task: "Validate requirements coverage and traceability"
+        - agent: "security-engineer"
+          task: "Identify security vulnerabilities and compliance issues"
+        - agent: "quality-engineer"
+          task: "Assess quality metrics and standards compliance"
+      aggregate: true
+      output: "parallel_analysis"
+  
+  # Consensus Synthesis (if enabled)
+  - id: "synthesize_analysis"
+    type: "claude_consensus"
+    description: "Multi-model consensus on analysis findings"
+    condition: "{{ operation == 'analyze' and enable_consensus }}"
+    config:
+      models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+      task: |
+        Synthesize these analysis results from multiple agents:
+        {{ steps.analyze_document.parallel_analysis }}
+        
+        Provide:
+        1. Consolidated findings with confidence levels
+        2. Critical issues requiring immediate attention
+        3. Recommendations prioritized by impact
+        4. Overall document quality score
+      min_agreement: 2
+      output: "consensus_analysis"
+  
+  # Remediation Operation (Iterative)
+  - id: "remediate_document"
+    type: "claude_loop"
+    description: "Iterative document improvement"
+    condition: "{{ operation == 'remediate' }}"
+    config:
+      agent: "{{ steps.select_agents.agent_selection.primary_agent or 'technical-writer' }}"
+      task: |
+        Remediate issues in this document:
+        {{ document_content }}
+        
+        Issues to fix:
+        {{ steps.analyze_document.parallel_analysis.issues or 'Improve overall quality' }}
+        
+        Requirements:
+        1. Fix all critical issues
+        2. Improve clarity and structure
+        3. Add missing sections
+        4. Ensure compliance
+        
+        Return remediated document with change log.
+      max_iterations: 5
+      quality_threshold: "{{ quality_threshold }}"
+      mode: "loop"
+      output: "remediated_document"
+  
+  # Validation Operation
+  - id: "validate_document"
+    type: "claude_thinkdeep"
+    description: "Deep validation with quality scoring"
+    condition: "{{ operation == 'validate' }}"
+    config:
+      model: "gpt-5"
+      task: |
+        Perform comprehensive validation of document {{ document_id }}:
+        
+        Content: {{ document_content }}
+        Type: {{ document_type }}
+        
+        Validate:
+        1. Structural integrity
+        2. Content completeness
+        3. Compliance requirements
+        4. Quality standards
+        5. Security considerations
+        
+        Return validation report with:
+        - Pass/fail status
+        - Quality score (0-100)
+        - Issues found with severity
+        - Recommendations
+      thinking_mode: "high"
+      output: "validation_report"
+  
+  # Generation Operation
+  - id: "generate_document"
+    type: "claude_agent"
+    description: "Generate new document or sections"
+    condition: "{{ operation == 'generate' }}"
+    config:
+      agent: "{{ steps.select_agents.agent_selection.primary_agent or 'technical-writer' }}"
+      task: |
+        Generate {{ document_type }} document:
+        
+        Requirements:
+        {{ document_content }}  # In generation, content contains requirements
+        
+        Create complete, professional document following best practices.
+        Include all required sections and proper formatting.
+      mode: "task-manage"
+      output: "generated_document"
+  
+  # Quality Check (for all operations)
+  - id: "quality_check"
+    type: "claude_analyze"
+    description: "Final quality assessment"
+    config:
+      prompt: |
+        Assess the quality of the processed document:
+        
+        Operation: {{ operation }}
+        Original: {{ document_content[:500] }}...
+        Processed: {{ steps[operation + '_document'].output[:500] }}...
+        
+        Calculate quality score (0-100) based on:
+        - Completeness
+        - Clarity
+        - Accuracy
+        - Compliance
+        
+        Return: quality_score, pass/fail, improvements
+      output: "quality_assessment"
+  
+  # Conditional Quality Loop
+  - id: "quality_gate"
+    type: "conditional"
+    description: "Check if quality threshold met"
+    config:
+      condition: "{{ steps.quality_check.quality_assessment.quality_score >= (quality_threshold * 100) }}"
+      if_true:
+        type: "data_transform"
+        config:
+          transformations:
+            status: "approved"
+            message: "Quality threshold met"
+      if_false:
+        type: "claude_loop"
+        config:
+          agent: "quality-engineer"
+          task: "Improve document to meet quality threshold {{ quality_threshold * 100 }}%"
+          max_iterations: 3
+  
+  # Generate Final Report
+  - id: "generate_report"
+    type: "data_transform"
+    description: "Generate comprehensive processing report"
+    config:
+      transformations:
+        report:
+          document_id: "{{ document_id }}"
+          operation: "{{ operation }}"
+          timestamp: "{{ now() }}"
+          document_type: "{{ steps.classify_document.classification.document_type or document_type }}"
+          agents_used: "{{ steps.select_agents.agent_selection }}"
+          quality_score: "{{ steps.quality_check.quality_assessment.quality_score }}"
+          status: "{{ steps.quality_gate.status or 'completed' }}"
+          processing_time: "{{ elapsed_time() }}"
+          artifacts:
+            processed_document: "{{ steps[operation + '_document'].output }}"
+            quality_report: "{{ steps.quality_check.quality_assessment }}"
+            validation: "{{ steps.validate_document.validation_report if operation == 'validate' }}"
+          next_actions: "{{ steps[operation + '_document'].next_actions or [] }}"
+
+# Workflow metadata
+metadata:
+  author: "DocAutomate Framework"
+  category: "universal"
+  tags: ["document-processing", "claude-delegation", "multi-agent", "quality-driven"]
+  delegation: "complete"  # All operations delegated to Claude
+  local_processing: "none"  # No local document processing
+  
+# Execution settings
+execution:
+  timeout: 300  # 5 minutes
+  retry_on_failure: true
+  max_retries: 3
+  
+# Quality settings
+quality:
+  min_score: 0.8
+  require_consensus: false  # Can be overridden by parameter
+  auto_remediate: true

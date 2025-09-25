@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Agent Providers Module - SuperClaude Framework Integration
-Unified interface for specialized agents with intelligent routing
+Agent Providers Module - Pure Claude Code Delegation
+All document processing is delegated to Claude Code agents through the SuperClaude Framework
+No local processing logic - this module only orchestrates Claude CLI invocations
 """
 
 import logging
@@ -11,7 +12,9 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 import asyncio
+import yaml
 from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +54,39 @@ class ExecutionResult:
 
 class AgentProvider(ABC):
     """
-    Abstract base class for all agent providers
-    Implements unified interface for SuperClaude agents
+    Abstract base class for all agent providers - PURE DELEGATION PATTERN
+    All operations delegate to Claude Code via CLI - no local processing
     """
     
     def __init__(self, name: str, capabilities: List[AgentCapability]):
         self.name = name
         self.capabilities = capabilities
         self.logger = logging.getLogger(f"{__name__}.{name}")
+        
+        # Load DSL configurations
+        self._load_dsl_config()
+        
+        # Initialize Claude CLI wrapper
+        from claude_cli import AsyncClaudeCLI, SuperClaudeMode
+        self.cli = AsyncClaudeCLI()
+        self.modes = SuperClaudeMode
+    
+    def _load_dsl_config(self):
+        """Load DSL configuration for agent mappings"""
+        dsl_path = Path(__file__).parent / "dsl" / "unified-operations.yaml"
+        if dsl_path.exists():
+            with open(dsl_path, 'r') as f:
+                self.dsl_config = yaml.safe_load(f)
+        else:
+            self.dsl_config = {}
+            
+        # Load agent mappings
+        mappings_path = Path(__file__).parent / "dsl" / "agent-mappings.yaml"
+        if mappings_path.exists():
+            with open(mappings_path, 'r') as f:
+                self.agent_mappings = yaml.safe_load(f)
+        else:
+            self.agent_mappings = {}
     
     @abstractmethod
     async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
@@ -70,10 +98,125 @@ class AgentProvider(ABC):
         """Create execution plan for the document"""
         pass
     
-    @abstractmethod
     async def execute(self, step: Dict[str, Any], context: Dict[str, Any]) -> ExecutionResult:
-        """Execute a single step from the plan"""
-        pass
+        """Execute a step by delegating to Claude Code - PURE DELEGATION"""
+        # All execution delegates to Claude CLI
+        return await self._delegate_to_claude(step, context)
+    
+    async def _delegate_to_claude(self, step: Dict[str, Any], context: Dict[str, Any]) -> ExecutionResult:
+        """Pure delegation to Claude Code via CLI"""
+        start_time = datetime.now()
+        
+        try:
+            # Build prompt from DSL template
+            prompt = self._build_prompt_from_dsl(step, context)
+            
+            # Select agent and mode
+            agent = step.get('agent', self.name)
+            mode = self._select_mode(step, context)
+            
+            # Delegate to Claude
+            result = await self.cli.execute_with_agent(
+                agent=agent,
+                prompt=prompt,
+                mode=mode,
+                context_files=context.get('files', []),
+                flags=step.get('flags', [])
+            )
+            
+            # Calculate metrics
+            duration = (datetime.now() - start_time).total_seconds()
+            
+            return ExecutionResult(
+                success=result.success,
+                output=result.output,
+                cost=self._estimate_cost(result),
+                duration_seconds=duration,
+                quality_score=self._extract_quality_score(result),
+                artifacts=self._extract_artifacts(result),
+                telemetry={'claude_response': result.metadata},
+                next_actions=self._extract_next_actions(result)
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Claude delegation failed: {e}")
+            return ExecutionResult(
+                success=False,
+                output={'error': str(e)},
+                cost=0.0,
+                duration_seconds=(datetime.now() - start_time).total_seconds(),
+                quality_score=0.0,
+                artifacts={},
+                telemetry={'error': str(e)},
+                next_actions=['retry', 'fallback']
+            )
+    
+    def _build_prompt_from_dsl(self, step: Dict[str, Any], context: Dict[str, Any]) -> str:
+        """Build prompt using DSL templates"""
+        # Get template from DSL config
+        operation = step.get('operation', 'analysis')
+        template = self.dsl_config.get('prompt_templates', {}).get(operation, {}).get('template', '')
+        
+        if not template:
+            # Fallback to basic prompt
+            template = "Analyze and process this document: {{ document_content }}"
+        
+        # Render template with context
+        from jinja2 import Template
+        jinja_template = Template(template)
+        return jinja_template.render(**context, **step)
+    
+    def _select_mode(self, step: Dict[str, Any], context: Dict[str, Any]) -> str:
+        """Select appropriate SuperClaude mode based on operation"""
+        operation = step.get('operation', 'general')
+        
+        # Check DSL mode mappings
+        mode_map = self.dsl_config.get('mode_mappings', {})
+        if operation in mode_map:
+            return mode_map[operation]
+        
+        # Default mode selection
+        if context.get('parallel', False):
+            return self.modes.ORCHESTRATE
+        elif context.get('quality_loop', False):
+            return self.modes.LOOP
+        elif context.get('document_size', 0) > 10000:
+            return self.modes.TOKEN_EFFICIENT
+        else:
+            return self.modes.TASK_MANAGE
+    
+    def _estimate_cost(self, result) -> float:
+        """Estimate cost from Claude result"""
+        # Rough estimation: $0.01 per 1000 tokens
+        tokens = result.metadata.get('tokens_used', 1000) if hasattr(result, 'metadata') else 1000
+        return tokens * 0.00001
+    
+    def _extract_quality_score(self, result) -> float:
+        """Extract quality score from Claude response"""
+        try:
+            if hasattr(result, 'output') and isinstance(result.output, dict):
+                return result.output.get('quality_score', 0.85)
+            return 0.85  # Default quality
+        except:
+            return 0.85
+    
+    def _extract_artifacts(self, result) -> Dict[str, Any]:
+        """Extract artifacts from Claude response"""
+        try:
+            if hasattr(result, 'output') and isinstance(result.output, dict):
+                return result.output.get('artifacts', {})
+            return {}
+        except:
+            return {}
+    
+    def _extract_next_actions(self, result) -> List[str]:
+        """Extract next actions from Claude response"""
+        try:
+            if hasattr(result, 'output') and isinstance(result.output, dict):
+                return result.output.get('next_actions', [])
+            return []
+        except:
+            return []
     
     @abstractmethod
     async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
@@ -86,7 +229,7 @@ class AgentProvider(ABC):
         pass
 
 class FinanceEngineerAgent(AgentProvider):
-    """Agent specialized in financial document processing"""
+    """Agent specialized in financial document processing - PURE CLAUDE DELEGATION"""
     
     def __init__(self):
         super().__init__(
@@ -95,123 +238,80 @@ class FinanceEngineerAgent(AgentProvider):
         )
     
     async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
-        score = 0.0
-        reasons = []
+        """Delegate document assessment to Claude"""
+        # Use Claude to assess if this is a financial document
+        assessment_prompt = f"""
+        Assess if this document requires financial analysis:
+        Type: {document_meta.get("content_type", "unknown")}
+        Preview: {document_meta.get("content_preview", "")[:500]}
         
-        # Check document type
-        doc_type = document_meta.get("content_type", "").lower()
-        if "invoice" in doc_type:
-            score += 0.4
-            reasons.append("Invoice document detected")
-        if "financial" in doc_type or "payment" in doc_type:
-            score += 0.3
-            reasons.append("Financial document type")
+        Return confidence score (0-1) for financial processing.
+        """
         
-        # Check for financial keywords
-        content_preview = document_meta.get("content_preview", "").lower()
-        financial_keywords = ["amount", "total", "payment", "invoice", "bill", "cost", "price", "tax", "subtotal"]
-        keyword_matches = sum(1 for kw in financial_keywords if kw in content_preview)
-        if keyword_matches > 3:
-            score += 0.3
-            reasons.append(f"Found {keyword_matches} financial keywords")
+        result = await self.cli.execute(
+            prompt=assessment_prompt,
+            mode=self.modes.TOKEN_EFFICIENT,
+            flags=["--uc"]
+        )
         
+        # Extract score from Claude's assessment
+        try:
+            score = float(result.output.get('confidence', 0.5))
+        except:
+            score = 0.5
+            
         return ProviderScore(
-            score=min(score, 1.0),
-            reasons=reasons,
+            score=score,
+            reasons=["Claude assessment for financial processing"],
             capabilities=[AgentCapability.FINANCIAL, AgentCapability.DATA_ANALYSIS],
             estimated_cost=0.02,
             estimated_time_seconds=30
         )
     
     async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
-        return [
-            {
-                "id": "extract_financial_data",
-                "tool": "claude",
-                "args": {
-                    "flags": "--delegate",
-                    "agent": "finance-engineer",
-                    "prompt": "Extract all financial data including amounts, dates, parties, and line items"
-                }
-            },
-            {
-                "id": "generate_analysis_code",
-                "tool": "code_generation",
-                "args": {
-                    "type": "financial_analysis",
-                    "language": "python",
-                    "libraries": ["pandas", "numpy", "matplotlib"]
-                }
-            },
-            {
-                "id": "create_visualization",
-                "tool": "code_generation",
-                "args": {
-                    "type": "visualization",
-                    "chart_types": ["bar", "pie", "timeline"]
-                }
-            },
-            {
-                "id": "validate_calculations",
-                "tool": "quality_check",
-                "args": {
-                    "checks": ["totals_match", "tax_calculations", "date_consistency"]
-                }
-            }
-        ]
-    
-    async def execute(self, step: Dict[str, Any], context: Dict[str, Any]) -> ExecutionResult:
-        # This will integrate with claude_cli.py
-        from claude_cli import ClaudeCLI
-        cli = ClaudeCLI()
+        """Generate plan via Claude - no local logic"""
+        plan_prompt = f"""
+        Create a financial document processing plan.
+        Document type: {context.get('document_type', 'invoice')}
         
-        # Execute based on step tool type
-        if step["tool"] == "claude":
-            result = await self._execute_claude_task(cli, step, context)
-        elif step["tool"] == "code_generation":
-            result = await self._execute_code_generation(step, context)
+        Return structured plan with steps for:
+        1. Financial data extraction
+        2. Calculation validation
+        3. Visualization generation
+        4. Report creation
+        """
+        
+        result = await self.cli.execute_with_agent(
+            agent="finance-engineer",
+            prompt=plan_prompt,
+            mode=self.modes.TASK_MANAGE
+        )
+        
+        # Return Claude-generated plan
+        if result.success and isinstance(result.output, list):
+            return result.output
         else:
-            result = await self._execute_generic_step(step, context)
-        
-        return result
-    
-    async def _execute_claude_task(self, cli, step: Dict, context: Dict) -> ExecutionResult:
-        # Implementation will call claude CLI with appropriate flags
-        return ExecutionResult(
-            success=True,
-            output={"extracted_data": "placeholder"},
-            cost=0.01,
-            duration_seconds=5.0,
-            quality_score=0.9,
-            artifacts={},
-            telemetry={"tokens": 1000},
-            next_actions=[]
-        )
-    
-    async def _execute_code_generation(self, step: Dict, context: Dict) -> ExecutionResult:
-        # Placeholder for code generation
-        return ExecutionResult(
-            success=True,
-            output={"generated_code": "# Analysis code here"},
-            cost=0.005,
-            duration_seconds=2.0,
-            quality_score=0.95,
-            artifacts={"script.py": "# Generated script"},
-            telemetry={},
-            next_actions=["run_analysis"]
-        )
-    
-    async def _execute_generic_step(self, step: Dict, context: Dict) -> ExecutionResult:
-        return ExecutionResult(
-            success=True,
-            output={},
-            cost=0.001,
-            duration_seconds=1.0,
-            quality_score=1.0,
-            artifacts={},
-            telemetry={},
-            next_actions=[]
-        )
+            # Fallback plan structure
+            return [
+                {
+                    "id": "extract_financial_data",
+                    "operation": "analysis",
+                    "agent": "finance-engineer",
+                    "prompt": "Extract all financial data from document"
+                },
+                {
+                    "id": "validate_calculations",
+                    "operation": "validation",
+                    "agent": "quality-engineer",
+                    "prompt": "Validate all calculations and totals"
+                },
+                {
+                    "id": "generate_report",
+                    "operation": "generation",
+                    "agent": "technical-writer",
+                    "prompt": "Generate financial analysis report"
+                }
+            ]
     
     async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
         issues = []
