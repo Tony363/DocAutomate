@@ -212,12 +212,41 @@ class WorkflowEngine:
             # Ensure document_id is included
             if 'document_id' not in transformed:
                 transformed['document_id'] = transformed.get('doc_id', '')
+            
+            # Handle signature fields
+            if 'signature_fields' not in transformed:
+                # Try to find signature fields from other parameters
+                if 'signatures_required' in transformed:
+                    transformed['signature_fields'] = transformed.pop('signatures_required')
+                elif 'signature_locations' in transformed:
+                    transformed['signature_fields'] = transformed.pop('signature_locations')
         
         # Handle document_review workflow
         elif workflow_name == 'document_review':
             # Ensure required fields exist
             if 'document_type' not in transformed:
                 transformed['document_type'] = transformed.get('type', 'general')
+        
+        # Handle complete_missing_info workflow
+        elif workflow_name == 'complete_missing_info':
+            # Extract field from various possible sources
+            if 'missing_field' in transformed:
+                transformed['field'] = transformed.pop('missing_field')
+            elif 'field_name' in transformed:
+                transformed['field'] = transformed.pop('field_name')
+            elif 'information_type' in transformed:
+                transformed['field'] = transformed.pop('information_type')
+            elif 'original_action_type' in transformed and 'field' not in transformed:
+                # Infer from action type
+                action_type = str(transformed['original_action_type']).lower()
+                if 'address' in action_type:
+                    transformed['field'] = 'address'
+                elif 'date' in action_type:
+                    transformed['field'] = 'date'
+                elif 'signature' in action_type:
+                    transformed['field'] = 'signature'
+                elif 'recipient' in action_type:
+                    transformed['field'] = 'recipient_information'
         
         # Handle date fields across all workflows
         from datetime import datetime
@@ -231,6 +260,7 @@ class WorkflowEngine:
         """Validate and auto-fix common parameter issues"""
         # Get required parameters from workflow definition
         required_params = workflow_def.get('parameters', [])
+        workflow_name = workflow_def.get('name', '')
         
         # Common parameter mappings
         param_fixes = {
@@ -261,16 +291,46 @@ class WorkflowEngine:
                                 del params[alt_name]
                             break
         
+        # Provide intelligent defaults for critical missing parameters
+        if workflow_name == 'document_signature' and 'signature_fields' not in params:
+            params['signature_fields'] = ['signature', 'date', 'initials']
+            logger.info(f"Added default signature_fields for document_signature workflow")
+        
+        if workflow_name == 'complete_missing_info' and 'field' not in params:
+            # Infer field from action type or use generic default
+            if 'original_action_type' in params:
+                action_type = str(params['original_action_type']).lower()
+                if 'address' in action_type:
+                    params['field'] = 'recipient_address'
+                elif 'date' in action_type:
+                    params['field'] = 'agreement_date'
+                elif 'signature' in action_type:
+                    params['field'] = 'signature_location'
+                else:
+                    params['field'] = 'information_needed'
+            else:
+                params['field'] = 'information_needed'
+            logger.info(f"Added default field '{params['field']}' for complete_missing_info workflow")
+        
         return params
     
     def _validate_parameters(self, workflow: Dict, parameters: Dict):
         """Validate parameters against workflow requirements"""
         required_params = workflow.get('parameters', [])
+        workflow_name = workflow.get('name', '')
         
         for param_def in required_params:
             param_name = param_def.get('name')
             if param_def.get('required', False) and param_name not in parameters:
-                raise ValueError(f"Required parameter '{param_name}' not provided")
+                # Check if we can provide a reasonable default for critical parameters
+                if param_name == 'signature_fields':
+                    parameters['signature_fields'] = ['signature', 'date']
+                    logger.warning(f"Using default signature_fields for workflow '{workflow_name}'")
+                elif param_name == 'field':
+                    parameters['field'] = 'information_needed'
+                    logger.warning(f"Using default field name for workflow '{workflow_name}'")
+                else:
+                    raise ValueError(f"Required parameter '{param_name}' not provided")
             
             # Type validation could be added here
             param_type = param_def.get('type')
@@ -281,6 +341,10 @@ class WorkflowEngine:
                     raise TypeError(f"Parameter '{param_name}' must be a string")
                 elif param_type == 'float' and not isinstance(value, (int, float)):
                     raise TypeError(f"Parameter '{param_name}' must be a number")
+                elif param_type == 'array' and not isinstance(value, list):
+                    # Try to convert to array if it's a single value
+                    parameters[param_name] = [value]
+                    logger.info(f"Converted parameter '{param_name}' to array")
     
     def _resolve_templates(
         self,
