@@ -9,3 +9,4 @@ logs/
 *.tmp
 *.temp
 *.pdf
+storage/*

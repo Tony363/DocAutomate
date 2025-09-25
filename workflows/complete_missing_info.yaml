@@ -1,0 +1,236 @@
+name: "complete_missing_info"
+description: "Fill in missing information and complete incomplete fields in documents"
+version: "1.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Unique document identifier"
+    
+  - name: "field"
+    type: "string"
+    required: true
+    description: "Field that needs to be completed"
+    
+  - name: "party"
+    type: "string"
+    required: false
+    description: "Party responsible for providing the information"
+    
+  - name: "required"
+    type: "boolean"
+    required: false
+    default: true
+    description: "Whether the field is required for document validity"
+    
+  - name: "original_action_type"
+    type: "string"
+    required: false
+    description: "Original action type from extraction (e.g., address_completion, date_completion)"
+    
+  - name: "month"
+    type: "string"
+    required: false
+    description: "Month value for date fields"
+    
+  - name: "year"
+    type: "string"
+    required: false
+    description: "Year value for date fields"
+
+steps:
+  - id: "identify_field_type"
+    type: "claude_analyze"
+    description: "Analyze the missing field and determine collection method"
+    config:
+      prompt: |
+        Analyze the missing field requirement:
+        - Field: {{ field }}
+        - Party: {{ party | default('unspecified') }}
+        - Type hint: {{ original_action_type | default('general') }}
+        - Date context: {{ month }} {{ year }}
+        
+        Determine:
+        1. Field type (address, date, name, phone, email, custom)
+        2. Validation rules needed
+        3. Suggested input format
+        4. Priority level
+      data:
+        field_name: "{{ field }}"
+        context: "{{ original_action_type }}"
+        
+  - id: "check_database"
+    type: "api_call"
+    description: "Check if information exists in database"
+    config:
+      url: "https://api.company.com/data/lookup"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        field_name: "{{ field }}"
+        party: "{{ party }}"
+        document_id: "{{ document_id }}"
+        
+  - id: "route_collection"
+    type: "conditional"
+    description: "Route to appropriate collection method"
+    config:
+      condition: "{{ steps.check_database.response.found == true }}"
+      if_true:
+        type: "data_transform"
+        config:
+          transformations:
+            field_value: "{{ steps.check_database.response.value }}"
+            source: "database"
+            auto_filled: true
+      if_false:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/forms/generate"
+          method: "POST"
+          body:
+            document_id: "{{ document_id }}"
+            fields:
+              - name: "{{ field }}"
+                type: "{{ steps.identify_field_type.analysis.field_type }}"
+                validation: "{{ steps.identify_field_type.analysis.validation_rules }}"
+                format: "{{ steps.identify_field_type.analysis.input_format }}"
+                required: "{{ required }}"
+                
+  - id: "create_completion_request"
+    type: "api_call"
+    description: "Create tracking for information completion"
+    config:
+      url: "https://api.company.com/tracking/completions"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        field: "{{ field }}"
+        party: "{{ party }}"
+        status: "{{ 'auto_completed' if steps.route_collection.auto_filled else 'pending_completion' }}"
+        form_url: "{{ steps.route_collection.response.form_url | default('') }}"
+        request_date: "{{ __timestamp__ }}"
+        
+  - id: "notify_if_needed"
+    type: "conditional"
+    description: "Send notification if manual completion needed"
+    config:
+      condition: "{{ steps.route_collection.auto_filled != true }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "send_email"
+              config:
+                to: "{{ party }}@company.com"
+                subject: "Information Required: {{ field }} for Document {{ document_id }}"
+                body: |
+                  We need additional information to complete your document.
+                  
+                  Document ID: {{ document_id }}
+                  Missing Field: {{ field }}
+                  Field Type: {{ steps.identify_field_type.analysis.field_type }}
+                  
+                  {% if original_action_type == 'date_completion' %}
+                  Date Information Needed:
+                  - Month: {{ month | default('To be determined') }}
+                  - Year: {{ year | default('To be determined') }}
+                  - Please provide the specific day
+                  {% elif original_action_type == 'address_completion' %}
+                  Address Information Needed:
+                  Please provide your complete mailing address
+                  {% else %}
+                  Please provide: {{ field }}
+                  {% endif %}
+                  
+                  Click here to complete the form:
+                  {{ steps.route_collection.response.form_url }}
+                  
+                  This information is {{ 'required' if required else 'optional' }} for document processing.
+                  
+            - type: "webhook"
+              config:
+                url: "https://slack.company.com/webhooks/notifications"
+                method: "POST"
+                body:
+                  text: "Missing information request sent for {{ field }} - Document {{ document_id }}"
+                  channel: "#document-processing"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            notification_status: "not_required"
+            reason: "auto_completed_from_database"
+            
+  - id: "validate_completion"
+    type: "conditional"
+    description: "Validate if field was completed"
+    config:
+      condition: "{{ steps.route_collection.auto_filled == true or required == false }}"
+      if_true:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/documents/update"
+          method: "PATCH"
+          body:
+            document_id: "{{ document_id }}"
+            updates:
+              - field: "{{ field }}"
+                value: "{{ steps.route_collection.field_value | default('pending') }}"
+                updated_at: "{{ __timestamp__ }}"
+      if_false:
+        type: "mcp_task"
+        config:
+          agent_name: "task-scheduler"
+          action: "schedule_followup"
+          params:
+            document_id: "{{ document_id }}"
+            field: "{{ field }}"
+            followup_days: [1, 3, 7]
+            escalate_after: 7
+            
+  - id: "audit_trail"
+    type: "api_call"
+    description: "Log completion request in audit trail"
+    config:
+      url: "https://api.company.com/audit/log"
+      method: "POST"
+      body:
+        event_type: "field_completion_requested"
+        document_id: "{{ document_id }}"
+        field: "{{ field }}"
+        party: "{{ party }}"
+        auto_completed: "{{ steps.route_collection.auto_filled | default(false) }}"
+        required: "{{ required }}"
+        timestamp: "{{ __timestamp__ }}"
+        workflow_run_id: "{{ __run_id__ }}"
+        
+  - id: "generate_summary"
+    type: "claude_analyze"
+    description: "Generate completion request summary"
+    config:
+      prompt: |
+        Summarize the information completion request:
+        - Document: {{ document_id }}
+        - Field: {{ field }}
+        - Party: {{ party | default('unspecified') }}
+        - Status: {{ 'Auto-completed' if steps.route_collection.auto_filled else 'Pending completion' }}
+        - Priority: {{ 'Required' if required else 'Optional' }}
+      data:
+        completion_details:
+          field: "{{ field }}"
+          type: "{{ steps.identify_field_type.analysis.field_type }}"
+          status: "{{ steps.create_completion_request.response.status }}"
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "data-collection"
+  tags: ["completion", "missing-info", "data-collection", "forms"]
+  sla_hours: 24
+  retry_policy:
+    max_retries: 2
+    backoff_seconds: 600

@@ -1,0 +1,308 @@
+name: "legal_compliance"
+description: "Handle legal compliance requirements, notifications, and obligation tracking"
+version: "1.0.0"
+
+parameters:
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Unique document identifier"
+    
+  - name: "trigger"
+    type: "string"
+    required: true
+    description: "Compliance trigger event (e.g., unauthorized_disclosure, breach, deadline)"
+    
+  - name: "action"
+    type: "string"
+    required: true
+    description: "Required compliance action (e.g., notification, report, remediation)"
+    
+  - name: "recipient"
+    type: "string"
+    required: false
+    description: "Party to receive compliance notification"
+    
+  - name: "original_action_type"
+    type: "string"
+    required: false
+    description: "Original action type from extraction"
+    
+  - name: "deadline"
+    type: "string"
+    required: false
+    description: "Compliance deadline if applicable"
+    
+  - name: "severity"
+    type: "string"
+    required: false
+    default: "medium"
+    description: "Severity level (low, medium, high, critical)"
+
+steps:
+  - id: "classify_compliance"
+    type: "claude_analyze"
+    description: "Analyze and classify compliance requirement"
+    config:
+      prompt: |
+        Analyze this compliance requirement:
+        - Trigger: {{ trigger }}
+        - Required Action: {{ action }}
+        - Recipient: {{ recipient | default('not specified') }}
+        - Deadline: {{ deadline | default('none') }}
+        - Severity: {{ severity }}
+        
+        Determine:
+        1. Legal framework applicable (GDPR, CCPA, HIPAA, etc.)
+        2. Notification timeline requirements
+        3. Documentation requirements
+        4. Escalation needs
+        5. Regulatory reporting requirements
+      data:
+        compliance_context:
+          trigger: "{{ trigger }}"
+          action: "{{ action }}"
+          document_id: "{{ document_id }}"
+          
+  - id: "check_urgency"
+    type: "conditional"
+    description: "Determine if immediate action needed"
+    config:
+      condition: "{{ severity in ['critical', 'high'] or trigger == 'unauthorized_disclosure' }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "api_call"
+              config:
+                url: "https://api.company.com/compliance/immediate"
+                method: "POST"
+                headers:
+                  Content-Type: "application/json"
+                  X-Priority: "HIGH"
+                body:
+                  document_id: "{{ document_id }}"
+                  trigger: "{{ trigger }}"
+                  action: "{{ action }}"
+                  severity: "{{ severity }}"
+                  
+            - type: "send_email"
+              config:
+                to: "compliance-team@company.com"
+                cc: "legal@company.com"
+                subject: "🚨 URGENT: Compliance Action Required - {{ trigger }}"
+                body: |
+                  IMMEDIATE ACTION REQUIRED
+                  
+                  Compliance Trigger: {{ trigger }}
+                  Document ID: {{ document_id }}
+                  Required Action: {{ action }}
+                  Severity: {{ severity }}
+                  
+                  Legal Framework: {{ steps.classify_compliance.analysis.legal_framework }}
+                  Timeline: {{ steps.classify_compliance.analysis.notification_timeline }}
+                  
+                  Please take immediate action.
+      if_false:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/compliance/standard"
+          method: "POST"
+          body:
+            document_id: "{{ document_id }}"
+            trigger: "{{ trigger }}"
+            action: "{{ action }}"
+            
+  - id: "create_compliance_record"
+    type: "api_call"
+    description: "Create formal compliance tracking record"
+    config:
+      url: "https://api.company.com/compliance/records"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        document_id: "{{ document_id }}"
+        trigger_event: "{{ trigger }}"
+        required_action: "{{ action }}"
+        recipient: "{{ recipient }}"
+        severity: "{{ severity }}"
+        deadline: "{{ deadline }}"
+        legal_framework: "{{ steps.classify_compliance.analysis.legal_framework }}"
+        created_at: "{{ __timestamp__ }}"
+        status: "pending"
+        
+  - id: "notification_routing"
+    type: "conditional"
+    description: "Route notifications based on action type"
+    config:
+      condition: "{{ action == 'immediate_written_notification' }}"
+      if_true:
+        type: "parallel"
+        config:
+          tasks:
+            - type: "send_email"
+              config:
+                to: "{{ recipient }}@company.com"
+                subject: "Compliance Notification: {{ trigger }} - Document {{ document_id }}"
+                body: |
+                  This is a formal compliance notification as required by our agreements.
+                  
+                  Event: {{ trigger }}
+                  Document Reference: {{ document_id }}
+                  Required Action: {{ action }}
+                  
+                  {% if trigger == 'unauthorized_use_or_disclosure' %}
+                  An unauthorized disclosure event has been detected. We are taking immediate steps to:
+                  1. Contain the disclosure
+                  2. Assess the impact
+                  3. Implement remediation measures
+                  4. Prevent future occurrences
+                  {% endif %}
+                  
+                  You will receive updates as our investigation progresses.
+                  
+                  Date of Notification: {{ __timestamp__ }}
+                  
+                  This notification is sent in compliance with applicable legal requirements.
+                  
+            - type: "api_call"
+              config:
+                url: "https://api.company.com/notifications/certified"
+                method: "POST"
+                body:
+                  recipient: "{{ recipient }}"
+                  type: "compliance_notification"
+                  delivery_method: "certified_email"
+                  content: "{{ trigger }} notification for {{ document_id }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            notification_method: "standard"
+            
+  - id: "schedule_followup"
+    type: "mcp_task"
+    description: "Schedule compliance follow-up actions"
+    config:
+      agent_name: "compliance-monitor"
+      action: "schedule_compliance_check"
+      params:
+        document_id: "{{ document_id }}"
+        compliance_record_id: "{{ steps.create_compliance_record.response.record_id }}"
+        check_intervals: [24, 72, 168]  # 1 day, 3 days, 1 week
+        deadline: "{{ deadline }}"
+        escalation_severity: "{{ severity }}"
+        
+  - id: "documentation"
+    type: "api_call"
+    description: "Generate compliance documentation"
+    config:
+      url: "https://api.company.com/compliance/documentation"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        record_id: "{{ steps.create_compliance_record.response.record_id }}"
+        document_id: "{{ document_id }}"
+        trigger: "{{ trigger }}"
+        action_taken: "{{ action }}"
+        notification_sent: "{{ steps.notification_routing.response.sent | default(false) }}"
+        timestamp: "{{ __timestamp__ }}"
+        
+  - id: "regulatory_check"
+    type: "conditional"
+    description: "Check if regulatory reporting required"
+    config:
+      condition: "{{ steps.classify_compliance.analysis.regulatory_reporting == true }}"
+      if_true:
+        type: "api_call"
+        config:
+          url: "https://api.company.com/regulatory/report"
+          method: "POST"
+          body:
+            incident_type: "{{ trigger }}"
+            document_id: "{{ document_id }}"
+            severity: "{{ severity }}"
+            framework: "{{ steps.classify_compliance.analysis.legal_framework }}"
+            report_deadline: "{{ steps.classify_compliance.analysis.reporting_deadline }}"
+      if_false:
+        type: "data_transform"
+        config:
+          transformations:
+            regulatory_status: "not_required"
+            
+  - id: "audit_compliance"
+    type: "parallel"
+    description: "Create comprehensive audit trail"
+    config:
+      tasks:
+        - type: "api_call"
+          config:
+            url: "https://api.company.com/audit/compliance"
+            method: "POST"
+            body:
+              event_type: "compliance_action"
+              document_id: "{{ document_id }}"
+              trigger: "{{ trigger }}"
+              action: "{{ action }}"
+              recipient: "{{ recipient }}"
+              severity: "{{ severity }}"
+              compliance_record: "{{ steps.create_compliance_record.response.record_id }}"
+              regulatory_reported: "{{ steps.regulatory_check.response.reported | default(false) }}"
+              timestamp: "{{ __timestamp__ }}"
+              workflow_run_id: "{{ __run_id__ }}"
+              
+        - type: "webhook"
+          config:
+            url: "https://compliance.company.com/webhooks/tracker"
+            method: "POST"
+            headers:
+              X-Compliance-Event: "{{ trigger }}"
+            body:
+              document_id: "{{ document_id }}"
+              event: "{{ trigger }}"
+              action: "{{ action }}"
+              severity: "{{ severity }}"
+              status: "handled"
+              
+  - id: "generate_report"
+    type: "claude_analyze"
+    description: "Generate compliance action report"
+    config:
+      prompt: |
+        Generate a compliance action report for:
+        - Document: {{ document_id }}
+        - Trigger: {{ trigger }}
+        - Action Taken: {{ action }}
+        - Severity: {{ severity }}
+        - Recipient: {{ recipient | default('relevant parties') }}
+        
+        Include:
+        1. Summary of compliance event
+        2. Actions taken
+        3. Timeline of responses
+        4. Next steps
+        5. Preventive measures
+      data:
+        compliance_summary:
+          record_id: "{{ steps.create_compliance_record.response.record_id }}"
+          notification_sent: "{{ steps.notification_routing.response.sent | default(false) }}"
+          regulatory_reported: "{{ steps.regulatory_check.response.reported | default(false) }}"
+          documentation_created: "{{ steps.documentation.response.document_id }}"
+
+metadata:
+  author: "DocAutomate Framework"
+  category: "compliance"
+  tags: ["legal", "compliance", "notification", "regulatory", "gdpr", "ccpa"]
+  sla_hours: 4
+  priority: "high"
+  retry_policy:
+    max_retries: 3
+    backoff_seconds: 60
+  compliance_frameworks:
+    - "GDPR"
+    - "CCPA"
+    - "HIPAA"
+    - "SOX"
+    - "ISO27001"
