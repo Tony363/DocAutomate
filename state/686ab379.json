@@ -1,0 +1,70 @@
+{
+  "run_id": "686ab379",
+  "workflow_name": "complete_missing_info",
+  "document_id": "test_doc_456",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "document_id": "test_doc_456",
+    "field": "recipient_address",
+    "party": "John Doe",
+    "required": true
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The field 'recipient_address' is an address field requiring structured address components for proper validation and formatting",
+          "insights": [
+            "Field name 'recipient_address' clearly indicates a mailing/shipping address",
+            "Address fields typically require multiple components (street, city, state, zip)",
+            "As a recipient address, this is likely critical for delivery or correspondence",
+            "Standard address validation can prevent delivery failures"
+          ],
+          "recommendations": [
+            "Implement multi-line address input with fields for: street address, apartment/suite (optional), city, state/province, postal code, country",
+            "Add address validation using postal service APIs (USPS, Google Places) for accuracy",
+            "Consider autocomplete functionality to reduce input errors",
+            "Mark as high priority since incorrect addresses can cause significant issues",
+            "Include format examples based on country selection"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-25T06:22:28.055375",
+  "completed_at": "2025-09-25T06:22:44.968810",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The field 'recipient_address' is an address field requiring structured address components for proper validation and formatting",
+        "insights": [
+          "Field name 'recipient_address' clearly indicates a mailing/shipping address",
+          "Address fields typically require multiple components (street, city, state, zip)",
+          "As a recipient address, this is likely critical for delivery or correspondence",
+          "Standard address validation can prevent delivery failures"
+        ],
+        "recommendations": [
+          "Implement multi-line address input with fields for: street address, apartment/suite (optional), city, state/province, postal code, country",
+          "Add address validation using postal service APIs (USPS, Google Places) for accuracy",
+          "Consider autocomplete functionality to reduce input errors",
+          "Mark as high priority since incorrect addresses can cause significant issues",
+          "Include format examples based on country selection"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

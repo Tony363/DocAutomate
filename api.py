@@ -20,6 +20,7 @@ import shutil
 from ingester import DocumentIngester, Document
 from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
+from workflow_matcher import WorkflowMatcher
 
 # Set up logging with more detail
 import uuid
@@ -56,6 +57,7 @@ app.add_middleware(
 document_ingester = DocumentIngester()
 action_extractor = ActionExtractor()
 workflow_engine = WorkflowEngine()
+workflow_matcher = WorkflowMatcher(workflow_engine)
 
 # Pydantic models for API
 
@@ -157,11 +159,49 @@ async def process_document_background(document: Document, request_id: str = None
         for action in actions:
             if action.confidence_score >= 0.85:  # High confidence threshold for auto-execution
                 try:
-                    logger.info(f"[{request_id}] Auto-executing workflow {action.workflow_name} (confidence: {action.confidence_score:.2f})")
+                    # Use intelligent workflow matching
+                    match_context = {
+                        'action_type': action.action_type,
+                        'parameters': action.parameters,
+                        'document_type': document.metadata.get('type', 'general') if document.metadata else 'general'
+                    }
+                    
+                    match_result = await workflow_matcher.match(action.workflow_name, match_context)
+                    resolved_workflow = match_result.matched_workflow
+                    
+                    # Log the matching decision
+                    if resolved_workflow != action.workflow_name:
+                        logger.info(f"[{request_id}] Workflow matched: '{action.workflow_name}' -> '{resolved_workflow}' "
+                                  f"(confidence: {match_result.confidence:.2f}, reason: {match_result.reason})")
+                        if match_result.reasoning:
+                            logger.debug(f"[{request_id}] Match reasoning: {match_result.reasoning}")
+                    
+                    # Check confidence threshold
+                    if match_result.confidence < 0.3:
+                        logger.error(f"[{request_id}] No suitable workflow match for '{action.workflow_name}' "
+                                   f"(confidence: {match_result.confidence:.2f})")
+                        continue
+                    
+                    # Warn on low confidence matches
+                    if match_result.confidence < 0.7:
+                        logger.warning(f"[{request_id}] Low confidence match: '{action.workflow_name}' -> '{resolved_workflow}' "
+                                     f"(confidence: {match_result.confidence:.2f})")
+                    
+                    # Check if resolved workflow exists (should always exist if confidence > 0)
+                    if resolved_workflow not in workflow_engine.workflows:
+                        logger.error(f"[{request_id}] Resolved workflow '{resolved_workflow}' not found in engine")
+                        continue
+                    
+                    logger.info(f"[{request_id}] Auto-executing workflow {resolved_workflow} (confidence: {action.confidence_score:.2f})")
+                    
+                    # Include document_id in parameters
+                    params = dict(action.parameters)
+                    params['document_id'] = document.id
+                    
                     run = await workflow_engine.execute_workflow(
-                        workflow_name=action.workflow_name,
+                        workflow_name=resolved_workflow,
                         document_id=document.id,
-                        initial_parameters=action.parameters
+                        initial_parameters=params
                     )
                     auto_executed_count += 1
                     logger.info(f"[{request_id}] Auto-executed workflow {action.workflow_name}: run_id={run.run_id}")
@@ -390,10 +430,38 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
             logger.warning(f"[{request_id}] Document not found: {request.document_id}")
             raise HTTPException(status_code=404, detail="Document not found")
         
+        # Use intelligent workflow matching
+        match_context = {
+            'parameters': request.parameters,
+            'document_id': request.document_id
+        }
+        
+        match_result = await workflow_matcher.match(request.workflow_name, match_context)
+        resolved_workflow = match_result.matched_workflow
+        
+        # Log the matching decision
+        if resolved_workflow != request.workflow_name:
+            logger.info(f"[{request_id}] Workflow matched: '{request.workflow_name}' -> '{resolved_workflow}' "
+                      f"(confidence: {match_result.confidence:.2f}, reason: {match_result.reason})")
+            if match_result.reasoning:
+                logger.debug(f"[{request_id}] Match reasoning: {match_result.reasoning}")
+        
+        # Check confidence threshold
+        if match_result.confidence < 0.3:
+            logger.warning(f"[{request_id}] No suitable workflow match for '{request.workflow_name}' "
+                         f"(confidence: {match_result.confidence:.2f})")
+            raise HTTPException(status_code=404, 
+                              detail=f"No suitable workflow match for '{request.workflow_name}' (confidence: {match_result.confidence:.2f})")
+        
+        # Warn on low confidence matches but proceed
+        if match_result.confidence < 0.7:
+            logger.warning(f"[{request_id}] Low confidence match: '{request.workflow_name}' -> '{resolved_workflow}' "
+                         f"(confidence: {match_result.confidence:.2f})")
+        
         # Validate workflow exists
-        if request.workflow_name not in workflow_engine.workflows:
-            logger.warning(f"[{request_id}] Workflow not found: {request.workflow_name}")
-            raise HTTPException(status_code=404, detail="Workflow not found")
+        if resolved_workflow not in workflow_engine.workflows:
+            logger.warning(f"[{request_id}] Resolved workflow not found: {resolved_workflow}")
+            raise HTTPException(status_code=404, detail=f"Workflow '{resolved_workflow}' not found")
         
         # Execute workflow
         if request.auto_execute:
@@ -401,10 +469,14 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
             logger.info(f"[{request_id}] Executing workflow immediately: {request.workflow_name}")
             exec_start = datetime.now()
             
+            # Include document_id in parameters
+            params = dict(request.parameters)
+            params['document_id'] = request.document_id
+            
             run = await workflow_engine.execute_workflow(
-                workflow_name=request.workflow_name,
+                workflow_name=resolved_workflow,
                 document_id=request.document_id,
-                initial_parameters=request.parameters
+                initial_parameters=params
             )
             
             exec_time = (datetime.now() - exec_start).total_seconds()
@@ -435,10 +507,14 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
                 logger.info(f"[{bg_request_id}] Background workflow execution started: {request.workflow_name}")
                 
                 try:
+                    # Include document_id in parameters
+                    params = dict(request.parameters)
+                    params['document_id'] = request.document_id
+                    
                     run = await workflow_engine.execute_workflow(
-                        workflow_name=request.workflow_name,
+                        workflow_name=resolved_workflow,
                         document_id=request.document_id,
-                        initial_parameters=request.parameters
+                        initial_parameters=params
                     )
                     
                     if document.workflow_runs is None:
