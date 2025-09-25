@@ -42,6 +42,13 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 
 ## ✨ Latest Features
 
+### **Unified Document Workflow DSL** *(September 2025 - NEW)*
+- **Domain-Specific Language**: Unified DSL for all document types (PDFs, contracts, invoices, forms)
+- **4 New Workflow Definitions**: `document_signature`, `complete_missing_info`, `legal_compliance`, `document_management`
+- **Core DSL Primitives**: EXTRACT, VALIDATE, COMPLETE, SIGN, NOTIFY, STORE, TRIGGER, DELEGATE
+- **Cross-Media Support**: Consistent workflow patterns across different document formats
+- **Intelligent Action Mapping**: Automatic routing from extracted actions to appropriate workflows
+
 ### **PDF Processing Revolution** *(September 2025)*
 - **PTY-Based Extraction**: Advanced pseudo-terminal integration for seamless PDF processing
 - **Automated Permission Handling**: No more manual permission prompts during PDF processing
@@ -62,6 +69,79 @@ DocAutomate is a sophisticated framework that combines document processing, AI-p
 - **Monitoring Integration**: Enhanced logging and health check capabilities
 
 ## 🏗️ Architecture
+
+### Unified DSL Architecture
+
+```mermaid
+graph TB
+    subgraph "Document Input Types"
+        PDF[PDF Documents]
+        CONTRACT[Contracts/NDAs]
+        INVOICE[Invoices]
+        FORM[Forms]
+        EXCEL[Excel Files]
+    end
+    
+    subgraph "Unified DSL Layer"
+        EXTRACT[EXTRACT - Content Analysis]
+        VALIDATE[VALIDATE - Data Verification]
+        COMPLETE[COMPLETE - Fill Missing Info]
+        SIGN[SIGN - Signature Collection]
+        NOTIFY[NOTIFY - Stakeholder Alerts]
+        STORE[STORE - Document Management]
+        TRIGGER[TRIGGER - Event Automation]
+        DELEGATE[DELEGATE - Agent Routing]
+    end
+    
+    subgraph "Workflow Definitions"
+        WF_SIG[document_signature.yaml]
+        WF_COMP[complete_missing_info.yaml]
+        WF_LEGAL[legal_compliance.yaml]
+        WF_MGMT[document_management.yaml]
+        WF_INVOICE[process_invoice.yaml]
+        WF_EXCEL[excel_automation.yaml]
+    end
+    
+    subgraph "Execution Layer"
+        ENGINE[Workflow Engine]
+        ACTIONS[Action Handlers]
+        AGENTS[SuperClaude Agents]
+        OUTPUT[Generated Outputs]
+    end
+    
+    PDF --> EXTRACT
+    CONTRACT --> EXTRACT
+    INVOICE --> EXTRACT
+    FORM --> EXTRACT
+    EXCEL --> EXTRACT
+    
+    EXTRACT --> VALIDATE
+    VALIDATE --> COMPLETE
+    VALIDATE --> SIGN
+    COMPLETE --> NOTIFY
+    SIGN --> NOTIFY
+    NOTIFY --> STORE
+    STORE --> TRIGGER
+    TRIGGER --> DELEGATE
+    
+    DELEGATE --> WF_SIG
+    DELEGATE --> WF_COMP
+    DELEGATE --> WF_LEGAL
+    DELEGATE --> WF_MGMT
+    DELEGATE --> WF_INVOICE
+    DELEGATE --> WF_EXCEL
+    
+    WF_SIG --> ENGINE
+    WF_COMP --> ENGINE
+    WF_LEGAL --> ENGINE
+    WF_MGMT --> ENGINE
+    WF_INVOICE --> ENGINE
+    WF_EXCEL --> ENGINE
+    
+    ENGINE --> ACTIONS
+    ACTIONS --> AGENTS
+    AGENTS --> OUTPUT
+```
 
 ### System Overview
 
@@ -757,6 +837,78 @@ curl -X GET "http://localhost:8001/documents/a7b8c9d012345678" \
 
 Execute workflows with intelligent agent routing and code generation.
 
+**Example 1: Document Signature Workflow (NEW)**
+```bash
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "nda_001",
+    "workflow_name": "document_signature",
+    "parameters": {
+      "document_type": "NDA",
+      "parties": ["YOOBROO, INC.", "TONY LIU"],
+      "signature_fields": ["Recipient signature", "Recipient address"],
+      "effective_date": "2025-06-30",
+      "original_action_type": "signature_required"
+    },
+    "auto_execute": true
+  }'
+```
+
+**Example 2: Complete Missing Information (NEW)**
+```bash
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "form_001",
+    "workflow_name": "complete_missing_info",
+    "parameters": {
+      "field": "recipient_address",
+      "party": "TONY LIU",
+      "required": true,
+      "original_action_type": "address_completion"
+    },
+    "auto_execute": true
+  }'
+```
+
+**Example 3: Legal Compliance Notification (NEW)**
+```bash
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "compliance_001",
+    "workflow_name": "legal_compliance",
+    "parameters": {
+      "trigger": "unauthorized_use_or_disclosure",
+      "action": "immediate_written_notification",
+      "recipient": "Company",
+      "severity": "critical",
+      "original_action_type": "compliance_notification"
+    },
+    "auto_execute": true
+  }'
+```
+
+**Example 4: Document Lifecycle Management (NEW)**
+```bash
+curl -X POST "http://localhost:8001/workflows/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "contract_001",
+    "workflow_name": "document_management",
+    "parameters": {
+      "trigger": ["termination", "written_request"],
+      "action": ["return_all_information", "destroy_and_certify"],
+      "timeline": "5_days",
+      "document_type": "confidential",
+      "original_action_type": "document_return"
+    },
+    "auto_execute": true
+  }'
+```
+
+**Example 5: Excel Automation**
 ```bash
 curl -X POST "http://localhost:8001/workflows/execute" \
   -H "Content-Type: application/json" \
@@ -780,10 +932,10 @@ curl -X POST "http://localhost:8001/workflows/execute" \
 ```json
 {
   "run_id": "run_def456",
-  "workflow_name": "excel_automation",
-  "document_id": "a7b8c9d012345678",
+  "workflow_name": "document_signature",
+  "document_id": "nda_001",
   "status": "running",
-  "message": "SuperClaude workflow executing with finance-engineer agent"
+  "message": "Workflow executing with specialized action handlers"
 }
 ```
 
@@ -800,23 +952,47 @@ curl -X GET "http://localhost:8001/workflows"
 {
   "workflows": [
     {
+      "name": "document_signature",
+      "description": "Handle signature requirements for legal documents including NDAs, contracts, and agreements",
+      "version": "1.0.0",
+      "category": "legal",
+      "dsl_primitives": ["SIGN", "NOTIFY", "TRIGGER", "STORE"],
+      "steps": 10,
+      "parameters": ["document_id", "document_type", "parties", "signature_fields", "effective_date"]
+    },
+    {
+      "name": "complete_missing_info",
+      "description": "Fill in missing information and complete incomplete fields in documents",
+      "version": "1.0.0",
+      "category": "data-collection",
+      "dsl_primitives": ["EXTRACT", "VALIDATE", "COMPLETE", "NOTIFY"],
+      "steps": 9,
+      "parameters": ["document_id", "field", "party", "required"]
+    },
+    {
+      "name": "legal_compliance",
+      "description": "Handle legal compliance requirements, notifications, and obligation tracking",
+      "version": "1.0.0",
+      "category": "compliance",
+      "dsl_primitives": ["VALIDATE", "NOTIFY", "TRIGGER", "STORE"],
+      "steps": 10,
+      "parameters": ["document_id", "trigger", "action", "recipient", "severity"]
+    },
+    {
+      "name": "document_management",
+      "description": "Manage document lifecycle including retention, return, and destruction with certification",
+      "version": "1.0.0",
+      "category": "records-management",
+      "dsl_primitives": ["VALIDATE", "STORE", "TRIGGER", "DELEGATE"],
+      "steps": 11,
+      "parameters": ["document_id", "trigger", "action", "timeline"]
+    },
+    {
       "name": "excel_automation",
       "description": "Automated Excel processing with data analysis and visualization",
       "version": "1.0.0",
-      "parameters": [
-        {
-          "name": "document_content",
-          "type": "string",
-          "required": true,
-          "description": "Extracted document content"
-        },
-        {
-          "name": "extracted_data",
-          "type": "object",
-          "required": true,
-          "description": "Structured data extracted from document"
-        }
-      ],
+      "category": "automation",
+      "dsl_primitives": ["EXTRACT", "DELEGATE", "COMPLETE"],
       "steps": 9,
       "superclaude_features": [
         "intelligent_routing",
@@ -826,18 +1002,19 @@ curl -X GET "http://localhost:8001/workflows"
       ]
     },
     {
-      "name": "data_analysis_automation",
-      "description": "Comprehensive data analysis with multi-format reporting",
+      "name": "process_invoice",
+      "description": "Process incoming invoices for payment and approval",
       "version": "1.0.0",
-      "parameters": [...],
-      "steps": 7,
-      "superclaude_features": [
-        "brainstorm_strategy",
-        "specialized_agents",
-        "dynamic_workflow"
-      ]
+      "category": "finance",
+      "dsl_primitives": ["VALIDATE", "NOTIFY", "TRIGGER"],
+      "steps": 7
     }
-  ]
+  ],
+  "total": 9,
+  "unified_dsl": {
+    "primitives": ["EXTRACT", "VALIDATE", "COMPLETE", "SIGN", "NOTIFY", "STORE", "TRIGGER", "DELEGATE"],
+    "document_types_supported": ["PDF", "NDA", "Contract", "Invoice", "Form", "Excel", "Legal", "Financial"]
+  }
 }
 ```
 
@@ -992,11 +1169,15 @@ DocAutomate/
 ├── sandbox_executor.py             # Secure code execution environment
 ├── requirements.txt                # Dependencies including SuperClaude requirements
 ├── workflows/                      # SuperClaude-enhanced workflow definitions
+│   ├── document_signature.yaml    # 🆕 Signature collection for legal documents
+│   ├── complete_missing_info.yaml # 🆕 Missing field completion workflow
+│   ├── legal_compliance.yaml      # 🆕 Compliance notifications and obligations
+│   ├── document_management.yaml   # 🆕 Document lifecycle management
 │   ├── excel_automation.yaml      # Excel processing with code generation
 │   ├── data_analysis_automation.yaml # Comprehensive data analysis
 │   ├── file_operations.yaml       # Intelligent file organization
 │   ├── document_review.yaml       # Legal/compliance review workflows
-│   └── invoice.yaml               # Traditional invoice processing
+│   └── process_invoice.yaml       # Traditional invoice processing
 ├── storage/                       # Document storage (runtime)
 ├── state/                         # Workflow state management (runtime)
 ├── samples/                       # Sample documents for testing
@@ -1374,9 +1555,77 @@ spec:
   type: LoadBalancer
 ```
 
+## 🔄 Unified Document Workflow DSL
+
+The DocAutomate framework implements a **Unified Domain-Specific Language (DSL)** that provides consistent workflow patterns across all document types. This DSL enables Claude Code to take automated actions on documents regardless of their format or content type.
+
+### Core DSL Primitives
+
+| Primitive | Purpose | Example Actions |
+|-----------|---------|-----------------|
+| **EXTRACT** | Content analysis and data extraction | PDF text extraction, field identification |
+| **VALIDATE** | Data verification and completeness checks | Required field validation, format verification |
+| **COMPLETE** | Fill missing information | Address completion, date filling, field updates |
+| **SIGN** | Signature collection and tracking | DocuSign integration, signature routing |
+| **NOTIFY** | Stakeholder communication | Email alerts, webhook calls, Slack notifications |
+| **STORE** | Document lifecycle management | Retention policies, archival, version control |
+| **TRIGGER** | Event-based automation | Scheduled actions, deadline reminders |
+| **DELEGATE** | Intelligent routing | Agent selection, workflow branching |
+
+### DSL Implementation Examples
+
+#### NDA Processing with Unified DSL
+```yaml
+# Extracted actions from NDA document automatically map to DSL workflows:
+action: signature_required → workflow: document_signature → DSL: SIGN + NOTIFY
+action: address_completion → workflow: complete_missing_info → DSL: COMPLETE + VALIDATE
+action: compliance_notification → workflow: legal_compliance → DSL: NOTIFY + TRIGGER
+action: document_return → workflow: document_management → DSL: STORE + TRIGGER
+```
+
+#### Cross-Document Workflow Consistency
+```yaml
+# Same DSL patterns work across different document types:
+Invoice:     EXTRACT → VALIDATE → NOTIFY → TRIGGER → STORE
+Contract:    EXTRACT → VALIDATE → SIGN → NOTIFY → STORE
+Form:        EXTRACT → VALIDATE → COMPLETE → NOTIFY → STORE
+Report:      EXTRACT → VALIDATE → DELEGATE → COMPLETE → STORE
+```
+
+### Workflow-to-DSL Mapping
+
+| Workflow | DSL Pattern | Document Types |
+|----------|-------------|----------------|
+| `document_signature` | VALIDATE → SIGN → NOTIFY → TRIGGER | NDAs, Contracts, Agreements |
+| `complete_missing_info` | VALIDATE → COMPLETE → NOTIFY | Forms, Applications, Surveys |
+| `legal_compliance` | VALIDATE → NOTIFY → TRIGGER → STORE | Compliance docs, Regulatory filings |
+| `document_management` | VALIDATE → STORE → TRIGGER → DELEGATE | All document types |
+| `excel_automation` | EXTRACT → DELEGATE → COMPLETE | Financial reports, Data exports |
+| `process_invoice` | VALIDATE → NOTIFY → TRIGGER | Invoices, Bills, Receipts |
+
 ## 🎯 Use Cases & Examples
 
-### 1. Financial Document Processing
+### 1. NDA Document Processing with Unified DSL (NEW)
+```bash
+# Upload NDA document that triggers multiple DSL workflows
+curl -X POST "http://localhost:8001/documents/upload" \
+  -F "file=@Software_NDA.pdf" \
+  -F "auto_process=true" \
+  -F "document_type=legal"
+
+# Automatic DSL workflow execution:
+# 1. EXTRACT: Text extraction from PDF
+# 2. VALIDATE: Identify 4 required actions
+# 3. DELEGATE: Route to 4 specific workflows
+#    - document_signature (SIGN + NOTIFY)
+#    - complete_missing_info (COMPLETE + VALIDATE) 
+#    - legal_compliance (NOTIFY + TRIGGER)
+#    - document_management (STORE + TRIGGER)
+# 4. NOTIFY: Send notifications to all parties
+# 5. STORE: Create audit trail and retention policy
+```
+
+### 2. Financial Document Processing
 ```bash
 # Upload financial report
 curl -X POST "http://localhost:8001/documents/upload" \
@@ -2064,12 +2313,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 *Built with advanced PDF processing, intelligent agent routing, and comprehensive security controls using Claude Code CLI and the SuperClaude Framework*
 
 **Latest Updates (September 2025):**
+- ✅ **NEW: Unified Document Workflow DSL** - Consistent workflow patterns across all document types
+- ✅ **NEW: 4 Additional Workflow Definitions** - Signature, compliance, completion, and management workflows
+- ✅ **NEW: DSL Primitives** - EXTRACT, VALIDATE, COMPLETE, SIGN, NOTIFY, STORE, TRIGGER, DELEGATE
 - ✅ PTY-based PDF extraction with PyPDF2 fallback
 - ✅ Automated permission handling and directory security
 - ✅ Enhanced error handling with comprehensive validation
 - ✅ Complete audit trail system with JSON logging
 - ✅ Production-ready configuration management
 - ✅ Comprehensive troubleshooting documentation
+
+**Documentation Last Updated**: September 25, 2025
 ---
 
 ## 📊 Complete System Architecture Diagrams
