@@ -754,5 +754,241 @@ Remediated: {remediated_content[:500]}...
                 "context": context
             }
 
+    async def compress_folder_with_claude(self, 
+                                         folder_path: str,
+                                         output_filename: str,
+                                         include_patterns: Optional[List[str]] = None,
+                                         exclude_patterns: Optional[List[str]] = None,
+                                         compression_level: int = 6) -> Dict[str, Any]:
+        """
+        Compress folder using Claude for intelligent file selection and optimization
+        
+        Args:
+            folder_path: Path to folder to compress
+            output_filename: Output filename for zip
+            include_patterns: Patterns to include
+            exclude_patterns: Patterns to exclude
+            compression_level: Compression level (0-9)
+            
+        Returns:
+            Compression results with metadata
+        """
+        try:
+            # Use Claude to analyze folder and optimize compression strategy
+            analysis_prompt = f"""
+            Analyze folder structure for compression optimization:
+            - Folder path: {folder_path}
+            - Include patterns: {include_patterns or 'all files'}
+            - Exclude patterns: {exclude_patterns or 'none'}
+            - Requested compression level: {compression_level}
+            
+            Please analyze the folder contents and recommend:
+            1. Optimal compression settings
+            2. File filtering strategy
+            3. Performance considerations
+            4. Estimated compression ratio
+            
+            Focus on efficiency and ensuring no important files are missed.
+            """
+            
+            analysis_result = await self.cli.delegate_to_agent_async(
+                prompt=analysis_prompt,
+                agent="performance-engineer",
+                task_manage=True,
+                use_dsl=True
+            )
+            
+            if not analysis_result.success:
+                logger.warning(f"Claude analysis failed, proceeding with default settings: {analysis_result.error}")
+            
+            # Import FileOperations here to avoid circular imports
+            from utils.file_operations import FileOperations
+            
+            # Execute compression with Claude's recommendations or defaults
+            result = await FileOperations.compress_folder(
+                folder_path=folder_path,
+                output_path=str(Path(folder_path).parent / output_filename),
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                compression_level=compression_level
+            )
+            
+            # Enhance result with Claude analysis if successful
+            if analysis_result.success:
+                result['claude_analysis'] = {
+                    'recommendations': analysis_result.output,
+                    'agent_used': analysis_result.metadata.get('requested_agent', 'performance-engineer')
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Claude-assisted compression failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'method': 'claude_compression'
+            }
+
+    async def convert_document_with_claude(self,
+                                          input_path: str,
+                                          output_path: Optional[str] = None,
+                                          output_format: str = 'pdf',
+                                          quality: str = 'high',
+                                          preserve_formatting: bool = True) -> Dict[str, Any]:
+        """
+        Convert document using Claude for intelligent conversion optimization
+        
+        Args:
+            input_path: Path to input document
+            output_path: Path for output (optional)
+            output_format: Target format
+            quality: Conversion quality
+            preserve_formatting: Whether to preserve formatting
+            
+        Returns:
+            Conversion results with metadata
+        """
+        try:
+            # Read document content for analysis
+            input_file = Path(input_path)
+            if not input_file.exists():
+                raise FileNotFoundError(f"Input file not found: {input_path}")
+            
+            # Use Claude to analyze document and optimize conversion strategy
+            analysis_prompt = f"""
+            Analyze document for optimal conversion strategy:
+            - Input file: {input_path}
+            - Output format: {output_format}
+            - Quality requirement: {quality}
+            - Preserve formatting: {preserve_formatting}
+            
+            Please analyze the document structure and recommend:
+            1. Optimal conversion method
+            2. Quality settings to preserve content fidelity
+            3. Formatting preservation strategy
+            4. Potential conversion challenges
+            5. Quality validation checkpoints
+            
+            Focus on maintaining document integrity and visual fidelity.
+            """
+            
+            analysis_result = await self.cli.delegate_to_agent_async(
+                prompt=analysis_prompt,
+                agent="technical-writer",
+                task_manage=True,
+                use_dsl=True
+            )
+            
+            if not analysis_result.success:
+                logger.warning(f"Claude analysis failed, proceeding with default settings: {analysis_result.error}")
+            
+            # Import FileOperations here to avoid circular imports
+            from utils.file_operations import FileOperations
+            
+            # Execute conversion with Claude's recommendations
+            result = await FileOperations.convert_docx_to_pdf(
+                input_path=input_path,
+                output_path=output_path,
+                quality=quality,
+                preserve_formatting=preserve_formatting,
+                use_claude=True
+            )
+            
+            # Enhance result with Claude analysis if successful
+            if analysis_result.success:
+                result['claude_analysis'] = {
+                    'recommendations': analysis_result.output,
+                    'agent_used': analysis_result.metadata.get('requested_agent', 'technical-writer')
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Claude-assisted conversion failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'method': 'claude_conversion'
+            }
+
+    async def batch_operations_with_claude(self,
+                                          operation_type: str,
+                                          file_list: List[str],
+                                          operation_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute batch file operations with Claude coordination
+        
+        Args:
+            operation_type: Type of operation ('compress', 'convert', etc.)
+            file_list: List of files to process
+            operation_params: Operation-specific parameters
+            
+        Returns:
+            Batch operation results
+        """
+        try:
+            # Use Claude to analyze batch and optimize strategy
+            strategy_prompt = f"""
+            Optimize batch {operation_type} strategy:
+            - Operation type: {operation_type}
+            - Number of files: {len(file_list)}
+            - Parameters: {operation_params}
+            
+            Please recommend:
+            1. Optimal batch size and processing order
+            2. Parallel vs sequential processing strategy  
+            3. Resource allocation and timing
+            4. Error handling and recovery approach
+            5. Quality checkpoints and validation
+            
+            Focus on efficiency, reliability, and resource optimization.
+            """
+            
+            strategy_result = await self.cli.delegate_to_agent_async(
+                prompt=strategy_prompt,
+                agent="performance-engineer",
+                task_manage=True,
+                orchestrate=True
+            )
+            
+            if not strategy_result.success:
+                logger.warning(f"Claude strategy optimization failed: {strategy_result.error}")
+            
+            # Import FileOperations here to avoid circular imports
+            from utils.file_operations import FileOperations
+            
+            # Execute batch operation based on type
+            if operation_type == 'convert':
+                result = await FileOperations.batch_convert_documents(
+                    input_files=file_list,
+                    output_dir=operation_params.get('output_directory', './output'),
+                    conversion_type=operation_params.get('conversion_type', 'docx_to_pdf'),
+                    parallel=operation_params.get('parallel', True),
+                    max_workers=operation_params.get('max_workers', 4)
+                )
+            else:
+                result = {
+                    'success': False,
+                    'error': f"Batch operation type '{operation_type}' not implemented"
+                }
+            
+            # Enhance result with Claude strategy if successful
+            if strategy_result.success:
+                result['claude_strategy'] = {
+                    'recommendations': strategy_result.output,
+                    'agent_used': strategy_result.metadata.get('requested_agent', 'performance-engineer')
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Claude-assisted batch operation failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'method': 'claude_batch_operation'
+            }
+
 # Singleton instance for API usage
 claude_service = ClaudeService()

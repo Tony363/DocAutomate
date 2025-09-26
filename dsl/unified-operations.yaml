@@ -51,6 +51,41 @@ operation_types:
         agent: "security-engineer"
       - condition: "document_type == 'test_plan'"
         agent: "quality-engineer"
+        
+  compress:
+    description: "Compress folders and files with intelligent optimization"
+    primary_agent: "performance-engineer"
+    fallback_agents: ["general-purpose", "backend-architect"]
+    capabilities_required: ["file_operations", "optimization", "compression"]
+    quality_threshold: 0.85
+    claude_flags: ["--delegate", "--safe-mode", "--loop"]
+    
+  convert:
+    description: "Convert documents between formats with quality preservation"
+    primary_agent: "technical-writer"
+    fallback_agents: ["backend-architect", "general-purpose"]
+    capabilities_required: ["document_processing", "format_conversion", "quality_validation"]
+    quality_threshold: 0.9
+    consensus_for_quality: true
+    claude_flags: ["--delegate", "--zen-review", "--loop"]
+    agent_selection_rules:
+      - condition: "output_format == 'pdf'"
+        agent: "technical-writer"
+      - condition: "output_format == 'html'"
+        agent: "frontend-architect"
+      - condition: "input_format == 'markdown'"
+        agent: "technical-writer"
+        
+  batch_convert:
+    description: "Batch convert multiple documents with parallel processing"
+    primary_agent: "performance-engineer"
+    coordination_agent: "task-manage"
+    fallback_agents: ["backend-architect", "general-purpose"]
+    capabilities_required: ["batch_processing", "parallel_execution", "quality_validation"]
+    parallel_processing: true
+    max_parallel_workers: 8
+    quality_threshold: 0.85
+    claude_flags: ["--orchestrate", "--delegate", "--loop", "--safe-mode"]
 
 # Agent capability mappings
 agent_capabilities:
@@ -256,6 +291,99 @@ mcp_servers:
     use_for: ["testing", "browser_validation"]
   morphllm:
     use_for: ["bulk_edits", "pattern_application"]
+
+# File operations workflow patterns  
+file_operations_workflows:
+  folder_compression:
+    steps:
+      - type: "claude_delegate"
+        agent: "general-purpose"
+        task: "validate_compression_inputs"
+        
+      - type: "claude_analyze"
+        agent: "performance-engineer" 
+        task: "analyze_folder_structure"
+        
+      - type: "claude_consensus"
+        models: ["gpt-5", "claude-opus-4.1"]
+        task: "optimize_compression_parameters"
+        
+      - type: "compress_folder"
+        execution_mode: "python_integration"
+        
+      - type: "claude_delegate"
+        agent: "quality-engineer"
+        task: "validate_compression_output"
+        
+  document_conversion:
+    steps:
+      - type: "claude_delegate"
+        agent: "general-purpose"
+        task: "validate_conversion_inputs"
+        
+      - type: "claude_analyze"
+        agent: "technical-writer"
+        task: "analyze_document_structure"
+        
+      - type: "claude_consensus"
+        models: ["gpt-5", "claude-opus-4.1"]
+        task: "optimize_conversion_strategy"
+        
+      - type: "convert_document"
+        execution_mode: "python_integration"
+        
+      - type: "claude_consensus"
+        models: ["gpt-5", "claude-opus-4.1"]
+        task: "validate_conversion_quality"
+        
+  batch_processing:
+    steps:
+      - type: "claude_delegate"
+        agent: "general-purpose"
+        task: "validate_batch_inputs"
+        
+      - type: "claude_analyze"
+        agent: "performance-engineer"
+        task: "analyze_batch_characteristics"
+        
+      - type: "claude_consensus"
+        models: ["gpt-5", "claude-opus-4.1"]
+        task: "optimize_batch_strategy"
+        
+      - type: "batch_convert"
+        execution_mode: "python_integration"
+        parallel_processing: true
+        
+      - type: "claude_delegate"
+        agent: "quality-engineer"
+        task: "validate_batch_results"
+
+# Enhanced agent capabilities for file operations
+file_operations_agent_capabilities:
+  performance-engineer:
+    file_operations: true
+    compression_optimization: true
+    batch_processing: true
+    parallel_coordination: true
+    resource_management: true
+    
+  technical-writer:
+    document_conversion: true
+    format_preservation: true
+    quality_validation: true
+    content_fidelity: true
+    
+  general-purpose:
+    file_validation: true
+    basic_compression: true
+    basic_conversion: true
+    error_handling: true
+    
+  quality-engineer:
+    output_validation: true
+    quality_metrics: true
+    batch_validation: true
+    performance_testing: true
 
 # Execution configuration
 execution:

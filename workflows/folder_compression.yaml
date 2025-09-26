@@ -1,0 +1,210 @@
+name: "folder_compression"
+version: "1.0.0"
+description: "Compress folders into zip files with intelligent filtering and optimization"
+category: "file_operations"
+
+# DSL Configuration - Maximum Claude Code execution
+execution_mode: "claude_delegate"
+agent_coordination: true
+quality_validation: true
+
+parameters:
+  - name: "folder_path"
+    type: "string"
+    required: true
+    description: "Path to folder to compress"
+    
+  - name: "output_filename"
+    type: "string"
+    required: true
+    description: "Output zip filename"
+    
+  - name: "include_patterns"
+    type: "array"
+    required: false
+    description: "Glob patterns for files to include"
+    default: []
+    
+  - name: "exclude_patterns"
+    type: "array"
+    required: false
+    description: "Glob patterns for files to exclude"
+    default: []
+    
+  - name: "compression_level"
+    type: "integer"
+    required: false
+    description: "Compression level (0-9)"
+    default: 6
+    min: 0
+    max: 9
+    
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for tracking"
+
+steps:
+  - id: "validate_inputs"
+    type: "claude_delegate"
+    description: "Validate compression parameters and folder structure"
+    config:
+      agent: "general-purpose"
+      task: "validate_folder_compression_inputs"
+      claude_flags: ["--task-manage", "--validate"]
+      parameters:
+        folder_path: "{{ folder_path }}"
+        output_filename: "{{ output_filename }}"
+        include_patterns: "{{ include_patterns }}"
+        exclude_patterns: "{{ exclude_patterns }}"
+        compression_level: "{{ compression_level }}"
+      validation:
+        - check: "folder_exists"
+          message: "Folder path must exist and be accessible"
+        - check: "valid_compression_level"
+          message: "Compression level must be between 0-9"
+        - check: "output_writable"
+          message: "Output location must be writable"
+    
+  - id: "analyze_folder"
+    type: "claude_analyze"
+    description: "Analyze folder structure and estimate compression"
+    depends_on: ["validate_inputs"]
+    config:
+      agent: "performance-engineer"
+      task: "analyze_folder_structure"
+      claude_flags: ["--delegate", "--think", "2"]
+      parameters:
+        folder_path: "{{ folder_path }}"
+        include_patterns: "{{ include_patterns }}"
+        exclude_patterns: "{{ exclude_patterns }}"
+      analysis_type: "file_optimization"
+      outputs:
+        - estimated_files
+        - estimated_size
+        - recommended_compression_level
+        - potential_issues
+    
+  - id: "optimize_compression_settings"
+    type: "claude_consensus"
+    description: "Optimize compression settings based on analysis"
+    depends_on: ["analyze_folder"]
+    config:
+      models: ["gpt-5", "claude-opus-4.1"]
+      consensus_threshold: 0.8
+      task: "optimize_compression_parameters"
+      claude_flags: ["--consensus", "--think", "2"]
+      parameters:
+        analysis_results: "{{ steps.analyze_folder }}"
+        user_compression_level: "{{ compression_level }}"
+        folder_characteristics: "{{ steps.analyze_folder.potential_issues }}"
+      outputs:
+        - final_compression_level
+        - optimization_strategy
+        - performance_estimate
+    
+  - id: "compress_folder"
+    type: "claude_delegate"
+    description: "Execute folder compression with Claude oversight"
+    depends_on: ["optimize_compression_settings"]
+    config:
+      agent: "general-purpose"
+      task: "execute_folder_compression"
+      claude_flags: ["--delegate", "--loop", "--safe-mode"]
+      parameters:
+        folder_path: "{{ folder_path }}"
+        output_filename: "{{ output_filename }}"
+        include_patterns: "{{ include_patterns }}"
+        exclude_patterns: "{{ exclude_patterns }}"
+        compression_level: "{{ steps.optimize_compression_settings.final_compression_level }}"
+        optimization_strategy: "{{ steps.optimize_compression_settings.optimization_strategy }}"
+      execution_mode: "python_integration"
+      python_function: "utils.file_operations.FileOperations.compress_folder"
+      progress_tracking: true
+      error_handling: "comprehensive"
+      outputs:
+        - output_path
+        - files_compressed
+        - original_size_bytes
+        - compressed_size_bytes
+        - compression_ratio
+        - duration_seconds
+    
+  - id: "validate_output"
+    type: "claude_delegate"
+    description: "Validate compression results and output integrity"
+    depends_on: ["compress_folder"]
+    config:
+      agent: "quality-engineer"
+      task: "validate_compression_output"
+      claude_flags: ["--zen-review", "--validate", "--safe-mode"]
+      parameters:
+        output_path: "{{ steps.compress_folder.output_path }}"
+        expected_files: "{{ steps.analyze_folder.estimated_files }}"
+        compression_results: "{{ steps.compress_folder }}"
+      validation_checks:
+        - file_exists
+        - file_integrity
+        - compression_efficiency
+        - metadata_accuracy
+      quality_threshold: 0.9
+      outputs:
+        - validation_passed
+        - quality_score
+        - issues_found
+        - recommendations
+    
+  - id: "generate_report"
+    type: "claude_delegate"
+    description: "Generate comprehensive compression report"
+    depends_on: ["validate_output"]
+    config:
+      agent: "technical-writer"
+      task: "generate_compression_report"
+      claude_flags: ["--delegate"]
+      parameters:
+        compression_results: "{{ steps.compress_folder }}"
+        validation_results: "{{ steps.validate_output }}"
+        analysis_results: "{{ steps.analyze_folder }}"
+        optimization_results: "{{ steps.optimize_compression_settings }}"
+      report_format: "structured"
+      include_recommendations: true
+      outputs:
+        - report_summary
+        - detailed_metrics
+        - performance_analysis
+        - success_status
+
+# Error handling and rollback
+error_handling:
+  strategy: "comprehensive"
+  rollback_on_failure: true
+  cleanup_temp_files: true
+  notification: true
+  
+# Quality gates
+quality_gates:
+  - step: "validate_output"
+    threshold: 0.9
+    action: "fail_workflow"
+    message: "Compression quality below acceptable threshold"
+    
+  - step: "compress_folder"
+    validation: "output_exists"
+    action: "retry_once"
+    message: "Compression output not generated"
+
+# Monitoring and observability
+monitoring:
+  track_performance: true
+  log_detailed_metrics: true
+  notify_on_completion: true
+  store_artifacts: true
+
+# DSL Integration Points
+dsl_integration:
+  operation_type: "compress"
+  agent_coordination: true
+  parallel_capable: false
+  streaming_support: false
+  checkpoint_enabled: true

@@ -1,0 +1,277 @@
+name: "batch_document_conversion"
+version: "1.0.0"
+description: "Batch convert multiple documents with parallel processing and intelligent coordination"
+category: "document_transformation_batch"
+
+# DSL Configuration - Maximum Claude Code execution with parallel processing
+execution_mode: "claude_orchestrate"
+agent_coordination: true
+parallel_processing: true
+quality_validation: true
+
+parameters:
+  - name: "input_files"
+    type: "array"
+    required: true
+    description: "List of input file paths"
+    
+  - name: "output_directory"
+    type: "string"
+    required: true
+    description: "Output directory for converted files"
+    
+  - name: "conversion_type"
+    type: "string"
+    required: false
+    description: "Type of conversion"
+    default: "docx_to_pdf"
+    
+  - name: "parallel"
+    type: "boolean"
+    required: false
+    description: "Enable parallel processing"
+    default: true
+    
+  - name: "max_workers"
+    type: "integer"
+    required: false
+    description: "Maximum parallel workers"
+    default: 4
+    min: 1
+    max: 10
+    
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Batch operation document ID"
+
+steps:
+  - id: "validate_batch_inputs"
+    type: "claude_delegate"
+    description: "Validate batch conversion parameters and all input files"
+    config:
+      agent: "general-purpose"
+      task: "validate_batch_conversion_inputs"
+      claude_flags: ["--task-manage", "--validate"]
+      parameters:
+        input_files: "{{ input_files }}"
+        output_directory: "{{ output_directory }}"
+        conversion_type: "{{ conversion_type }}"
+        parallel: "{{ parallel }}"
+        max_workers: "{{ max_workers }}"
+      validation:
+        - check: "all_files_exist"
+          message: "All input files must exist and be readable"
+        - check: "output_directory_writable"
+          message: "Output directory must be writable"
+        - check: "supported_conversion_type"
+          message: "Conversion type must be supported"
+        - check: "reasonable_worker_count"
+          message: "Worker count must be reasonable for system resources"
+    
+  - id: "analyze_batch_characteristics"
+    type: "claude_analyze"
+    description: "Analyze batch characteristics for optimal processing strategy"
+    depends_on: ["validate_batch_inputs"]
+    config:
+      agent: "performance-engineer"
+      task: "analyze_batch_conversion_strategy"
+      claude_flags: ["--delegate", "--think", "2"]
+      parameters:
+        input_files: "{{ input_files }}"
+        conversion_type: "{{ conversion_type }}"
+        parallel_requested: "{{ parallel }}"
+        max_workers: "{{ max_workers }}"
+      analysis_type: "batch_optimization"
+      outputs:
+        - total_files
+        - total_size_estimate
+        - file_types
+        - complexity_distribution
+        - recommended_parallelism
+        - estimated_duration
+        - resource_requirements
+    
+  - id: "optimize_batch_strategy"
+    type: "claude_consensus"
+    description: "Optimize batch processing strategy based on analysis"
+    depends_on: ["analyze_batch_characteristics"]
+    config:
+      models: ["gpt-5", "claude-opus-4.1"]
+      consensus_threshold: 0.8
+      task: "optimize_batch_processing_strategy"
+      claude_flags: ["--consensus", "--orchestrate", "--think", "2"]
+      parameters:
+        batch_analysis: "{{ steps.analyze_batch_characteristics }}"
+        user_parallel: "{{ parallel }}"
+        user_max_workers: "{{ max_workers }}"
+        system_resources: "auto_detect"
+      outputs:
+        - final_parallelism
+        - optimal_worker_count
+        - processing_order
+        - batching_strategy
+        - error_handling_strategy
+        - quality_check_frequency
+    
+  - id: "execute_batch_conversion"
+    type: "claude_delegate"
+    description: "Execute batch conversion with intelligent coordination"
+    depends_on: ["optimize_batch_strategy"]
+    config:
+      agent: "task-manager"  # Use task manager for batch coordination
+      task: "execute_batch_document_conversion"
+      claude_flags: ["--orchestrate", "--delegate", "--loop", "--safe-mode"]
+      parameters:
+        input_files: "{{ input_files }}"
+        output_directory: "{{ output_directory }}"
+        conversion_type: "{{ conversion_type }}"
+        parallelism: "{{ steps.optimize_batch_strategy.final_parallelism }}"
+        worker_count: "{{ steps.optimize_batch_strategy.optimal_worker_count }}"
+        processing_order: "{{ steps.optimize_batch_strategy.processing_order }}"
+        batching_strategy: "{{ steps.optimize_batch_strategy.batching_strategy }}"
+      execution_mode: "python_integration"
+      python_function: "utils.file_operations.FileOperations.batch_convert_documents"
+      progress_tracking: true
+      error_handling: "{{ steps.optimize_batch_strategy.error_handling_strategy }}"
+      outputs:
+        - total_files
+        - successful_conversions
+        - failed_conversions
+        - results
+        - output_directory
+        - duration_seconds
+        - parallel_processing
+    
+  - id: "validate_batch_results"
+    type: "claude_delegate"
+    description: "Validate batch conversion results and quality"
+    depends_on: ["execute_batch_conversion"]
+    config:
+      agent: "quality-engineer"
+      task: "validate_batch_conversion_results"
+      claude_flags: ["--zen-review", "--validate", "--delegate"]
+      parameters:
+        conversion_results: "{{ steps.execute_batch_conversion }}"
+        expected_files: "{{ steps.analyze_batch_characteristics.total_files }}"
+        output_directory: "{{ output_directory }}"
+        quality_check_frequency: "{{ steps.optimize_batch_strategy.quality_check_frequency }}"
+      validation_checks:
+        - all_files_converted
+        - output_file_integrity
+        - conversion_quality_sampling
+        - no_data_loss
+        - consistent_formatting
+      quality_threshold: 0.9
+      outputs:
+        - validation_passed
+        - overall_quality_score
+        - failed_validations
+        - quality_issues
+        - recommendations
+    
+  - id: "handle_failed_conversions"
+    type: "claude_delegate"
+    description: "Handle and retry failed conversions with alternative strategies"
+    depends_on: ["validate_batch_results"]
+    condition: "{{ steps.execute_batch_conversion.failed_conversions > 0 }}"
+    config:
+      agent: "root-cause-analyst"
+      task: "handle_batch_conversion_failures"
+      claude_flags: ["--delegate", "--thinkdeep", "--loop"]
+      parameters:
+        failed_results: "{{ steps.execute_batch_conversion.results | selectattr('success', 'equalto', false) | list }}"
+        batch_strategy: "{{ steps.optimize_batch_strategy }}"
+        output_directory: "{{ output_directory }}"
+      retry_strategies:
+        - alternative_conversion_method
+        - reduced_quality_settings
+        - sequential_processing
+        - manual_intervention_required
+      outputs:
+        - retry_results
+        - recovery_successful
+        - remaining_failures
+        - failure_analysis
+    
+  - id: "generate_batch_report"
+    type: "claude_delegate"
+    description: "Generate comprehensive batch conversion report"
+    depends_on: ["validate_batch_results"]
+    config:
+      agent: "technical-writer"
+      task: "generate_batch_conversion_report"
+      claude_flags: ["--delegate"]
+      parameters:
+        batch_results: "{{ steps.execute_batch_conversion }}"
+        validation_results: "{{ steps.validate_batch_results }}"
+        strategy_results: "{{ steps.optimize_batch_strategy }}"
+        analysis_results: "{{ steps.analyze_batch_characteristics }}"
+        failure_handling: "{% if steps.handle_failed_conversions %}{{ steps.handle_failed_conversions }}{% endif %}"
+      report_format: "comprehensive"
+      include_performance_metrics: true
+      include_quality_analysis: true
+      outputs:
+        - report_summary
+        - performance_metrics
+        - quality_analysis
+        - failure_summary
+        - recommendations
+        - success_status
+
+# Parallel processing configuration
+parallel_processing:
+  enabled: true
+  coordination_agent: "task-manager"
+  max_concurrent_conversions: "{{ max_workers }}"
+  load_balancing: "adaptive"
+  failure_isolation: true
+  progress_aggregation: true
+
+# Error handling and recovery
+error_handling:
+  strategy: "resilient"
+  continue_on_individual_failure: true
+  retry_failed_items: true
+  max_retries: 2
+  fallback_strategies: ["sequential_processing", "reduced_quality"]
+  notification: true
+  
+# Quality gates
+quality_gates:
+  - step: "validate_batch_results"
+    threshold: 0.85
+    action: "investigate_failures"
+    message: "Batch quality below acceptable threshold"
+    
+  - step: "execute_batch_conversion"
+    check: "success_rate"
+    threshold: 0.9
+    action: "trigger_failure_analysis"
+    message: "Too many conversion failures"
+
+# Performance optimization
+performance:
+  adaptive_batching: true
+  resource_monitoring: true
+  dynamic_worker_adjustment: true
+  memory_management: "conservative"
+  disk_space_monitoring: true
+
+# Monitoring and observability
+monitoring:
+  track_individual_conversions: true
+  aggregate_performance_metrics: true
+  log_detailed_progress: true
+  notify_on_milestones: true
+  store_comprehensive_artifacts: true
+
+# DSL Integration Points
+dsl_integration:
+  operation_type: "batch_convert"
+  agent_coordination: true
+  parallel_capable: true
+  streaming_support: true
+  checkpoint_enabled: true
+  quality_validation_required: true
+  scalability_focused: true

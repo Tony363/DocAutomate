@@ -1,0 +1,284 @@
+name: "document_conversion"
+version: "1.0.0"
+description: "Convert documents between formats with intelligent processing and quality preservation"
+category: "document_transformation"
+
+# DSL Configuration - Maximum Claude Code execution
+execution_mode: "claude_delegate"
+agent_coordination: true
+quality_validation: true
+
+parameters:
+  - name: "input_path"
+    type: "string"
+    required: true
+    description: "Path to input document"
+    
+  - name: "output_path"
+    type: "string"
+    required: true
+    description: "Path for output document"
+    
+  - name: "output_format"
+    type: "string"
+    required: false
+    description: "Target format (pdf, docx, html, etc.)"
+    default: "pdf"
+    allowed_values: ["pdf", "docx", "html", "txt", "markdown"]
+    
+  - name: "quality"
+    type: "string"
+    required: false
+    description: "Conversion quality level"
+    default: "high"
+    allowed_values: ["low", "medium", "high", "maximum"]
+    
+  - name: "preserve_formatting"
+    type: "boolean"
+    required: false
+    description: "Whether to preserve original formatting"
+    default: true
+    
+  - name: "document_id"
+    type: "string"
+    required: true
+    description: "Document ID for tracking"
+
+steps:
+  - id: "validate_conversion"
+    type: "claude_delegate"
+    description: "Validate conversion parameters and input document"
+    config:
+      agent: "general-purpose"
+      task: "validate_document_conversion_inputs"
+      claude_flags: ["--task-manage", "--validate"]
+      parameters:
+        input_path: "{{ input_path }}"
+        output_path: "{{ output_path }}"
+        output_format: "{{ output_format }}"
+        quality: "{{ quality }}"
+        preserve_formatting: "{{ preserve_formatting }}"
+      validation:
+        - check: "input_file_exists"
+          message: "Input document must exist and be readable"
+        - check: "supported_format"
+          message: "Input format must be supported for conversion"
+        - check: "output_writable"
+          message: "Output location must be writable"
+        - check: "format_compatibility"
+          message: "Conversion between these formats must be supported"
+    
+  - id: "analyze_document"
+    type: "claude_analyze"
+    description: "Analyze document structure and content for optimal conversion"
+    depends_on: ["validate_conversion"]
+    config:
+      agent: "technical-writer"
+      task: "analyze_document_structure"
+      claude_flags: ["--delegate", "--think", "2"]
+      parameters:
+        input_path: "{{ input_path }}"
+        output_format: "{{ output_format }}"
+        preserve_formatting: "{{ preserve_formatting }}"
+      analysis_type: "document_structure"
+      outputs:
+        - document_type
+        - content_complexity
+        - formatting_elements
+        - embedded_objects
+        - conversion_challenges
+        - recommended_settings
+    
+  - id: "optimize_conversion_strategy"
+    type: "claude_consensus"
+    description: "Determine optimal conversion strategy based on document analysis"
+    depends_on: ["analyze_document"]
+    config:
+      models: ["gpt-5", "claude-opus-4.1"]
+      consensus_threshold: 0.8
+      task: "optimize_conversion_strategy"
+      claude_flags: ["--consensus", "--think", "2"]
+      parameters:
+        document_analysis: "{{ steps.analyze_document }}"
+        user_quality: "{{ quality }}"
+        user_formatting_preference: "{{ preserve_formatting }}"
+        target_format: "{{ output_format }}"
+      outputs:
+        - conversion_method
+        - quality_settings
+        - formatting_strategy
+        - preprocessing_steps
+        - postprocessing_steps
+    
+  - id: "preprocess_document"
+    type: "claude_delegate" 
+    description: "Preprocess document if needed based on analysis"
+    depends_on: ["optimize_conversion_strategy"]
+    condition: "{{ steps.optimize_conversion_strategy.preprocessing_steps|length > 0 }}"
+    config:
+      agent: "backend-architect"
+      task: "preprocess_document_for_conversion"
+      claude_flags: ["--delegate", "--safe-mode"]
+      parameters:
+        input_path: "{{ input_path }}"
+        preprocessing_steps: "{{ steps.optimize_conversion_strategy.preprocessing_steps }}"
+        document_analysis: "{{ steps.analyze_document }}"
+      outputs:
+        - preprocessed_path
+        - preprocessing_applied
+        - preprocessing_log
+    
+  - id: "convert_document"
+    type: "claude_delegate"
+    description: "Execute document conversion with Claude oversight"
+    depends_on: ["optimize_conversion_strategy"]
+    config:
+      agent: "backend-architect"
+      task: "execute_document_conversion"
+      claude_flags: ["--delegate", "--loop", "--safe-mode"]
+      parameters:
+        input_path: "{% if steps.preprocess_document.preprocessed_path %}{{ steps.preprocess_document.preprocessed_path }}{% else %}{{ input_path }}{% endif %}"
+        output_path: "{{ output_path }}"
+        output_format: "{{ output_format }}"
+        conversion_method: "{{ steps.optimize_conversion_strategy.conversion_method }}"
+        quality_settings: "{{ steps.optimize_conversion_strategy.quality_settings }}"
+        formatting_strategy: "{{ steps.optimize_conversion_strategy.formatting_strategy }}"
+      execution_mode: "python_integration"
+      python_function: "utils.file_operations.FileOperations.convert_docx_to_pdf"
+      error_handling: "comprehensive"
+      outputs:
+        - output_path
+        - conversion_method
+        - input_size_bytes
+        - output_size_bytes
+        - duration_seconds
+        - conversion_log
+    
+  - id: "postprocess_document"
+    type: "claude_delegate"
+    description: "Apply post-processing if needed"
+    depends_on: ["convert_document"]
+    condition: "{{ steps.optimize_conversion_strategy.postprocessing_steps|length > 0 }}"
+    config:
+      agent: "quality-engineer"
+      task: "postprocess_converted_document"
+      claude_flags: ["--delegate", "--quality-check"]
+      parameters:
+        output_path: "{{ steps.convert_document.output_path }}"
+        postprocessing_steps: "{{ steps.optimize_conversion_strategy.postprocessing_steps }}"
+        quality_settings: "{{ steps.optimize_conversion_strategy.quality_settings }}"
+      outputs:
+        - final_output_path
+        - postprocessing_applied
+        - postprocessing_log
+    
+  - id: "validate_conversion_quality"
+    type: "claude_consensus"
+    description: "Validate conversion quality and fidelity"
+    depends_on: ["convert_document"]
+    config:
+      models: ["gpt-5", "claude-opus-4.1"]
+      consensus_threshold: 0.8
+      task: "validate_conversion_quality"
+      claude_flags: ["--zen-review", "--consensus", "--think", "2"]
+      parameters:
+        original_path: "{{ input_path }}"
+        converted_path: "{% if steps.postprocess_document.final_output_path %}{{ steps.postprocess_document.final_output_path }}{% else %}{{ steps.convert_document.output_path }}{% endif %}"
+        conversion_results: "{{ steps.convert_document }}"
+        expected_quality: "{{ quality }}"
+        formatting_preserved: "{{ preserve_formatting }}"
+      validation_checks:
+        - content_fidelity
+        - formatting_preservation
+        - output_quality
+        - file_integrity
+        - accessibility_compliance
+      outputs:
+        - quality_score
+        - fidelity_score
+        - validation_passed
+        - issues_found
+        - recommendations
+    
+  - id: "generate_conversion_report"
+    type: "claude_delegate"
+    description: "Generate comprehensive conversion report"
+    depends_on: ["validate_conversion_quality"]
+    config:
+      agent: "technical-writer"
+      task: "generate_conversion_report"
+      claude_flags: ["--delegate"]
+      parameters:
+        conversion_results: "{{ steps.convert_document }}"
+        validation_results: "{{ steps.validate_conversion_quality }}"
+        analysis_results: "{{ steps.analyze_document }}"
+        strategy_results: "{{ steps.optimize_conversion_strategy }}"
+        preprocessing_log: "{% if steps.preprocess_document.preprocessing_log %}{{ steps.preprocess_document.preprocessing_log }}{% endif %}"
+        postprocessing_log: "{% if steps.postprocess_document.postprocessing_log %}{{ steps.postprocess_document.postprocessing_log }}{% endif %}"
+      report_format: "structured"
+      include_quality_metrics: true
+      outputs:
+        - report_summary
+        - quality_metrics
+        - conversion_details
+        - success_status
+
+# Conditional workflows for different conversion types
+conversion_strategies:
+  docx_to_pdf:
+    agent: "backend-architect"
+    quality_focus: "formatting_preservation"
+    validation: "visual_fidelity"
+    
+  pdf_to_docx:
+    agent: "technical-writer"
+    quality_focus: "content_extraction"
+    validation: "text_accuracy"
+    
+  html_to_pdf:
+    agent: "frontend-architect"
+    quality_focus: "layout_preservation"
+    validation: "rendering_accuracy"
+
+# Error handling and rollback
+error_handling:
+  strategy: "comprehensive"
+  rollback_on_failure: true
+  cleanup_temp_files: true
+  preserve_original: true
+  notification: true
+  
+# Quality gates
+quality_gates:
+  - step: "validate_conversion_quality"
+    threshold: 0.85
+    action: "retry_with_different_strategy"
+    message: "Conversion quality below acceptable threshold"
+    
+  - step: "convert_document"
+    validation: "output_exists"
+    action: "retry_once"
+    message: "Conversion output not generated"
+    
+  - step: "validate_conversion_quality"
+    check: "fidelity_score"
+    threshold: 0.8
+    action: "flag_for_review"
+    message: "Content fidelity concerns detected"
+
+# Monitoring and observability
+monitoring:
+  track_performance: true
+  log_detailed_metrics: true
+  notify_on_completion: true
+  store_artifacts: true
+  track_quality_metrics: true
+
+# DSL Integration Points
+dsl_integration:
+  operation_type: "convert"
+  agent_coordination: true
+  parallel_capable: true  # For batch operations
+  streaming_support: false
+  checkpoint_enabled: true
+  quality_validation_required: true
