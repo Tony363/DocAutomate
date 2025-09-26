@@ -1,0 +1,71 @@
+{
+  "run_id": "69033530",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "field_name": "recipient_address",
+    "party": "TONY LIU",
+    "original_action_type": "address_completion",
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "general"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The recipient_address field requires an address input for TONY LIU with address completion functionality",
+          "insights": [
+            "Field type is clearly 'address' based on the field name and context hint",
+            "The address_completion context indicates auto-complete or suggestion features should be available",
+            "This is likely for delivery, shipping, or mailing purposes given the 'recipient' designation",
+            "Standard address validation including street, city, state/province, postal code, and country should be applied"
+          ],
+          "recommendations": [
+            "Implement address auto-completion API (Google Places, MapBox, or similar) for better UX",
+            "Use multi-line or structured input fields (street line 1, street line 2, city, state/province, postal code, country)",
+            "Add validation for required components: street address, city, postal/zip code at minimum",
+            "Consider storing validated/normalized addresses to prevent delivery issues",
+            "Set this as a high priority field since recipient address is critical for delivery/fulfillment"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-26T00:32:22.118193",
+  "completed_at": "2025-09-26T00:32:40.503845",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The recipient_address field requires an address input for TONY LIU with address completion functionality",
+        "insights": [
+          "Field type is clearly 'address' based on the field name and context hint",
+          "The address_completion context indicates auto-complete or suggestion features should be available",
+          "This is likely for delivery, shipping, or mailing purposes given the 'recipient' designation",
+          "Standard address validation including street, city, state/province, postal code, and country should be applied"
+        ],
+        "recommendations": [
+          "Implement address auto-completion API (Google Places, MapBox, or similar) for better UX",
+          "Use multi-line or structured input fields (street line 1, street line 2, city, state/province, postal code, country)",
+          "Add validation for required components: street address, city, postal/zip code at minimum",
+          "Consider storing validated/normalized addresses to prevent delivery issues",
+          "Set this as a high priority field since recipient address is critical for delivery/fulfillment"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
