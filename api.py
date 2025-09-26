@@ -22,6 +22,7 @@ from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
 from workflow_matcher import WorkflowMatcher
 from services.claude_service import claude_service
+from enum import Enum
 
 # Set up logging with more detail
 import uuid
@@ -59,6 +60,20 @@ document_ingester = DocumentIngester()
 action_extractor = ActionExtractor()
 workflow_engine = WorkflowEngine()
 workflow_matcher = WorkflowMatcher(workflow_engine)
+
+# In-memory orchestration status tracking
+orchestration_status = {}
+
+class OrchestrationStatus(Enum):
+    """Orchestration status enumeration"""
+    QUEUED = "queued"
+    RUNNING = "running"
+    ANALYSIS = "analysis"
+    CONSENSUS = "consensus"
+    REMEDIATION = "remediation"
+    VALIDATION = "validation"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 # Pydantic models for API
 
@@ -667,15 +682,35 @@ async def orchestrate_workflow(request: OrchestrationRequest, background_tasks: 
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         
+        # Initialize orchestration status tracking
+        orchestration_status[orchestration_id] = {
+            "orchestration_id": orchestration_id,
+            "document_id": request.document_id,
+            "status": OrchestrationStatus.QUEUED.value,
+            "message": "Orchestration queued for execution",
+            "steps_completed": [],
+            "current_step": None,
+            "started_at": datetime.now().isoformat(),
+            "completed_at": None,
+            "results": None
+        }
+        
         # Prepare orchestration task
         async def run_orchestration():
             try:
+                orchestration_status[orchestration_id]["status"] = OrchestrationStatus.RUNNING.value
+                orchestration_status[orchestration_id]["current_step"] = "starting"
+                
                 logger.info(f"[{orchestration_id}] Starting orchestration workflow")
                 
                 # Get document metadata
                 metadata = document.metadata or {}
                 metadata["document_id"] = document.id
                 metadata["content_type"] = document.content_type
+                
+                # Update status for each step
+                orchestration_status[orchestration_id]["current_step"] = "analysis"
+                orchestration_status[orchestration_id]["status"] = OrchestrationStatus.ANALYSIS.value
                 
                 # Run orchestration through Claude service
                 results = await claude_service.orchestrate_workflow(
@@ -687,13 +722,60 @@ async def orchestrate_workflow(request: OrchestrationRequest, background_tasks: 
                 
                 logger.info(f"[{orchestration_id}] Orchestration completed with quality score: {results.get('final_quality_score', 0)}")
                 
-                # Store results (you might want to persist this)
+                # Save remediated document to filesystem if available
+                remediated_content = None
+                remediation_path = None
+                
+                # Extract remediated content from the orchestration results
+                remediation_step = results.get('steps', {}).get('remediation', {})
+                if remediation_step.get('status') == 'completed':
+                    # Get the actual remediated content from claude_service
+                    # This should be available in the orchestration workflow results
+                    if 'remediated_content' in results:
+                        remediated_content = results['remediated_content']
+                    elif hasattr(claude_service, '_last_remediation_result'):
+                        # Fallback to get content from service if stored there
+                        remediated_content = getattr(claude_service, '_last_remediation_result', None)
+                        
+                    if remediated_content:
+                        # Save remediated document to filesystem
+                        output_dir = Path(f"docs/generated/{document.id}")
+                        output_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        output_file = output_dir / "remediated_document.md"
+                        output_file.write_text(remediated_content, encoding='utf-8')
+                        remediation_path = str(output_file)
+                        
+                        logger.info(f"[{orchestration_id}] Saved remediated document to {remediation_path}")
+                
+                # Store results with remediation path
                 document.metadata = document.metadata or {}
                 document.metadata["orchestration_results"] = results
+                
+                # Store remediation path in document metadata
+                if remediation_path:
+                    document.metadata["remediation_path"] = remediation_path
+                    results["remediation_path"] = remediation_path
+                
                 await document_ingester._store_document(document)
+                
+                # Update final orchestration status
+                orchestration_status[orchestration_id].update({
+                    "status": OrchestrationStatus.COMPLETED.value,
+                    "current_step": "completed",
+                    "completed_at": datetime.now().isoformat(),
+                    "results": results,
+                    "steps_completed": list(results.get('steps', {}).keys())
+                })
                 
             except Exception as e:
                 logger.error(f"[{orchestration_id}] Orchestration failed: {e}")
+                orchestration_status[orchestration_id].update({
+                    "status": OrchestrationStatus.FAILED.value,
+                    "current_step": "failed",
+                    "completed_at": datetime.now().isoformat(),
+                    "error": str(e)
+                })
         
         # Queue orchestration
         background_tasks.add_task(run_orchestration)
@@ -813,12 +895,17 @@ async def remediate_document(document_id: str, request: RemediationRequest):
         )
         
         if remediation.success:
-            # Store remediated content (you might want to save this to a file)
+            # Store remediated content to filesystem with UTF-8 encoding
             output_dir = Path(f"docs/generated/{document_id}")
             output_dir.mkdir(parents=True, exist_ok=True)
             
             output_file = output_dir / "remediated_document.md"
-            output_file.write_text(remediation.remediated_content)
+            output_file.write_text(remediation.remediated_content, encoding='utf-8')
+            
+            # Store remediation path in document metadata
+            document.metadata = document.metadata or {}
+            document.metadata["remediation_path"] = str(output_file)
+            await document_ingester._store_document(document)
             
             return {
                 "document_id": document_id,
@@ -864,15 +951,36 @@ async def validate_document(document_id: str, request: ValidationRequest):
 @app.get("/orchestrate/runs/{orchestration_id}")
 async def get_orchestration_status(orchestration_id: str):
     """Get status of an orchestration run"""
-    # This would typically query a database or cache
-    # For now, return a placeholder
-    return {
-        "orchestration_id": orchestration_id,
-        "status": "running",
-        "message": "Orchestration in progress",
-        "steps_completed": ["analysis", "consensus"],
-        "current_step": "remediation"
-    }
+    try:
+        if orchestration_id not in orchestration_status:
+            raise HTTPException(status_code=404, detail="Orchestration run not found")
+        
+        status_info = orchestration_status[orchestration_id].copy()
+        
+        # Add progress information
+        if status_info["status"] == OrchestrationStatus.RUNNING.value:
+            current_step = status_info.get("current_step")
+            if current_step == "analysis":
+                status_info["message"] = "Performing multi-agent analysis"
+            elif current_step == "consensus":
+                status_info["message"] = "Validating findings through multi-model consensus"
+                status_info["steps_completed"] = ["analysis"]
+            elif current_step == "remediation":
+                status_info["message"] = "Generating remediated document"
+                status_info["steps_completed"] = ["analysis", "consensus"]
+            elif current_step == "validation":
+                status_info["message"] = "Performing quality validation"
+                status_info["steps_completed"] = ["analysis", "consensus", "remediation"]
+            else:
+                status_info["message"] = "Orchestration in progress"
+        
+        return status_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get orchestration status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():
