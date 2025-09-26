@@ -370,22 +370,27 @@ Use multi-model consensus with models: {', '.join(models)}
         """
         # Build remediation prompt
         prompt = f"""
-Generate an improved version of this document that addresses the identified issues:
+CRITICAL INSTRUCTION: You MUST return ONLY the complete remediated document in Markdown format.
+DO NOT include any summary, explanation, or commentary.
+DO NOT start with "Here is..." or "Below is..." or any introduction.
+DO NOT end with any summary of changes made.
+ONLY output the full document text itself.
 
-Original Document:
-{document_content[:2000]}...
+Original Document (truncated for context):
+{document_content[:10000]}
 
 Issues to Address:
 {json.dumps(issues, indent=2)}
 
-Please:
+Requirements:
 1. Fix all identified issues
-2. Maintain original document structure
+2. Maintain original document structure  
 3. Improve clarity and completeness
 4. Add missing sections if needed
 5. Ensure consistency throughout
 
-Return the complete remediated document.
+OUTPUT ONLY THE COMPLETE REMEDIATED DOCUMENT IN MARKDOWN - NOTHING ELSE.
+Start directly with the document title or first line.
 """
         
         try:
@@ -400,12 +405,62 @@ Return the complete remediated document.
             )
             
             if result.success:
+                # Validate output is a full document, not a summary
+                output = (result.output or "").strip()
+                
+                # Check for summary indicators
+                summary_indicators = [
+                    "Summary of Improvements",
+                    "## Summary",
+                    "Changes made:",
+                    "Improvements:",
+                    "Fixed the following",
+                    "Here is",
+                    "Below is"
+                ]
+                
+                first_line = output.split('\n')[0] if output else ""
+                is_summary = any(indicator in first_line for indicator in summary_indicators)
+                
+                # Also check if output is too short to be a full document
+                if is_summary or len(output) < 500:
+                    logger.warning(f"Remediation appears to be a summary (length: {len(output)}, starts with: {first_line[:50]})")
+                    # Retry with even stricter prompt
+                    stricter_prompt = f"""
+YOU ARE RETURNING A SUMMARY INSTEAD OF THE DOCUMENT. THIS IS WRONG.
+
+Return ONLY the FULL TEXT of the remediated document.
+Start with the document title: "NON-DISCLOSURE AGREEMENT"
+Include ALL sections of the NDA.
+DO NOT include any summary or explanation.
+
+Original Document:
+{document_content[:10000]}
+
+Issues: {json.dumps(issues)}
+
+OUTPUT THE FULL REMEDIATED DOCUMENT NOW:
+"""
+                    retry_result = await self.cli.execute_with_mode_async(
+                        prompt=stricter_prompt,
+                        mode=SuperClaudeMode.TASK_MANAGE,
+                        context={"document_id": document_id, "retry": True}
+                    )
+                    
+                    if retry_result.success:
+                        output = (retry_result.output or "").strip()
+                        # If still too short, raise error
+                        if len(output) < 500:
+                            raise Exception(f"Remediation output too short ({len(output)} chars) - appears to be summary")
+                    else:
+                        raise Exception(f"Remediation retry failed: {retry_result.error}")
+                
                 # Calculate quality score based on issues resolved
                 quality_score = min(1.0, 0.5 + (0.1 * len(issues)))
                 
                 return RemediationResult(
                     success=True,
-                    remediated_content=result.output,
+                    remediated_content=output,
                     issues_resolved=[issue.get("id", f"issue_{i}") 
                                     for i, issue in enumerate(issues)],
                     quality_score=quality_score,
