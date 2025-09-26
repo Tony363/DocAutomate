@@ -115,12 +115,10 @@ class OrchestrationResponse(BaseModel):
     results: Optional[Dict[str, Any]] = None
 
 class AnalysisRequest(BaseModel):
-    document_id: str
     agents: Optional[List[str]] = None
     parallel: bool = True
 
 class ConsensusRequest(BaseModel):
-    document_id: str
     analysis_data: Dict[str, Any]
     models: Optional[List[str]] = None
 
