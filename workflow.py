@@ -19,6 +19,9 @@ import aiohttp
 # Import SuperClaude Framework components
 from agent_providers import agent_registry, AgentProvider
 
+# Import file operations utilities
+from utils.file_operations import FileOperations
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,7 +79,11 @@ class WorkflowEngine:
             'intelligent_routing': self._execute_intelligent_routing,
             'code_generation': self._execute_code_generation,
             'quality_check': self._execute_quality_check,
-            'dynamic_workflow': self._execute_dynamic_workflow
+            'dynamic_workflow': self._execute_dynamic_workflow,
+            # File operations extensions
+            'compress_folder': self._execute_compress_folder,
+            'convert_document': self._execute_convert_document,
+            'batch_convert': self._execute_batch_convert
         }
         
         # Load workflow definitions
@@ -1116,6 +1123,146 @@ class WorkflowEngine:
             logger.error(f"Document remediation failed: {e}")
             return {
                 'status': 'failed',
+                'error': str(e)
+            }
+
+    async def _execute_compress_folder(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute folder compression using FileOperations"""
+        try:
+            folder_path = config.get('folder_path')
+            output_filename = config.get('output_filename')
+            include_patterns = config.get('include_patterns', [])
+            exclude_patterns = config.get('exclude_patterns', [])
+            compression_level = config.get('compression_level', 6)
+            
+            if not folder_path:
+                raise ValueError("folder_path is required for compression")
+            
+            if not output_filename:
+                raise ValueError("output_filename is required for compression")
+            
+            # Determine output path
+            folder = Path(folder_path)
+            if not folder.exists() or not folder.is_dir():
+                raise ValueError(f"Folder path does not exist or is not a directory: {folder_path}")
+            
+            output_path = str(folder.parent / output_filename)
+            
+            logger.info(f"Compressing folder {folder_path} to {output_path}")
+            
+            # Execute compression
+            result = await FileOperations.compress_folder(
+                folder_path=folder_path,
+                output_path=output_path,
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                compression_level=compression_level
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Folder compression failed: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    async def _execute_convert_document(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute document conversion using FileOperations"""
+        try:
+            input_path = config.get('input_path')
+            output_path = config.get('output_path')
+            output_format = config.get('output_format', 'pdf')
+            quality = config.get('quality', 'high')
+            preserve_formatting = config.get('preserve_formatting', True)
+            use_claude = config.get('use_claude', True)
+            
+            if not input_path:
+                raise ValueError("input_path is required for conversion")
+            
+            if not Path(input_path).exists():
+                raise ValueError(f"Input file does not exist: {input_path}")
+            
+            # If no output path specified, use input path with new extension
+            if not output_path:
+                input_file = Path(input_path)
+                if output_format == 'pdf':
+                    output_path = str(input_file.with_suffix('.pdf'))
+                else:
+                    output_path = str(input_file.with_suffix(f'.{output_format}'))
+            
+            logger.info(f"Converting document {input_path} to {output_path}")
+            
+            # Execute conversion
+            if output_format == 'pdf':
+                result = await FileOperations.convert_docx_to_pdf(
+                    input_path=input_path,
+                    output_path=output_path,
+                    quality=quality,
+                    preserve_formatting=preserve_formatting,
+                    use_claude=use_claude
+                )
+            else:
+                # For other formats, we'd need to implement additional converters
+                result = {
+                    'success': False,
+                    'error': f"Conversion to {output_format} not yet implemented"
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Document conversion failed: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    async def _execute_batch_convert(self, config: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute batch document conversion using FileOperations"""
+        try:
+            input_files = config.get('input_files', [])
+            output_directory = config.get('output_directory')
+            conversion_type = config.get('conversion_type', 'docx_to_pdf')
+            parallel = config.get('parallel', True)
+            max_workers = config.get('max_workers', 4)
+            
+            if not input_files:
+                raise ValueError("input_files list is required for batch conversion")
+            
+            if not output_directory:
+                raise ValueError("output_directory is required for batch conversion")
+            
+            # Validate all input files exist
+            missing_files = []
+            for file_path in input_files:
+                if not Path(file_path).exists():
+                    missing_files.append(file_path)
+            
+            if missing_files:
+                raise ValueError(f"Input files not found: {missing_files}")
+            
+            # Create output directory
+            Path(output_directory).mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Batch converting {len(input_files)} files to {output_directory}")
+            
+            # Execute batch conversion
+            result = await FileOperations.batch_convert_documents(
+                input_files=input_files,
+                output_dir=output_directory,
+                conversion_type=conversion_type,
+                parallel=parallel,
+                max_workers=max_workers
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Batch conversion failed: {e}")
+            return {
+                'success': False,
                 'error': str(e)
             }
 

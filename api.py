@@ -22,6 +22,7 @@ from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
 from workflow_matcher import WorkflowMatcher
 from services.claude_service import claude_service
+from utils.file_operations import FileOperations
 from enum import Enum
 
 # Set up logging with more detail
@@ -145,6 +146,46 @@ class ValidationRequest(BaseModel):
     original_content: str
     remediated_content: str
     validation_type: str = "quality"  # quality, security, compliance
+
+class FolderCompressionRequest(BaseModel):
+    folder_path: str
+    output_filename: Optional[str] = None
+    include_patterns: Optional[List[str]] = None
+    exclude_patterns: Optional[List[str]] = None
+    compression_level: int = 6
+    use_dsl: bool = True
+
+class FolderCompressionResponse(BaseModel):
+    success: bool
+    output_path: Optional[str]
+    files_compressed: Optional[int]
+    compression_ratio: Optional[str]
+    error: Optional[str]
+    workflow_run_id: Optional[str]
+
+class DocumentConversionRequest(BaseModel):
+    document_id: Optional[str] = None
+    input_path: Optional[str] = None
+    output_path: Optional[str] = None
+    output_format: str = "pdf"
+    quality: str = "high"
+    preserve_formatting: bool = True
+    use_dsl: bool = True
+
+class DocumentConversionResponse(BaseModel):
+    success: bool
+    output_path: Optional[str]
+    conversion_method: Optional[str]
+    error: Optional[str]
+    workflow_run_id: Optional[str]
+
+class BatchConversionRequest(BaseModel):
+    input_files: List[str]
+    output_directory: str
+    conversion_type: str = "docx_to_pdf"
+    parallel: bool = True
+    max_workers: int = 4
+    use_dsl: bool = True
 
 # Background task for processing document
 async def process_document_background(document: Document, request_id: str = None):
@@ -303,7 +344,10 @@ async def root():
             "document_status": "/documents/{document_id}",
             "execute_workflow": "/workflows/execute",
             "list_workflows": "/workflows",
-            "workflow_status": "/workflows/runs/{run_id}"
+            "workflow_status": "/workflows/runs/{run_id}",
+            "compress_folder": "/documents/compress-folder",
+            "convert_document": "/documents/convert/docx-to-pdf",
+            "batch_convert": "/documents/convert/batch"
         }
     }
 
@@ -980,6 +1024,320 @@ async def get_orchestration_status(orchestration_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get orchestration status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/compress-folder", response_model=FolderCompressionResponse)
+async def compress_folder(request: FolderCompressionRequest, background_tasks: BackgroundTasks):
+    """Compress a folder into a zip file using DSL workflow"""
+    request_id = generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] Folder compression requested: {request.folder_path}")
+    
+    try:
+        # Validate folder path
+        folder_path = Path(request.folder_path)
+        if not folder_path.exists():
+            raise HTTPException(status_code=404, detail=f"Folder not found: {request.folder_path}")
+        
+        if not folder_path.is_dir():
+            raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.folder_path}")
+        
+        # Generate output filename if not provided
+        output_filename = request.output_filename or f"{folder_path.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        if request.use_dsl:
+            # Execute via DSL workflow
+            logger.info(f"[{request_id}] Executing compression via DSL workflow")
+            
+            # Create a temporary document to track this operation
+            temp_document = Document(
+                id=f"compress_{request_id}",
+                filename=f"compression_{folder_path.name}",
+                text=f"Compress folder: {request.folder_path}",
+                metadata={
+                    "operation_type": "folder_compression",
+                    "folder_path": str(folder_path),
+                    "output_filename": output_filename,
+                    "include_patterns": request.include_patterns,
+                    "exclude_patterns": request.exclude_patterns,
+                    "compression_level": request.compression_level
+                }
+            )
+            
+            # Execute compression workflow
+            workflow_params = {
+                "folder_path": str(folder_path),
+                "output_filename": output_filename,
+                "include_patterns": request.include_patterns or [],
+                "exclude_patterns": request.exclude_patterns or [],
+                "compression_level": request.compression_level,
+                "document_id": temp_document.id
+            }
+            
+            run = await workflow_engine.execute_workflow(
+                workflow_name="folder_compression",
+                document_id=temp_document.id,
+                initial_parameters=workflow_params
+            )
+            
+            if run.status == WorkflowStatus.SUCCESS:
+                compression_result = run.outputs.get('compress_folder', {})
+                
+                return FolderCompressionResponse(
+                    success=True,
+                    output_path=compression_result.get('output_path'),
+                    files_compressed=compression_result.get('files_compressed'),
+                    compression_ratio=compression_result.get('compression_ratio'),
+                    workflow_run_id=run.run_id
+                )
+            else:
+                return FolderCompressionResponse(
+                    success=False,
+                    error=run.error or "Workflow execution failed",
+                    workflow_run_id=run.run_id
+                )
+        else:
+            # Direct execution using file operations
+            logger.info(f"[{request_id}] Executing compression directly")
+            
+            output_path = str(folder_path.parent / output_filename)
+            
+            result = await FileOperations.compress_folder(
+                folder_path=str(folder_path),
+                output_path=output_path,
+                include_patterns=request.include_patterns,
+                exclude_patterns=request.exclude_patterns,
+                compression_level=request.compression_level
+            )
+            
+            return FolderCompressionResponse(
+                success=result['success'],
+                output_path=result.get('output_path'),
+                files_compressed=result.get('files_compressed'),
+                compression_ratio=result.get('compression_ratio'),
+                error=result.get('error')
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Folder compression failed after {total_time:.2f}s: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/convert/docx-to-pdf", response_model=DocumentConversionResponse)
+async def convert_docx_to_pdf(request: DocumentConversionRequest):
+    """Convert DOCX document to PDF using DSL workflow"""
+    request_id = generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] DOCX to PDF conversion requested")
+    
+    try:
+        input_path = None
+        
+        # Determine input path
+        if request.document_id:
+            # Get document from ingester
+            document = document_ingester.get_document(request.document_id)
+            if not document:
+                raise HTTPException(status_code=404, detail="Document not found")
+            
+            # For this example, assume document has a file_path in metadata
+            input_path = document.metadata.get('file_path') if document.metadata else None
+            if not input_path:
+                raise HTTPException(status_code=400, detail="Document does not have associated file path")
+        
+        elif request.input_path:
+            input_path = request.input_path
+        else:
+            raise HTTPException(status_code=400, detail="Either document_id or input_path must be provided")
+        
+        # Validate input file
+        input_file = Path(input_path)
+        if not input_file.exists():
+            raise HTTPException(status_code=404, detail=f"Input file not found: {input_path}")
+        
+        if input_file.suffix.lower() not in ['.docx', '.doc']:
+            raise HTTPException(status_code=400, detail="Input file must be a Word document (.docx or .doc)")
+        
+        # Determine output path
+        output_path = request.output_path or str(input_file.with_suffix('.pdf'))
+        
+        if request.use_dsl:
+            # Execute via DSL workflow
+            logger.info(f"[{request_id}] Executing conversion via DSL workflow")
+            
+            # Create a temporary document to track this operation
+            temp_document = Document(
+                id=f"convert_{request_id}",
+                filename=f"conversion_{input_file.name}",
+                text=f"Convert document: {input_path}",
+                metadata={
+                    "operation_type": "document_conversion",
+                    "input_path": input_path,
+                    "output_path": output_path,
+                    "output_format": request.output_format,
+                    "quality": request.quality,
+                    "preserve_formatting": request.preserve_formatting
+                }
+            )
+            
+            # Execute conversion workflow
+            workflow_params = {
+                "input_path": input_path,
+                "output_path": output_path,
+                "output_format": request.output_format,
+                "quality": request.quality,
+                "preserve_formatting": request.preserve_formatting,
+                "document_id": temp_document.id
+            }
+            
+            run = await workflow_engine.execute_workflow(
+                workflow_name="document_conversion",
+                document_id=temp_document.id,
+                initial_parameters=workflow_params
+            )
+            
+            if run.status == WorkflowStatus.SUCCESS:
+                conversion_result = run.outputs.get('convert_document', {})
+                
+                return DocumentConversionResponse(
+                    success=True,
+                    output_path=conversion_result.get('output_path'),
+                    conversion_method="dsl_workflow",
+                    workflow_run_id=run.run_id
+                )
+            else:
+                return DocumentConversionResponse(
+                    success=False,
+                    error=run.error or "Workflow execution failed",
+                    workflow_run_id=run.run_id
+                )
+        else:
+            # Direct execution using file operations
+            logger.info(f"[{request_id}] Executing conversion directly")
+            
+            result = await FileOperations.convert_docx_to_pdf(
+                input_path=input_path,
+                output_path=output_path,
+                quality=request.quality,
+                preserve_formatting=request.preserve_formatting,
+                use_claude=False  # Direct mode doesn't use Claude
+            )
+            
+            return DocumentConversionResponse(
+                success=result['success'],
+                output_path=result.get('output_path'),
+                conversion_method=result.get('method'),
+                error=result.get('error')
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Document conversion failed after {total_time:.2f}s: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/documents/convert/batch")
+async def batch_convert_documents(request: BatchConversionRequest, background_tasks: BackgroundTasks):
+    """Batch convert multiple documents"""
+    request_id = generate_request_id()
+    start_time = datetime.now()
+    
+    logger.info(f"[{request_id}] Batch conversion requested: {len(request.input_files)} files")
+    
+    try:
+        # Validate input files exist
+        for file_path in request.input_files:
+            if not Path(file_path).exists():
+                raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Validate output directory
+        output_dir = Path(request.output_directory)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        if request.use_dsl:
+            # Execute batch conversion in background via DSL
+            logger.info(f"[{request_id}] Queuing batch conversion via DSL workflow")
+            
+            async def execute_batch_workflow():
+                bg_request_id = f"{request_id}-batch"
+                logger.info(f"[{bg_request_id}] Starting batch workflow execution")
+                
+                try:
+                    # Create temporary document for batch operation
+                    temp_document = Document(
+                        id=f"batch_{request_id}",
+                        filename=f"batch_conversion_{len(request.input_files)}_files",
+                        text=f"Batch convert {len(request.input_files)} files",
+                        metadata={
+                            "operation_type": "batch_conversion",
+                            "input_files": request.input_files,
+                            "output_directory": str(output_dir),
+                            "conversion_type": request.conversion_type,
+                            "parallel": request.parallel,
+                            "max_workers": request.max_workers
+                        }
+                    )
+                    
+                    # Execute batch conversion workflow
+                    workflow_params = {
+                        "input_files": request.input_files,
+                        "output_directory": str(output_dir),
+                        "conversion_type": request.conversion_type,
+                        "parallel": request.parallel,
+                        "max_workers": request.max_workers,
+                        "document_id": temp_document.id
+                    }
+                    
+                    run = await workflow_engine.execute_workflow(
+                        workflow_name="batch_document_conversion",
+                        document_id=temp_document.id,
+                        initial_parameters=workflow_params
+                    )
+                    
+                    logger.info(f"[{bg_request_id}] Batch workflow completed: {run.status.value}")
+                    
+                except Exception as e:
+                    logger.error(f"[{bg_request_id}] Batch workflow failed: {e}")
+            
+            background_tasks.add_task(execute_batch_workflow)
+            
+            return {
+                "message": "Batch conversion queued for processing",
+                "request_id": request_id,
+                "files_queued": len(request.input_files),
+                "output_directory": str(output_dir),
+                "processing_mode": "dsl_workflow"
+            }
+        else:
+            # Direct batch conversion
+            result = await FileOperations.batch_convert_documents(
+                input_files=request.input_files,
+                output_dir=str(output_dir),
+                conversion_type=request.conversion_type,
+                parallel=request.parallel,
+                max_workers=request.max_workers
+            )
+            
+            return {
+                "success": result['success'],
+                "total_files": result['total_files'],
+                "successful_conversions": result['successful_conversions'],
+                "failed_conversions": result['failed_conversions'],
+                "output_directory": result['output_directory'],
+                "duration_seconds": result['duration_seconds'],
+                "processing_mode": "direct"
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.error(f"[{request_id}] Batch conversion failed after {total_time:.2f}s: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
