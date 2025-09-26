@@ -1,16 +1,16 @@
 # NON-DISCLOSURE AGREEMENT
 
-**AGREEMENT** made this 30th day of June, 2025 ("Effective Date"), by and between **YOOBROO, INC.**, a Delaware corporation with its principal place of business at 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028 ("Company"), and **TONY LIU**, an individual residing at [TO BE PROVIDED BY RECIPIENT] ("Recipient").
+**AGREEMENT** made this **30th day of June, 2025** ("Effective Date"), by and between **YOOBROO, INC.**, a Delaware corporation with its principal place of business at 1718 N Las Palmas Ave Apt 204, Los Angeles, California 90028 ("Company"), and **TONY LIU**, an individual residing at [TO BE PROVIDED BY RECIPIENT] ("Recipient").
 
 ## RECITALS
 
-**WHEREAS**, Company is developing an innovative e-commerce and trading platform operating as "Yoobroo - Swipe Shop Trade" at www.yoobroo.com;
+WHEREAS, Company is developing an innovative e-commerce and trading platform operating as "Yoobroo - Swipe Shop Trade" at www.yoobroo.com;
 
-**WHEREAS**, in connection with Recipient's engagement as a contractor to develop a Minimum Viable Product (MVP) for the Company, Recipient may have access to Confidential Information;
+WHEREAS, in connection with Recipient's engagement as a contractor to develop a Minimum Viable Product (MVP) for the Company, Recipient may have access to Confidential Information;
 
-**WHEREAS**, the parties wish to protect such Confidential Information to prevent unauthorized use or disclosure;
+WHEREAS, the parties wish to protect such Confidential Information to prevent unauthorized use or disclosure;
 
-**NOW THEREFORE**, in consideration of the mutual covenants contained herein, the parties agree as follows:
+NOW THEREFORE, in consideration of the mutual covenants contained herein, the parties agree as follows:
 
 ## 1. DEFINITION OF CONFIDENTIAL INFORMATION
 
@@ -78,7 +78,7 @@ This Agreement may be executed in counterparts, including electronic signatures 
 
 ## 10. EXECUTION
 
-**IN WITNESS WHEREOF**, the parties have executed this Agreement as of the date first written above.
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first written above.
 
 **YOOBROO, INC.**
 
@@ -89,7 +89,7 @@ Date: _______________________
 
 By: _________________________  
 Yuzheng Fu  
-Co-Founder & Officer  
+Co-Founder & Chief Operating Officer  
 Date: _______________________
 
 **RECIPIENT**

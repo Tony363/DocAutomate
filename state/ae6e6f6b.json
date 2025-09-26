@@ -1,0 +1,74 @@
+{
+  "run_id": "ae6e6f6b",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "recipient": "Tony Liu",
+    "field_type": "residential_address",
+    "required": true,
+    "original_action_type": "address_collection",
+    "document_id": "be31df81bdf7fcfb",
+    "document_type": "general"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The missing field 'address' requires collection of a physical or mailing address, likely for shipping, billing, or contact purposes in a form or data collection workflow.",
+          "insights": [
+            "Field type is 'address' based on explicit field name and address_collection context",
+            "Standard address components needed: street address, city, state/province, postal code, country",
+            "May require both billing and shipping address variants depending on use case",
+            "Should support international address formats beyond US/domestic addresses"
+          ],
+          "recommendations": [
+            "Implement as multi-field address component with street line 1, optional street line 2, city, state/province, postal/zip code, and country fields",
+            "Add client-side validation for required fields (typically street, city, state, postal code)",
+            "Use autocomplete/address lookup API for better UX and data accuracy",
+            "Consider separate billing/shipping address toggle if e-commerce context",
+            "Apply regex validation for postal codes based on selected country",
+            "Mark as high priority if blocking transaction or fulfillment processes"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-26T03:55:49.166555",
+  "completed_at": "2025-09-26T03:56:06.890778",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The missing field 'address' requires collection of a physical or mailing address, likely for shipping, billing, or contact purposes in a form or data collection workflow.",
+        "insights": [
+          "Field type is 'address' based on explicit field name and address_collection context",
+          "Standard address components needed: street address, city, state/province, postal code, country",
+          "May require both billing and shipping address variants depending on use case",
+          "Should support international address formats beyond US/domestic addresses"
+        ],
+        "recommendations": [
+          "Implement as multi-field address component with street line 1, optional street line 2, city, state/province, postal/zip code, and country fields",
+          "Add client-side validation for required fields (typically street, city, state, postal code)",
+          "Use autocomplete/address lookup API for better UX and data accuracy",
+          "Consider separate billing/shipping address toggle if e-commerce context",
+          "Apply regex validation for postal codes based on selected country",
+          "Mark as high priority if blocking transaction or fulfillment processes"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}

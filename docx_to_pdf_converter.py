@@ -5,6 +5,7 @@ Uses python-docx to extract content and reportlab to generate PDF
 """
 
 import sys
+import os
 from pathlib import Path
 from docx import Document
 from reportlab.pdfgen import canvas
@@ -13,7 +14,6 @@ from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
-import textwrap
 
 def extract_docx_content(docx_path):
     """Extract text content from a DOCX file"""
@@ -144,7 +144,7 @@ def convert_docx_to_pdf(input_path, output_path=None):
 def main():
     """Convert all .docx files in the specified directory to PDF"""
     
-    docs_dir = Path("/home/tony/Desktop/DocAutomate/docs")
+    docs_dir = Path(os.getenv("DOCS_DIRECTORY", "./docs"))
     
     if not docs_dir.exists():
         print(f"Error: Directory does not exist: {docs_dir}")
