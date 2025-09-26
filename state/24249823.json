@@ -1,0 +1,71 @@
+{
+  "run_id": "24249823",
+  "workflow_name": "complete_missing_info",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_database",
+  "parameters": {
+    "field": "recipient_address",
+    "recipient_name": "TONY LIU",
+    "document_type": "NDA",
+    "original_action_type": "information_required",
+    "document_id": "be31df81bdf7fcfb"
+  },
+  "state": {
+    "steps": {
+      "identify_field_type": {
+        "status": "success",
+        "analysis": {
+          "summary": "The recipient_address field requires a complete mailing address for the document recipient, following standard address formatting conventions.",
+          "insights": [
+            "Field type: Address - requires structured multi-line input for street, city, state/province, postal code",
+            "Context indicates this is a required field that cannot be left empty",
+            "No party specified suggests this could apply to either buyer or seller depending on document context",
+            "Standard address validation should include format checking for postal codes and state abbreviations"
+          ],
+          "recommendations": [
+            "Implement multi-field address input with separate fields for: street address line 1, street address line 2 (optional), city, state/province, postal code, country (if international)",
+            "Add real-time postal code validation based on selected country format",
+            "Include address autocomplete/suggestion feature to reduce errors and improve data quality",
+            "Set as high priority required field with clear validation messages",
+            "Consider implementing address verification service to ensure deliverability"
+          ],
+          "confidence": 0.85
+        }
+      },
+      "check_database": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-26T02:47:40.776213",
+  "completed_at": "2025-09-26T02:47:57.601273",
+  "error": "Step check_database failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "identify_field_type": {
+      "status": "success",
+      "analysis": {
+        "summary": "The recipient_address field requires a complete mailing address for the document recipient, following standard address formatting conventions.",
+        "insights": [
+          "Field type: Address - requires structured multi-line input for street, city, state/province, postal code",
+          "Context indicates this is a required field that cannot be left empty",
+          "No party specified suggests this could apply to either buyer or seller depending on document context",
+          "Standard address validation should include format checking for postal codes and state abbreviations"
+        ],
+        "recommendations": [
+          "Implement multi-field address input with separate fields for: street address line 1, street address line 2 (optional), city, state/province, postal code, country (if international)",
+          "Add real-time postal code validation based on selected country format",
+          "Include address autocomplete/suggestion feature to reduce errors and improve data quality",
+          "Set as high priority required field with clear validation messages",
+          "Consider implementing address verification service to ensure deliverability"
+        ],
+        "confidence": 0.85
+      }
+    },
+    "check_database": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
