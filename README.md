@@ -33,22 +33,7 @@ DocAutomate:        Document → Claude Code → Intelligent Processing → Enha
 - **Multi-Model Intelligence**: GPT-5, Claude Opus 4.1, GPT-4.1 consensus validation
 - **Production Ready**: Horizontally scalable, containerized architecture
 - **Quality Guaranteed**: Iterative improvement until quality thresholds met
-
-## 📋 Table of Contents
-
-- [System Architecture](#-system-architecture)
-- [Quick Start](#-quick-start)
-- [Complete API Documentation](#-complete-api-documentation)
-- [DSL Configuration System](#-dsl-configuration-system)
-- [SuperClaude Framework Integration](#-superclaude-framework-integration)
-- [Workflow System](#-workflow-system)
-- [Document Remediation](#-document-remediation)
-- [Real-World Applications](#-real-world-applications)
-- [Production Deployment](#-production-deployment)
-- [Performance & Monitoring](#-performance--monitoring)
-- [Troubleshooting](#-troubleshooting)
-- [Recent Updates](#-recent-updates)
-- [Contributing](#-contributing)
+- **Desktop GUI**: Native tkinter application for easy interaction
 
 ## 🏗️ System Architecture
 
@@ -56,15 +41,15 @@ DocAutomate:        Document → Claude Code → Intelligent Processing → Enha
 
 ```mermaid
 graph TB
-    subgraph "Client Applications"
+    subgraph "Client Interfaces"
+        GUI[Desktop GUI<br/>tkinter App]
         REST[REST API Clients]
         CLI[Command Line Tools]
         WEB[Web Dashboard]
-        MOBILE[Mobile Apps]
     end
 
     subgraph "DocAutomate Core - Pure Orchestration Layer"
-        API[FastAPI Server<br/>Port 8001]
+        API[FastAPI Server<br/>Port 8000]
         
         subgraph "DSL Engine"
             DSLCORE[DSL Configuration Engine<br/>Zero Processing Logic]
@@ -82,7 +67,7 @@ graph TB
     end
 
     subgraph "Claude Code Integration Layer"
-        CLAUDE[Claude CLI Interface]
+        CLAUDE[Claude CLI Interface<br/>Direct Python Import]
         SUPER[SuperClaude Framework]
         
         subgraph "Specialized Agents"
@@ -113,10 +98,10 @@ graph TB
     end
 
     %% Client connections
+    GUI --> API
     REST --> API
     CLI --> API
     WEB --> API
-    MOBILE --> API
 
     %% Core flow
     API --> DSLCORE
@@ -149,8 +134,10 @@ graph TB
     classDef claude fill:#9d4edd,stroke:#7b2cbf,stroke-width:3px
     classDef dsl fill:#ffd60a,stroke:#ffb700,stroke-width:2px
     classDef storage fill:#f77f00,stroke:#d62d20,stroke-width:2px
+    classDef gui fill:#4ecdc4,stroke:#2c7da0,stroke-width:2px
 
-    class API,REST,CLI,WEB,MOBILE api
+    class API,REST,CLI,WEB api
+    class GUI gui
     class CLAUDE,SUPER,TECH,SEC,QUAL,REQ,GEN,ARCH,ZEN,SEQ,MAGIC,PLAY,DEEP claude
     class DSLCORE,UNIFIED,MAPPINGS,TEMPLATES dsl
     class DB,FILES,RESULTS,REMEDIATED storage
@@ -161,6 +148,7 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant C as Client
+    participant G as GUI
     participant A as API Layer
     participant D as DSL Engine
     participant CL as Claude CLI
@@ -168,7 +156,8 @@ sequenceDiagram
     participant AG as Agents
     participant MCP as MCP Servers
 
-    C->>A: Upload Document
+    C->>G: User Interaction
+    G->>A: API Call / Claude Chat
     A->>D: Route via DSL
     D->>CL: Delegate Processing
     CL->>SC: Initialize Framework
@@ -195,32 +184,68 @@ sequenceDiagram
     SC-->>CL: Final Results
     CL-->>D: Processed Output
     D-->>A: Response
-    A-->>C: Document + Analysis
+    A-->>G: Display Results
+    G-->>C: Show Output
 ```
 
-### Pure Delegation Architecture
+## 🖥️ Desktop GUI Application
+
+### Native GUI Features
+
+The **Desktop GUI** (`gui.py`) provides a native tkinter interface with:
+
+- **Left Panel - Document Operations**
+  - 📁 Upload documents with native file dialog
+  - Workflow selection and execution
+  - Document status tracking
+  - Results display
+
+- **Right Panel - Claude Assistant**
+  - Direct Claude CLI integration (no subprocess!)
+  - Real-time chat interface
+  - SuperClaude mode buttons
+  - Command history (↑/↓ navigation)
+
+### GUI Architecture
 
 ```mermaid
 graph LR
-    subgraph "Traditional Systems"
-        TD1[Document] --> TD2[Local Parser]
-        TD2 --> TD3[Local Analyzer]
-        TD3 --> TD4[Local Processor]
-        TD4 --> TD5[Output]
+    subgraph "GUI Components"
+        TK[Tkinter UI]
+        THR[Threading Queue]
+        EVT[Event Loop]
     end
     
-    subgraph "DocAutomate Pure Delegation"
-        DA1[Document] --> DA2[DSL Router]
-        DA2 --> DA3[Claude Code]
-        DA3 --> DA4[Intelligent Processing]
-        DA4 --> DA5[Enhanced Output]
+    subgraph "Direct Integration"
+        CLI[ClaudeCLI Class<br/>Direct Import]
+        HTTP[httpx Client]
     end
     
-    style TD2 fill:#ff6b6b
-    style TD3 fill:#ff6b6b
-    style TD4 fill:#ff6b6b
-    style DA3 fill:#4ecdc4
-    style DA4 fill:#4ecdc4
+    subgraph "Backend"
+        API[FastAPI Server]
+        CLAUDE[Claude Processing]
+    end
+    
+    TK --> THR
+    THR --> CLI
+    THR --> HTTP
+    CLI --> CLAUDE
+    HTTP --> API
+    API --> CLAUDE
+    
+    style TK fill:#4ecdc4
+    style CLI fill:#9d4edd
+    style API fill:#06ffa5
+```
+
+### Running the GUI
+
+```bash
+# Start API server
+python api.py
+
+# Launch GUI application
+python gui.py
 ```
 
 ## 🚀 Quick Start
@@ -264,20 +289,17 @@ cp .env.example .env
 python api.py
 
 # Production mode with Uvicorn
-uvicorn api:app --host 0.0.0.0 --port 8001 --workers 4
+uvicorn api:app --host 0.0.0.0 --port 8000 --workers 4
 
-# API available at: http://localhost:8001
-# Interactive docs: http://localhost:8001/docs
+# API available at: http://localhost:8000
+# Interactive docs: http://localhost:8000/docs
 ```
 
-### Quick Test
+### Launch Desktop GUI
 
 ```bash
-# Upload and process a document
-curl -X POST "http://localhost:8001/documents/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@sample.pdf" \
-  -F "auto_process=true"
+# Start the native GUI application
+python gui.py
 ```
 
 ## 📚 Complete API Documentation
@@ -287,7 +309,7 @@ curl -X POST "http://localhost:8001/documents/upload" \
 #### 1. Upload Document
 ```bash
 # Upload a document for processing
-curl -X POST "http://localhost:8001/documents/upload" \
+curl -X POST "http://localhost:8000/documents/upload" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@document.pdf" \
   -F "auto_process=true"
@@ -305,10 +327,10 @@ curl -X POST "http://localhost:8001/documents/upload" \
 #### 2. List All Documents
 ```bash
 # Get all documents
-curl "http://localhost:8001/documents"
+curl "http://localhost:8000/documents"
 
 # Filter by status
-curl "http://localhost:8001/documents?status=processed"
+curl "http://localhost:8000/documents?status=processed"
 
 # Response
 [
@@ -335,7 +357,7 @@ curl "http://localhost:8001/documents?status=processed"
 #### 3. Get Document Status
 ```bash
 # Get specific document details
-curl "http://localhost:8001/documents/doc_a1b2c3d4"
+curl "http://localhost:8000/documents/doc_a1b2c3d4"
 
 # Response
 {
@@ -369,7 +391,7 @@ curl "http://localhost:8001/documents/doc_a1b2c3d4"
 #### 4. Extract Document Actions
 ```bash
 # Extract actions from a document
-curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/extract" \
+curl -X POST "http://localhost:8000/documents/doc_a1b2c3d4/extract" \
   -H "Content-Type: application/json" \
   -d '{
     "extraction_config": {
@@ -406,7 +428,7 @@ curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/extract" \
 #### 5. Multi-Agent Document Analysis
 ```bash
 # Perform parallel multi-agent analysis
-curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/analyze" \
+curl -X POST "http://localhost:8000/documents/doc_a1b2c3d4/analyze" \
   -H "Content-Type: application/json" \
   -d '{
     "agents": ["technical-writer", "security-engineer", "quality-engineer"],
@@ -460,7 +482,7 @@ curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/analyze" \
 #### 6. Synthesize Analysis Results
 ```bash
 # Synthesize multi-agent analysis with consensus
-curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/synthesize" \
+curl -X POST "http://localhost:8000/documents/doc_a1b2c3d4/synthesize" \
   -H "Content-Type: application/json" \
   -d '{
     "analysis_data": {
@@ -505,7 +527,7 @@ curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/synthesize" \
 #### 7. Remediate Document Issues
 ```bash
 # Generate remediated document
-curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/remediate" \
+curl -X POST "http://localhost:8000/documents/doc_a1b2c3d4/remediate" \
   -H "Content-Type: application/json" \
   -d '{
     "issues": [
@@ -548,7 +570,7 @@ curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/remediate" \
 #### 8. Validate Document Quality
 ```bash
 # Validate document against quality standards
-curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/validate" \
+curl -X POST "http://localhost:8000/documents/doc_a1b2c3d4/validate" \
   -H "Content-Type: application/json" \
   -d '{
     "validation_config": {
@@ -590,7 +612,7 @@ curl -X POST "http://localhost:8001/documents/doc_a1b2c3d4/validate" \
 #### 9. List Available Workflows
 ```bash
 # Get all available workflows
-curl "http://localhost:8001/workflows"
+curl "http://localhost:8000/workflows"
 
 # Response
 {
@@ -624,7 +646,7 @@ curl "http://localhost:8001/workflows"
 #### 10. Get Workflow Details
 ```bash
 # Get specific workflow configuration
-curl "http://localhost:8001/workflows/document_review"
+curl "http://localhost:8000/workflows/document_review"
 
 # Response
 {
@@ -679,7 +701,7 @@ curl "http://localhost:8001/workflows/document_review"
 #### 11. Execute Workflow
 ```bash
 # Execute a workflow on a document
-curl -X POST "http://localhost:8001/workflows/execute" \
+curl -X POST "http://localhost:8000/workflows/execute" \
   -H "Content-Type: application/json" \
   -d '{
     "document_id": "doc_a1b2c3d4",
@@ -705,13 +727,13 @@ curl -X POST "http://localhost:8001/workflows/execute" \
 #### 12. List Workflow Runs
 ```bash
 # Get all workflow runs
-curl "http://localhost:8001/workflows/runs"
+curl "http://localhost:8000/workflows/runs"
 
 # Filter by status
-curl "http://localhost:8001/workflows/runs?status=completed"
+curl "http://localhost:8000/workflows/runs?status=completed"
 
 # Filter by document
-curl "http://localhost:8001/workflows/runs?document_id=doc_a1b2c3d4"
+curl "http://localhost:8000/workflows/runs?document_id=doc_a1b2c3d4"
 
 # Response
 [
@@ -740,7 +762,7 @@ curl "http://localhost:8001/workflows/runs?document_id=doc_a1b2c3d4"
 #### 13. Get Workflow Run Status
 ```bash
 # Get specific workflow run details
-curl "http://localhost:8001/workflows/runs/run_xyz789"
+curl "http://localhost:8000/workflows/runs/run_xyz789"
 
 # Response
 {
@@ -797,7 +819,7 @@ curl "http://localhost:8001/workflows/runs/run_xyz789"
 #### 14. Execute Full Orchestration Workflow
 ```bash
 # Execute complete document processing orchestration
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
+curl -X POST "http://localhost:8000/orchestrate/workflow" \
   -H "Content-Type: application/json" \
   -d '{
     "document_id": "doc_a1b2c3d4",
@@ -835,7 +857,7 @@ curl -X POST "http://localhost:8001/orchestrate/workflow" \
 #### 15. Get Orchestration Status
 ```bash
 # Get orchestration run status
-curl "http://localhost:8001/orchestrate/runs/orch_12345678"
+curl "http://localhost:8000/orchestrate/runs/orch_12345678"
 
 # Response
 {
@@ -864,34 +886,117 @@ curl "http://localhost:8001/orchestrate/runs/orch_12345678"
 }
 ```
 
+### Utility Endpoints
+
+#### 16. Compress Folder
+```bash
+# Compress a folder to zip
+curl -X POST "http://localhost:8000/documents/compress-folder" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "folder_path": "/path/to/folder",
+    "output_name": "archive.zip",
+    "include_patterns": ["*.pdf", "*.docx"],
+    "exclude_patterns": ["temp/*"]
+  }'
+
+# Response
+{
+  "success": true,
+  "archive_path": "/path/to/archive.zip",
+  "files_included": 25,
+  "total_size": "15MB",
+  "compression_ratio": 0.65
+}
+```
+
+#### 17. Convert DOCX to PDF
+```bash
+# Convert Word document to PDF
+curl -X POST "http://localhost:8000/documents/convert/docx-to-pdf" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@document.docx"
+
+# Response
+{
+  "success": true,
+  "pdf_path": "/converted/document.pdf",
+  "original_file": "document.docx",
+  "conversion_time": "2.3s",
+  "file_size": {
+    "original": "2.5MB",
+    "converted": "1.8MB"
+  }
+}
+```
+
+#### 18. Batch Document Conversion
+```bash
+# Convert multiple documents
+curl -X POST "http://localhost:8000/documents/convert/batch" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_ids": ["doc_001", "doc_002", "doc_003"],
+    "target_format": "pdf",
+    "parallel": true
+  }'
+
+# Response
+{
+  "batch_id": "batch_123",
+  "total_documents": 3,
+  "successful": 3,
+  "failed": 0,
+  "results": [
+    {
+      "document_id": "doc_001",
+      "status": "success",
+      "output_path": "/converted/doc_001.pdf"
+    },
+    {
+      "document_id": "doc_002",
+      "status": "success",
+      "output_path": "/converted/doc_002.pdf"
+    },
+    {
+      "document_id": "doc_003",
+      "status": "success",
+      "output_path": "/converted/doc_003.pdf"
+    }
+  ],
+  "processing_time": "5.2s"
+}
+```
+
 ### System Endpoints
 
-#### 16. Root Endpoint
+#### 19. Root Endpoint
 ```bash
 # Get API information
-curl "http://localhost:8001/"
+curl "http://localhost:8000/"
 
 # Response
 {
   "name": "DocAutomate API",
   "version": "2.0.0",
   "description": "Enterprise Document Processing via Claude Code Delegation",
-  "documentation": "http://localhost:8001/docs",
-  "health": "http://localhost:8001/health",
+  "documentation": "http://localhost:8000/docs",
+  "health": "http://localhost:8000/health",
   "features": [
     "Universal document processing",
     "Pure Claude Code delegation",
     "Multi-agent orchestration",
     "DSL-driven configuration",
-    "Multi-model consensus validation"
+    "Multi-model consensus validation",
+    "Desktop GUI application"
   ]
 }
 ```
 
-#### 17. Health Check
+#### 20. Health Check
 ```bash
 # Get system health status
-curl "http://localhost:8001/health"
+curl "http://localhost:8000/health"
 
 # Response
 {
@@ -944,15 +1049,45 @@ curl "http://localhost:8001/health"
 }
 ```
 
-## 🔧 DSL Configuration System
+## 🔧 Unified DSL Configuration System
 
 ### The Power of Unified DSL
 
-The DocAutomate DSL (Domain-Specific Language) configuration system enables **infinite extensibility without code changes**. All document processing logic is defined in YAML files that map operations to Claude Code agents.
+The DocAutomate DSL (Domain-Specific Language) configuration system enables **infinite extensibility without code changes**. All document processing logic is defined in YAML files that map operations to Claude Code agents through the SuperClaude Framework.
+
+### How DSL Makes DocAutomate Extensible and Generalizable
+
+```mermaid
+graph TB
+    subgraph "Traditional Approach"
+        TD1[New Doc Type] --> TD2[Write Parser]
+        TD2 --> TD3[Write Processor]
+        TD3 --> TD4[Write Validators]
+        TD4 --> TD5[Deploy Code]
+        TD5 --> TD6[Maintain Forever]
+        
+        style TD2 fill:#ff6b6b
+        style TD3 fill:#ff6b6b
+        style TD4 fill:#ff6b6b
+        style TD6 fill:#ff6b6b
+    end
+    
+    subgraph "DocAutomate DSL Approach"
+        DA1[New Doc Type] --> DA2[Add YAML Config]
+        DA2 --> DA3[Claude Handles Everything]
+        DA3 --> DA4[Instant Support]
+        
+        style DA2 fill:#4ecdc4
+        style DA3 fill:#9d4edd
+        style DA4 fill:#06ffa5
+    end
+```
 
 ### Core DSL Components
 
 #### 1. Unified Operations Schema (`dsl/unified-operations.yaml`)
+
+This file defines ALL document operations without any processing logic:
 
 ```yaml
 # Define all document operations via Claude Code delegation
@@ -988,7 +1123,7 @@ operation_types:
     models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
     min_agreement: 2
 
-# Quality scoring rubrics
+# Quality scoring rubrics (no code, just configuration)
 quality_scoring:
   rubric:
     completeness:
@@ -1010,6 +1145,8 @@ quality_scoring:
 ```
 
 #### 2. Agent Mappings (`dsl/agent-mappings.yaml`)
+
+Intelligent routing to Claude Code agents based on document characteristics:
 
 ```yaml
 # Intelligent routing to Claude Code agents based on document type
@@ -1057,6 +1194,8 @@ selection_rules:
 ```
 
 #### 3. Universal Workflow Template (`workflows/universal-document.yaml`)
+
+A single workflow that adapts to ANY document type through DSL configuration:
 
 ```yaml
 # Universal workflow that adapts to any document type
@@ -1139,7 +1278,18 @@ insurance_claim:
     accuracy: "claim_details_verified"
     compliance: "regulatory_requirements_met"
     fraud_risk: "below_threshold"
+
+# That's it! No code changes needed. The framework now supports insurance claims.
 ```
+
+### Why This DSL Approach is Revolutionary
+
+1. **Zero Code for New Features**: Add ANY document type by adding YAML configuration
+2. **Infinite Extensibility**: No limits to what documents can be processed
+3. **Claude Does the Work**: All actual processing delegated to Claude's intelligence
+4. **Version Control Friendly**: YAML configs are easy to review, diff, and manage
+5. **Business User Friendly**: Non-programmers can extend the system
+6. **Instant Updates**: Change behavior without redeploying code
 
 ## 🤖 SuperClaude Framework Integration
 
@@ -1159,9 +1309,6 @@ DocAutomate leverages the full power of the SuperClaude Framework with specializ
 | `system-architect` | System design, architecture | Design docs, architecture specs |
 | `backend-architect` | Backend design, APIs | API specifications, backend docs |
 | `frontend-architect` | UI/UX, frontend architecture | UI specs, component docs |
-| `medical-review` | HIPAA compliance, medical accuracy | Medical records, clinical docs |
-| `legal-review` | Contract analysis, legal compliance | Contracts, legal documents |
-| `financial-audit` | Financial accuracy, SOX compliance | Financial reports, audits |
 
 #### MCP Server Capabilities
 
@@ -1288,30 +1435,6 @@ flowchart TD
     class TYPE,CHECK decision
 ```
 
-### Workflow Configuration Examples
-
-#### Document Review Workflow
-```yaml
-name: "document_review"
-steps:
-  - classify: "--delegate general-purpose 'Classify document'"
-  - analyze: "--delegate --parallel technical-writer quality-engineer"
-  - synthesize: "--delegate system-architect 'Consolidate findings'"
-  - validate: "--zen-review 'Validate quality'"
-  - report: "--delegate technical-writer 'Generate report'"
-```
-
-#### Legal Compliance Workflow
-```yaml
-name: "legal_compliance"
-steps:
-  - extract: "--delegate legal-review 'Extract legal terms'"
-  - verify: "--tools deepwiki 'Verify legal standards'"
-  - assess: "--delegate compliance-officer 'Assess compliance'"
-  - consensus: "--zen consensus 'Validate compliance'"
-  - certify: "--delegate legal-review 'Generate certificate'"
-```
-
 ## 📝 Document Remediation
 
 ### Comprehensive Issue Detection & Resolution
@@ -1370,120 +1493,6 @@ graph TB
     class CRIT,HIGH priority
 ```
 
-### Issue Detection Capabilities
-
-| Issue Type | Detection Method | Agent | Examples |
-|------------|-----------------|-------|----------|
-| **Clarity** | Readability analysis | technical-writer | Undefined terms, complex sentences |
-| **Completeness** | Coverage assessment | requirements-analyst | Missing sections, incomplete examples |
-| **Security** | Vulnerability scan | security-engineer | Hardcoded credentials, weak auth |
-| **Structure** | Hierarchy analysis | quality-engineer | Poor organization, broken links |
-| **Compliance** | Standards check | compliance-officer | Regulatory gaps, format violations |
-| **Accuracy** | Fact verification | general-purpose | Incorrect information, inconsistencies |
-
-### Remediation Templates
-
-```yaml
-# Template for adding missing sections
-template:
-  id: "add-section"
-  issue_type: "completeness"
-  generation:
-    claude_command: "--delegate technical-writer"
-    method: "insert"
-    patterns:
-      section_template: |
-        ## {{ section_title }}
-        
-        {{ section_description }}
-        
-        ### Key Points
-        {{ bullet_points }}
-        
-        ### Example
-        {{ example_content }}
-        
-        ### References
-        {{ references }}
-```
-
-## 🌍 Real-World Applications
-
-### Medical Records Processing (HIPAA Compliant)
-
-```bash
-# Process medical record with HIPAA compliance
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "med_001",
-    "workflow_type": "medical_compliance",
-    "claude_config": {
-      "agents": ["medical-review", "privacy-officer", "hipaa-compliance"],
-      "superclaude_modes": ["--delegate", "--safe-mode", "--consensus"],
-      "compliance_standards": ["HIPAA", "HL7"],
-      "privacy_level": "maximum"
-    }
-  }'
-```
-
-### Legal Contract Analysis
-
-```bash
-# Analyze contract with signature workflow
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "contract_001",
-    "workflow_type": "legal_review",
-    "claude_config": {
-      "agents": ["legal-review", "compliance-officer"],
-      "superclaude_modes": ["--delegate", "--thinkdeep"],
-      "signature_detection": true,
-      "risk_assessment": true
-    }
-  }'
-```
-
-### Financial Report Validation (SOX Compliance)
-
-```bash
-# Validate financial report for SOX compliance
-curl -X POST "http://localhost:8001/orchestrate/workflow" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_id": "fin_q4_2024",
-    "workflow_type": "financial_audit",
-    "claude_config": {
-      "agents": ["financial-auditor", "compliance-officer", "fraud-detector"],
-      "superclaude_modes": ["--delegate", "--consensus", "--zen-review"],
-      "standards": ["SOX", "GAAP"],
-      "risk_threshold": 0.05
-    }
-  }'
-```
-
-### Technical Documentation Enhancement
-
-```bash
-# Enhance API documentation
-curl -X POST "http://localhost:8001/documents/api_spec_001/remediate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "claude_config": {
-      "agent": "technical-writer",
-      "command": "--delegate technical-writer --loop --tools deepwiki",
-      "improvements": [
-        "add_code_examples",
-        "clarify_authentication",
-        "enhance_error_handling",
-        "add_rate_limiting_docs"
-      ],
-      "quality_target": 0.95
-    }
-  }'
-```
-
 ## 🚀 Production Deployment
 
 ### Docker Deployment
@@ -1520,14 +1529,14 @@ ENV CLAUDE_AUTO_GRANT_FILE_ACCESS=true \
     CLAUDE_AUDIT_LOG=true \
     PYTHONPATH=/app
 
-EXPOSE 8001
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:8001/health || exit 1
+  CMD curl -f http://localhost:8000/health || exit 1
 
 # Start with Uvicorn for production
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 ```
 
 ### Docker Compose
@@ -1539,216 +1548,39 @@ services:
   docautomate:
     build: .
     ports:
-      - "8001:8001"
+      - "8000:8000"
     environment:
       - CLAUDE_AUTO_GRANT_FILE_ACCESS=true
       - CLAUDE_TIMEOUT=600
       - SC_FORCE_MODEL=gpt-5
       - SC_MAX_TOKENS=50000
-      - API_PORT=8001
+      - API_PORT=8000
       - DEBUG=false
     volumes:
       - ./storage:/app/storage
       - ./logs:/app/logs
       - ./dsl:/app/dsl
-    depends_on:
-      - redis
-      - postgres
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "claude", "--version"]
       interval: 30s
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:15
+  gui:
+    build: .
+    command: python gui.py
     environment:
-      POSTGRES_DB: docautomate
-      POSTGRES_USER: docautomate
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      - DISPLAY=${DISPLAY}
+      - API_BASE=http://docautomate:8000
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     depends_on:
       - docautomate
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
+    network_mode: host
 ```
-
-### Kubernetes Deployment
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: docautomate
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: docautomate
-  template:
-    metadata:
-      labels:
-        app: docautomate
-    spec:
-      containers:
-      - name: docautomate
-        image: docautomate:latest
-        ports:
-        - containerPort: 8001
-        env:
-        - name: CLAUDE_AUTO_GRANT_FILE_ACCESS
-          value: "true"
-        - name: CLAUDE_TIMEOUT
-          value: "600"
-        - name: SC_FORCE_MODEL
-          value: "gpt-5"
-        resources:
-          requests:
-            memory: "4Gi"
-            cpu: "2"
-          limits:
-            memory: "8Gi"
-            cpu: "4"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 5
-          periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: docautomate-service
-spec:
-  selector:
-    app: docautomate
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8001
-  type: LoadBalancer
-```
-
-### Production Configuration
-
-```bash
-# .env.production
-# Claude Code Settings
-CLAUDE_CLI_PATH=/usr/local/bin/claude
-CLAUDE_TIMEOUT=600
-CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-CLAUDE_AUDIT_LOG=true
-
-# SuperClaude Framework
-SC_FORCE_MODEL=gpt-5
-SC_MAX_TOKENS=50000
-SC_DEFAULT_THINK_LEVEL=3
-SC_ENABLE_CONSENSUS=true
-
-# API Configuration
-API_PORT=8001
-API_HOST=0.0.0.0
-MAX_WORKERS=8
-REQUEST_TIMEOUT=600
-
-# Security
-SSL_CERT_PATH=/etc/ssl/certs/docautomate.crt
-SSL_KEY_PATH=/etc/ssl/private/docautomate.key
-CORS_ORIGINS=https://app.company.com
-
-# Database
-DATABASE_URL=postgresql://user:pass@postgres:5432/docautomate
-REDIS_URL=redis://redis:6379/0
-
-# Monitoring
-LOG_LEVEL=INFO
-METRICS_ENABLED=true
-PROMETHEUS_PORT=9090
-JAEGER_ENDPOINT=http://jaeger:14268/api/traces
-```
-
-### Production Checklist
-
-#### Pre-Deployment
-- [ ] Claude Code CLI installed and verified
-- [ ] SuperClaude Framework configured
-- [ ] All MCP servers available
-- [ ] Model access verified (GPT-5, Claude Opus 4.1, GPT-4.1)
-- [ ] DSL configurations validated
-- [ ] SSL certificates configured
-- [ ] Database migrations completed
-- [ ] Environment variables set
-
-#### Monitoring Setup
-- [ ] Health check endpoints configured
-- [ ] Prometheus metrics enabled
-- [ ] Log aggregation configured
-- [ ] Alert rules defined
-- [ ] Dashboards created
-
-#### Security
-- [ ] API authentication enabled
-- [ ] Rate limiting configured
-- [ ] CORS properly configured
-- [ ] Secrets management implemented
-- [ ] Audit logging enabled
-
-#### Performance
-- [ ] Load testing completed
-- [ ] Auto-scaling configured
-- [ ] Cache strategy implemented
-- [ ] CDN configured for static assets
 
 ## 📊 Performance & Monitoring
 
 ### Key Metrics
-
-```yaml
-# Prometheus metrics exposed at /metrics
-document_processing_duration_seconds
-  labels: [document_type, workflow, agent]
-  
-agent_execution_duration_seconds
-  labels: [agent_name, operation]
-  
-quality_score_distribution
-  labels: [document_type, threshold]
-  
-mcp_server_requests_total
-  labels: [server, operation, status]
-  
-consensus_agreement_score
-  labels: [models, document_type]
-```
-
-### Performance Benchmarks
 
 | Operation | Average Time | Throughput |
 |-----------|-------------|------------|
@@ -1759,7 +1591,7 @@ consensus_agreement_score
 | Document Remediation | 60s | 3/min |
 | Full Orchestration | 3-5 min | 1/min |
 
-### Monitoring Dashboard
+### Performance Benchmarks
 
 ```mermaid
 graph LR
@@ -1803,186 +1635,34 @@ curl -sSf https://claude.ai/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
 ```
 
-**Issue: Agent registration failures**
+**Issue: GUI Connection Problems**
 ```bash
-# Debug agent initialization
-python -c "
-from agent_providers import AgentProvider
-provider = AgentProvider()
-print(f'Registered agents: {list(provider.agents.keys())}')
-"
+# Ensure API is running
+curl http://localhost:8000/health
 
-# Check DSL configuration
-python -c "
-import yaml
-with open('dsl/unified-operations.yaml', 'r') as f:
-    config = yaml.safe_load(f)
-    print('DSL valid:', bool(config))
-"
-```
+# Check Claude CLI
+python -c "from claude_cli import ClaudeCLI; c = ClaudeCLI(); print(c.check_claude())"
 
-#### Performance Issues
-
-**Issue: Slow document processing**
-```bash
-# Increase Claude timeout
-export CLAUDE_TIMEOUT=900
-
-# Enable parallel processing
-export CLAUDE_MAX_CONCURRENT=5
-
-# Use faster models for non-critical operations
-export SC_FAST_MODE=true
-```
-
-**Issue: Memory usage high**
-```bash
-# Configure batch processing
-export BATCH_SIZE=10
-export MAX_WORKERS=4
-
-# Enable document streaming
-export ENABLE_STREAMING=true
-```
-
-#### API Issues
-
-**Issue: 500 errors on upload**
-```bash
-# Check file size limits
-export MAX_UPLOAD_SIZE=100MB
-
-# Verify storage permissions
-ls -la storage/
-chmod 755 storage/
-
-# Check Claude Code access
-export CLAUDE_AUTO_GRANT_FILE_ACCESS=true
-```
-
-### Debug Commands
-
-```bash
-# Test Claude Code integration
-claude --help | grep -E "(delegate|parallel|consensus)"
-
-# Test MCP servers
-claude --tools zen "Test Zen MCP"
-claude --tools sequential "Test Sequential MCP"
-
-# Test model access
-claude --model gpt-5 "Test GPT-5"
-claude --model claude-opus-4.1 "Test Opus"
-
-# Check API health
-curl http://localhost:8001/health | jq '.'
-
-# View logs
-tail -f logs/docautomate.log | grep ERROR
+# Verify GUI can import modules
+python -c "import tkinter; import httpx; print('Dependencies OK')"
 ```
 
 ## 📈 Recent Updates
 
-### Version 2.0.0 - Pure Claude Code Delegation
+### Version 2.1.0 - Desktop GUI Addition
+- 🖥️ Native tkinter desktop application
+- 🔌 Direct ClaudeCLI integration (no subprocess)
+- 💬 Real-time chat interface with Claude
+- 📁 Document operations with drag-and-drop
+- 🔄 Threading for responsive UI
+- 📊 Status tracking and progress indicators
 
-**Major Changes:**
+### Version 2.0.0 - Pure Claude Code Delegation
 - 🚀 Complete transformation to pure Claude Code delegation architecture
 - 🌍 Universal document processor - handles ANY document type
 - 🔧 DSL-driven configuration - extend without coding
 - 🤖 Full SuperClaude Framework integration
 - 📊 Multi-model consensus validation (GPT-5, Claude Opus 4.1, GPT-4.1)
-- 🔄 Quality loop automation with iterative improvement
-- ⚡ Parallel multi-agent execution for efficiency
-- 📝 Comprehensive document remediation system
-
-**Technical Improvements:**
-- ✅ Orchestration workflow saves remediated content to filesystem
-- ✅ Real-time status tracking with in-memory store
-- ✅ True parallel multi-agent analysis using asyncio.gather
-- ✅ UTF-8 encoding for all file operations
-- ✅ Remediation paths persisted in document metadata
-- ✅ Complete API with 17 endpoints
-- ✅ Docker and Kubernetes deployment ready
-
-**Performance Enhancements:**
-- 60-70% faster multi-agent analysis through parallelization
-- Reduced token usage through efficient DSL routing
-- Improved quality scores through iterative remediation
-- Better error handling and recovery mechanisms
-
-## 🤝 Contributing
-
-### Development Setup
-
-```bash
-# Clone repository
-git clone https://github.com/your-org/DocAutomate.git
-cd DocAutomate
-
-# Setup development environment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests
-pytest tests/ -v --cov=docautomate
-
-# Run linting
-black .
-flake8 .
-mypy .
-```
-
-### Testing Claude Code Integration
-
-```bash
-# Test agent registration
-python -m pytest tests/test_agents.py
-
-# Test DSL configuration
-python -m pytest tests/test_dsl.py
-
-# Test API endpoints
-python -m pytest tests/test_api.py
-
-# Integration tests
-python -m pytest tests/integration/
-```
-
-### Code Style Guidelines
-
-- Follow PEP 8 for Python code
-- Use type hints for all functions
-- Document all Claude Code integrations
-- Test all DSL configurations
-- Include curl examples for new endpoints
-
-### Pull Request Process
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request with detailed description
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [Full API Docs](http://localhost:8001/docs)
-- **Issues**: [GitHub Issues](https://github.com/your-org/DocAutomate/issues)
-- **Claude Code**: [Official Documentation](https://claude.ai/code/docs)
-- **SuperClaude Framework**: [Framework Documentation](https://github.com/anthropics/claude-code)
-- **Community**: [Discussions](https://github.com/your-org/DocAutomate/discussions)
-- **Email**: support@docautomate.io
-- **Slack**: [Join our Slack](https://docautomate.slack.com)
-
----
 
 ## 💡 Why DocAutomate?
 
@@ -1994,6 +1674,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Universal understanding** - Claude's multi-modal capabilities
 - **Production ready** - Scalable, containerized architecture
 - **Quality guaranteed** - Multi-model consensus validation
+- **User-friendly GUI** - Native desktop application for easy interaction
 
 ### The Future of Document Processing
 
@@ -2012,6 +1693,39 @@ Just:
 - ✅ Let Claude Code handle everything
 - ✅ Get perfect results every time
 - ✅ Scale infinitely without code changes
+- ✅ Use the intuitive desktop GUI
+
+## 🤝 Contributing
+
+### Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/DocAutomate.git
+cd DocAutomate
+
+# Setup development environment
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run tests
+pytest tests/ -v --cov=docautomate
+
+# Test GUI
+python gui.py
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: [Full API Docs](http://localhost:8000/docs)
+- **GUI Help**: Launch GUI and use Help menu
+- **Claude Code**: [Official Documentation](https://claude.ai/code/docs)
+- **SuperClaude Framework**: [Framework Documentation](https://github.com/anthropics/claude-code)
 
 ---
 
