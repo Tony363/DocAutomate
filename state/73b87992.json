@@ -1,0 +1,103 @@
+{
+  "run_id": "73b87992",
+  "workflow_name": "document_signature",
+  "document_id": "be31df81bdf7fcfb",
+  "status": "failed",
+  "current_step": "check_signature_method",
+  "parameters": {
+    "document_type": "NDA",
+    "effective_date": "2025-06-30",
+    "requires_address": true,
+    "original_action_type": "signature_required",
+    "document_id": "be31df81bdf7fcfb",
+    "parties": [
+      "YOOBROO, INC.",
+      "TONY LIU"
+    ]
+  },
+  "state": {
+    "steps": {
+      "validate_parties": {
+        "status": "success",
+        "transformed": {
+          "total_parties": "2",
+          "signature_required": "3",
+          "document_status": "pending_signatures"
+        }
+      },
+      "prepare_signature_request": {
+        "status": "success",
+        "analysis": {
+          "summary": "NDA signature collection plan for agreement between YOOBROO, INC. and TONY LIU with effective date 2025-06-30. Document requires signature, date, and initials from both parties.",
+          "insights": [
+            "Two-party mutual NDA requiring complete signature sets from both entities",
+            "Corporate entity (YOOBROO, INC.) will require authorized signatory with title",
+            "Individual party (TONY LIU) signs in personal capacity",
+            "Initials required suggests multi-page document with provisions needing acknowledgment",
+            "Future effective date (2025-06-30) indicates advance planning requirement"
+          ],
+          "recommendations": [
+            "Sequential signing order: YOOBROO, INC. signs first as disclosing party, then TONY LIU as receiving party",
+            "YOOBROO, INC. required fields: Authorized signatory name, title, signature, date, initials on each page",
+            "TONY LIU required fields: Full legal name confirmation, signature, date, initials on each page",
+            "Obtain corporate resolution or authorization letter for YOOBROO, INC. signatory if required",
+            "Use electronic signature platform with audit trail for remote execution",
+            "Set reminder for execution before effective date with sufficient lead time",
+            "Ensure both parties initial all pages containing key provisions (confidentiality scope, term, exceptions)",
+            "Verify signing authority for YOOBROO, INC. representative before circulation",
+            "Create signature page with clear labeling: 'YOOBROO, INC. By: [Name], Title: [Title], Date: [Date]' and 'TONY LIU, Date: [Date]'",
+            "Distribute fully executed copies to both parties immediately upon completion"
+          ],
+          "confidence": 0.95
+        }
+      },
+      "check_signature_method": {
+        "status": "failed",
+        "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+      }
+    }
+  },
+  "started_at": "2025-09-26T02:47:07.211114",
+  "completed_at": "2025-09-26T02:47:28.590221",
+  "error": "Step check_signature_method failed: Cannot connect to host api.company.com:443 ssl:default [Name or service not known]",
+  "outputs": {
+    "validate_parties": {
+      "status": "success",
+      "transformed": {
+        "total_parties": "2",
+        "signature_required": "3",
+        "document_status": "pending_signatures"
+      }
+    },
+    "prepare_signature_request": {
+      "status": "success",
+      "analysis": {
+        "summary": "NDA signature collection plan for agreement between YOOBROO, INC. and TONY LIU with effective date 2025-06-30. Document requires signature, date, and initials from both parties.",
+        "insights": [
+          "Two-party mutual NDA requiring complete signature sets from both entities",
+          "Corporate entity (YOOBROO, INC.) will require authorized signatory with title",
+          "Individual party (TONY LIU) signs in personal capacity",
+          "Initials required suggests multi-page document with provisions needing acknowledgment",
+          "Future effective date (2025-06-30) indicates advance planning requirement"
+        ],
+        "recommendations": [
+          "Sequential signing order: YOOBROO, INC. signs first as disclosing party, then TONY LIU as receiving party",
+          "YOOBROO, INC. required fields: Authorized signatory name, title, signature, date, initials on each page",
+          "TONY LIU required fields: Full legal name confirmation, signature, date, initials on each page",
+          "Obtain corporate resolution or authorization letter for YOOBROO, INC. signatory if required",
+          "Use electronic signature platform with audit trail for remote execution",
+          "Set reminder for execution before effective date with sufficient lead time",
+          "Ensure both parties initial all pages containing key provisions (confidentiality scope, term, exceptions)",
+          "Verify signing authority for YOOBROO, INC. representative before circulation",
+          "Create signature page with clear labeling: 'YOOBROO, INC. By: [Name], Title: [Title], Date: [Date]' and 'TONY LIU, Date: [Date]'",
+          "Distribute fully executed copies to both parties immediately upon completion"
+        ],
+        "confidence": 0.95
+      }
+    },
+    "check_signature_method": {
+      "status": "failed",
+      "error": "Cannot connect to host api.company.com:443 ssl:default [Name or service not known]"
+    }
+  }
+}
