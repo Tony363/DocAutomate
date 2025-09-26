@@ -1357,6 +1357,6 @@ async def health_check():
 # Run the API
 if __name__ == "__main__":
     import uvicorn
-    port = 8001  # Using 8001 since 8000 is in use
+    port = int(os.getenv("API_PORT", "8001"))  # Configurable port
     print(f"Starting DocAutomate API on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

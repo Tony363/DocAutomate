@@ -20,7 +20,6 @@ from datetime import datetime
 import pty
 import select
 import fcntl
-import termios
 import PyPDF2
 
 # Configure logging with more detail
@@ -1093,38 +1092,7 @@ if __name__ == "__main__":
         print("❌ Claude Code is not available. Please install Claude Code first.")
         print("   Visit: https://claude.ai/code for installation instructions")
     
-    # Example: Read a document
-    # try:
-    #     text = cli.read_document("samples/invoice.pdf")
-    #     print(f"📄 Document text (first 200 chars): {text[:200]}...")
-    # except Exception as e:
-    #     print(f"❌ Document reading failed: {e}")
-    
-    # Example: Analyze text
-    # try:
-    #     analysis = cli.analyze_text(
-    #         text="Invoice #INV-2024-001 for $5,000 due on March 15, 2024",
-    #         prompt="Extract invoice details including number, amount, and due date",
-    #         schema={
-    #             "invoice_number": {"type": "string"},
-    #             "amount": {"type": "number"},
-    #             "due_date": {"type": "string"}
-    #         }
-    #     )
-    #     print(f"📊 Analysis result: {json.dumps(analysis, indent=2)}")
-    # except Exception as e:
-    #     print(f"❌ Analysis failed: {e}")
-    
-    # Example: Execute task
-    # try:
-    #     result = cli.execute_task(
-    #         agent="general-purpose",
-    #         action="summarize this text",
-    #         params={"text": "Long document content here..."}
-    #     )
-    #     print(f"✅ Task result: {json.dumps(result, indent=2)}")
-    # except Exception as e:
-    #     print(f"❌ Task execution failed: {e}")
+    # Example usage available in project documentation
     
     print("\n💡 Claude CLI wrapper is ready for integration with DocAutomate")
     print("   Next step: Update ingester.py, extractor.py, and workflow.py to use this wrapper")

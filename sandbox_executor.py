@@ -10,7 +10,6 @@ import logging
 import json
 import os
 import time
-import signal
 import resource
 import shutil
 from typing import Dict, Any, List, Optional, Union
@@ -496,51 +495,7 @@ class SandboxExecutor:
         """Cleanup on object destruction"""
         self.cleanup()
 
-class CodeValidator:
-    """
-    Static code analysis and validation utilities
-    """
-    
-    @staticmethod
-    def validate_python_syntax(code: str) -> List[str]:
-        """Validate Python code syntax"""
-        issues = []
-        
-        try:
-            compile(code, '<string>', 'exec')
-        except SyntaxError as e:
-            issues.append(f"Syntax error at line {e.lineno}: {e.msg}")
-        except Exception as e:
-            issues.append(f"Compilation error: {str(e)}")
-        
-        return issues
-    
-    @staticmethod
-    def analyze_code_complexity(code: str) -> Dict[str, Any]:
-        """Analyze code complexity metrics"""
-        lines = code.split('\n')
-        
-        metrics = {
-            'total_lines': len(lines),
-            'non_empty_lines': len([line for line in lines if line.strip()]),
-            'comment_lines': len([line for line in lines if line.strip().startswith('#')]),
-            'import_statements': len([line for line in lines if line.strip().startswith('import') or line.strip().startswith('from')]),
-            'function_definitions': len([line for line in lines if line.strip().startswith('def ')]),
-            'class_definitions': len([line for line in lines if line.strip().startswith('class ')]),
-        }
-        
-        # Calculate complexity score
-        complexity_score = (
-            metrics['total_lines'] * 0.1 +
-            metrics['function_definitions'] * 2 +
-            metrics['class_definitions'] * 3 +
-            metrics['import_statements'] * 0.5
-        )
-        
-        metrics['complexity_score'] = complexity_score
-        metrics['complexity_level'] = 'low' if complexity_score < 50 else 'medium' if complexity_score < 150 else 'high'
-        
-        return metrics
+# CodeValidator class removed - was unused in the codebase
 
 # Example usage and testing
 if __name__ == "__main__":
