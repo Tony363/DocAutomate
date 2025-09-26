@@ -1,22 +1,21 @@
 {
-  "run_id": "8d91cf81",
+  "run_id": "d1f1c514",
   "workflow_name": "document_signature",
   "document_id": "be31df81bdf7fcfb",
   "status": "failed",
   "current_step": null,
   "parameters": {
     "document_type": "Non-Disclosure Agreement",
-    "party_1": "YOOBROO, INC.",
-    "party_2": "TONY LIU",
+    "signing_party": "Tony Liu",
+    "company": "Yoobroo, Inc.",
     "effective_date": "2025-06-30",
-    "signature_required_from": "TONY LIU",
-    "address_field_incomplete": true,
-    "original_action_type": "legal_signature",
+    "address_required": true,
+    "original_action_type": "signature_required",
     "document_id": "be31df81bdf7fcfb"
   },
   "state": {},
-  "started_at": "2025-09-26T00:42:37.439995",
-  "completed_at": "2025-09-26T00:42:37.440287",
+  "started_at": "2025-09-26T01:30:32.267657",
+  "completed_at": "2025-09-26T01:30:32.270387",
   "error": "Required parameter 'parties' not provided",
   "outputs": {}
 }
