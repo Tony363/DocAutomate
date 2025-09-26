@@ -132,9 +132,9 @@ class ClaudeService:
             ]
         
         results = {}
-        tasks = []
         
         # Create analysis tasks for each agent
+        tasks = []
         for agent in agents:
             task = self._analyze_with_agent(
                 agent, 
@@ -143,23 +143,27 @@ class ClaudeService:
             )
             tasks.append((agent, task))
         
-        # Execute all analyses in parallel
+        # Execute all analyses in parallel using asyncio.gather
         logger.info(f"Starting parallel analysis with {len(agents)} agents")
         start_time = datetime.now()
         
-        for agent, task in tasks:
-            try:
-                result = await task
-                results[agent] = result
-                logger.info(f"Agent {agent} completed with confidence {result.confidence:.2f}")
-            except Exception as e:
-                logger.error(f"Agent {agent} failed: {e}")
+        # Execute all tasks in parallel
+        task_results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
+        
+        # Process results
+        for i, (agent, _) in enumerate(tasks):
+            result = task_results[i]
+            if isinstance(result, Exception):
+                logger.error(f"Agent {agent} failed: {result}")
                 results[agent] = AnalysisResult(
                     success=False,
-                    analysis={"error": str(e)},
+                    analysis={"error": str(result)},
                     agent_used=agent,
                     confidence=0.0
                 )
+            else:
+                results[agent] = result
+                logger.info(f"Agent {agent} completed with confidence {result.confidence:.2f}")
         
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(f"Multi-agent analysis completed in {elapsed:.2f}s")
@@ -612,6 +616,11 @@ Remediated: {remediated_content[:500]}...
                 "issues_resolved": len(remediation.issues_resolved),
                 "quality_score": remediation.quality_score
             }
+            
+            # Store remediated content in results for filesystem saving
+            if remediation.success and remediation.remediated_content:
+                results["remediated_content"] = remediation.remediated_content
+                logger.info(f"Stored remediated content ({len(remediation.remediated_content)} chars) in orchestration results")
             
             # Step 4: Quality validation
             logger.info("Step 4: Quality validation")
