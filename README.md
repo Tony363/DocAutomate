@@ -19,13 +19,16 @@ DocAutomate:        Document → Claude Code → Intelligent Processing → Enha
 ```
 
 **Universal Document Support:**
-- 📋 Medical Records (HIPAA Compliant)
+- 📋 Medical Records (HIPAA-Compatible Design)
 - 📄 Legal Contracts (Signature Workflows)
 - 💰 Financial Reports (SOX Compliance)
 - 📖 Technical Documentation (API Specs)
 - 🧾 Invoices (Data Extraction)
 - 🖼️ Images/Screenshots (Visual Analysis)
 - 🔧 Any Custom Domain (via DSL Configuration)
+
+**⚠️ Important Compliance Notice:**
+While DocAutomate is designed with HIPAA-compatible technical safeguards and can process medical records securely, **actual HIPAA compliance requires legal agreements** with all service providers in the processing chain (including Anthropic for Claude Code). HIPAA, like SOC2, is a compliance process that involves legal, technical, and administrative safeguards. This system provides the technical foundation for HIPAA compliance but requires proper Business Associate Agreements (BAAs) and organizational policies to achieve full regulatory compliance.
 
 **Core Value Proposition:**
 - **Zero Code Changes**: Extend to new document types via YAML configuration
@@ -1159,9 +1162,9 @@ document_type_mappings:
     
   medical_record:
     primary_agent: "medical-review"
-    validators: ["privacy-officer", "hipaa-compliance"]
+    validators: ["privacy-officer", "hipaa-readiness"]
     superclaude_modes: ["--delegate", "--safe-mode"]
-    compliance_standards: ["HIPAA", "HL7"]
+    compliance_standards: ["HIPAA-ready", "HL7"]
     privacy_level: "maximum"
     
   legal_contract:
