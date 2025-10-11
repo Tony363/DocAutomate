@@ -30,6 +30,10 @@ class AgentCapability(str, Enum):
     WEB_AUTOMATION = "web_automation"
     CODE_GENERATION = "code_generation"
     QUALITY_ASSURANCE = "quality_assurance"
+    ARCHITECTURE = "architecture"
+    REQUIREMENTS_ANALYSIS = "requirements_analysis"
+    CODE_REVIEW = "code_review"
+    PERFORMANCE = "performance"
 
 @dataclass
 class ProviderScore:
@@ -238,31 +242,23 @@ class FinanceEngineerAgent(AgentProvider):
         )
     
     async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
-        """Delegate document assessment to Claude"""
-        # Use Claude to assess if this is a financial document
-        assessment_prompt = f"""
-        Assess if this document requires financial analysis:
-        Type: {document_meta.get("content_type", "unknown")}
-        Preview: {document_meta.get("content_preview", "")[:500]}
+        """Assess suitability using document heuristics"""
+        doc_type = (document_meta.get("document_type") or document_meta.get("content_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
         
-        Return confidence score (0-1) for financial processing.
-        """
+        score = 0.1
+        reasons: List[str] = []
         
-        result = await self.cli.execute(
-            prompt=assessment_prompt,
-            mode=self.modes.TOKEN_EFFICIENT,
-            flags=["--uc"]
-        )
+        if doc_type in {"invoice", "financial_report", "soa", "audit"}:
+            score += 0.7
+            reasons.append("Financial document type detected")
+        if any(keyword in preview for keyword in ["revenue", "balance sheet", "invoice", "financial", "soa"]):
+            score += 0.2
+            reasons.append("Financial terminology identified in content preview")
         
-        # Extract score from Claude's assessment
-        try:
-            score = float(result.output.get('confidence', 0.5))
-        except:
-            score = 0.5
-            
         return ProviderScore(
-            score=score,
-            reasons=["Claude assessment for financial processing"],
+            score=min(score, 1.0),
+            reasons=reasons or ["General financial processing support"],
             capabilities=[AgentCapability.FINANCIAL, AgentCapability.DATA_ANALYSIS],
             estimated_cost=0.02,
             estimated_time_seconds=30
@@ -714,6 +710,377 @@ class QualityEngineerAgent(AgentProvider):
             "next_actions": []
         }
 
+class RequirementsAnalystAgent(AgentProvider):
+    """Agent focused on requirements coverage and traceability"""
+
+    def __init__(self):
+        super().__init__(
+            name="requirements-analyst",
+            capabilities=[AgentCapability.REQUIREMENTS_ANALYSIS, AgentCapability.TECHNICAL]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"requirements", "requirements_spec", "requirements_document", "prd"}:
+            score += 0.75
+            reasons.append("Document type identified as requirements specification")
+        if any(keyword in preview for keyword in ["shall", "must", "user story", "acceptance criteria"]):
+            score += 0.15
+            reasons.append("Content contains requirements keywords")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["General requirements analysis support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.018,
+            estimated_time_seconds=35
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "inventory_requirements", "operation": "analysis", "agent": self.name,
+             "prompt": "Identify explicit and implicit requirements"},
+            {"id": "traceability_gap", "operation": "analysis", "agent": self.name,
+             "prompt": "Find missing coverage or traceability gaps"},
+            {"id": "recommendations", "operation": "generation", "agent": self.name,
+             "prompt": "Recommend additions to improve completeness"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.75:
+            issues.append("Requirements coverage below recommended threshold")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Requirements analysis completed",
+            "artifacts": {"gap_report": "requirements_gaps.json"},
+            "next_actions": ["prioritize_missing_requirements", "update_traceability_matrix"]
+        }
+
+class BackendArchitectAgent(AgentProvider):
+    """Agent specializing in backend/API architecture"""
+
+    def __init__(self):
+        super().__init__(
+            name="backend-architect",
+            capabilities=[AgentCapability.ARCHITECTURE, AgentCapability.TECHNICAL]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"api_documentation", "api_spec", "backend_design", "service_contract"}:
+            score += 0.75
+            reasons.append("Backend/API document type detected")
+        if any(keyword in preview for keyword in ["endpoint", "microservice", "latency", "throughput"]):
+            score += 0.15
+            reasons.append("Architecture keywords detected in preview")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["Backend architecture support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.022,
+            estimated_time_seconds=45
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "assess_architecture", "operation": "analysis", "agent": self.name,
+             "prompt": "Assess service architecture and integration points"},
+            {"id": "evaluate_scalability", "operation": "analysis", "agent": self.name,
+             "prompt": "Evaluate scalability, resilience, and performance characteristics"},
+            {"id": "improvement_strategy", "operation": "generation", "agent": self.name,
+             "prompt": "Outline improvements to align with best practices"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.8:
+            issues.append("Backend design quality below target threshold")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Backend architecture assessment generated",
+            "artifacts": {"architecture_report": "backend_architecture.md"},
+            "next_actions": ["implement_improvements", "review_with_platform_team"]
+        }
+
+class FrontendArchitectAgent(AgentProvider):
+    """Agent focused on UI/UX architecture and design systems"""
+
+    def __init__(self):
+        super().__init__(
+            name="frontend-architect",
+            capabilities=[AgentCapability.UI_GENERATION, AgentCapability.ARCHITECTURE]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"ui_spec", "design_system", "frontend_architecture", "ux_guidelines"}:
+            score += 0.75
+            reasons.append("Frontend/UI document type detected")
+        if any(keyword in preview for keyword in ["component", "accessibility", "responsive", "design token"]):
+            score += 0.15
+            reasons.append("UI/UX terminology identified")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["Frontend architecture support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.02,
+            estimated_time_seconds=40
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "evaluate_design_system", "operation": "analysis", "agent": self.name,
+             "prompt": "Review component architecture and design consistency"},
+            {"id": "accessibility_review", "operation": "analysis", "agent": self.name,
+             "prompt": "Assess accessibility and responsiveness considerations"},
+            {"id": "ui_improvements", "operation": "generation", "agent": self.name,
+             "prompt": "Propose UI improvements and component updates"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.8:
+            issues.append("UI architecture requires further refinement")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Frontend architecture review completed",
+            "artifacts": {"ui_audit": "frontend_architecture.md"},
+            "next_actions": ["align_with_design_system", "implement_accessibility_fix"]
+        }
+
+class SystemArchitectAgent(AgentProvider):
+    """Agent overseeing holistic system architecture"""
+
+    def __init__(self):
+        super().__init__(
+            name="system-architect",
+            capabilities=[AgentCapability.ARCHITECTURE, AgentCapability.TECHNICAL]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"architecture_design", "system_architecture", "solution_design"}:
+            score += 0.75
+            reasons.append("System architecture document type detected")
+        if any(keyword in preview for keyword in ["scalability", "availability", "integration", "system context"]):
+            score += 0.15
+            reasons.append("System-level considerations detected")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["System architecture assessment"],
+            capabilities=self.capabilities,
+            estimated_cost=0.025,
+            estimated_time_seconds=55
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "architecture_overview", "operation": "analysis", "agent": self.name,
+             "prompt": "Map system components and interactions"},
+            {"id": "risk_assessment", "operation": "analysis", "agent": self.name,
+             "prompt": "Identify architectural risks and constraints"},
+            {"id": "roadmap", "operation": "generation", "agent": self.name,
+             "prompt": "Outline roadmap to reach target architecture"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.85:
+            issues.append("Architecture evaluation below target quality")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "System architecture blueprint produced",
+            "artifacts": {"blueprint": "system_architecture_blueprint.md"},
+            "next_actions": ["align_teams_to_blueprint", "implement_architecture_changes"]
+        }
+
+class RefactoringExpertAgent(AgentProvider):
+    """Agent specializing in refactoring and code quality improvements"""
+
+    def __init__(self):
+        super().__init__(
+            name="refactoring-expert",
+            capabilities=[AgentCapability.CODE_REVIEW, AgentCapability.CODE_GENERATION]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"code_review", "refactoring_plan", "technical_debt"}:
+            score += 0.7
+            reasons.append("Refactoring document type detected")
+        if any(keyword in preview for keyword in ["code smell", "refactor", "technical debt", "clean up"]):
+            score += 0.2
+            reasons.append("Code quality issues identified")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["General refactoring support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.02,
+            estimated_time_seconds=40
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "identify_smells", "operation": "analysis", "agent": self.name,
+             "prompt": "Identify code smells and anti-patterns"},
+            {"id": "refactor_plan", "operation": "generation", "agent": self.name,
+             "prompt": "Propose refactoring steps with impact assessment"},
+            {"id": "risk_assessment", "operation": "analysis", "agent": self.name,
+             "prompt": "Assess risks and testing requirements for refactor"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.78:
+            issues.append("Refactoring plan quality below target")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Refactoring recommendations prepared",
+            "artifacts": {"refactor_plan": "refactoring_plan.md"},
+            "next_actions": ["schedule_refactor", "update_regression_tests"]
+        }
+
+class PerformanceEngineerAgent(AgentProvider):
+    """Agent handling performance and optimization reviews"""
+
+    def __init__(self):
+        super().__init__(
+            name="performance-engineer",
+            capabilities=[AgentCapability.PERFORMANCE, AgentCapability.TECHNICAL]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"performance_report", "load_test", "scalability_plan"}:
+            score += 0.75
+            reasons.append("Performance-focused document type detected")
+        if any(keyword in preview for keyword in ["latency", "throughput", "stress test", "optimization"]):
+            score += 0.15
+            reasons.append("Performance keywords identified")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["Performance optimization support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.023,
+            estimated_time_seconds=50
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "analyze_metrics", "operation": "analysis", "agent": self.name,
+             "prompt": "Review performance metrics and bottlenecks"},
+            {"id": "optimization_plan", "operation": "generation", "agent": self.name,
+             "prompt": "Create optimization recommendations with priority"},
+            {"id": "validation_strategy", "operation": "analysis", "agent": self.name,
+             "prompt": "Define validation strategy for performance improvements"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.8:
+            issues.append("Performance improvement plan requires refinement")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Performance optimization roadmap generated",
+            "artifacts": {"performance_plan": "performance_optimization.md"},
+            "next_actions": ["implement_tuning", "rerun_benchmarks"]
+        }
+
+class LegalReviewAgent(AgentProvider):
+    """Agent dedicated to legal and compliance document review"""
+
+    def __init__(self):
+        super().__init__(
+            name="legal-review",
+            capabilities=[AgentCapability.LEGAL]
+        )
+
+    async def can_handle(self, document_meta: Dict[str, Any]) -> ProviderScore:
+        score = 0.1
+        reasons: List[str] = []
+        doc_type = (document_meta.get("document_type") or "").lower()
+        preview = (document_meta.get("content_preview") or "").lower()
+
+        if doc_type in {"legal_contract", "contract", "agreement", "nda"}:
+            score += 0.75
+            reasons.append("Legal document type detected")
+        if any(keyword in preview for keyword in ["obligation", "liability", "jurisdiction", "clause"]):
+            score += 0.15
+            reasons.append("Legal terminology identified")
+
+        return ProviderScore(
+            score=min(score, 1.0),
+            reasons=reasons or ["Legal review support"],
+            capabilities=self.capabilities,
+            estimated_cost=0.024,
+            estimated_time_seconds=60
+        )
+
+    async def plan(self, document: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {"id": "clause_review", "operation": "analysis", "agent": self.name,
+             "prompt": "Review clauses for risk and compliance"},
+            {"id": "obligation_summary", "operation": "analysis", "agent": self.name,
+             "prompt": "Summarize obligations and responsibilities"},
+            {"id": "risk_register", "operation": "generation", "agent": self.name,
+             "prompt": "Compile risk register with mitigation recommendations"}
+        ]
+
+    async def validate(self, result: ExecutionResult) -> Tuple[float, List[str]]:
+        issues: List[str] = []
+        if result.quality_score < 0.82:
+            issues.append("Legal compliance review incomplete")
+        return result.quality_score, issues
+
+    async def summarize(self, results: List[ExecutionResult]) -> Dict[str, Any]:
+        return {
+            "summary": "Legal review completed",
+            "artifacts": {"legal_report": "legal_review_summary.md"},
+            "next_actions": ["engage_legal_team", "address_high_risk_clauses"]
+        }
 class AgentRegistry:
     """Registry for managing and routing to agent providers"""
     
@@ -729,6 +1096,13 @@ class AgentRegistry:
         self.register(GeneralPurposeAgent())
         self.register(RootCauseAnalystAgent())
         self.register(QualityEngineerAgent())
+        self.register(RequirementsAnalystAgent())
+        self.register(BackendArchitectAgent())
+        self.register(FrontendArchitectAgent())
+        self.register(SystemArchitectAgent())
+        self.register(RefactoringExpertAgent())
+        self.register(PerformanceEngineerAgent())
+        self.register(LegalReviewAgent())
         
         logger.info(f"Initialized {len(self.providers)} agent providers")
     

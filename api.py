@@ -141,10 +141,13 @@ class OrchestrationResponse(BaseModel):
 class AnalysisRequest(BaseModel):
     agents: Optional[List[str]] = None
     parallel: bool = True
+    claude_config: Optional[Dict[str, Any]] = None
 
 class ConsensusRequest(BaseModel):
     analysis_data: Dict[str, Any]
     models: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    consensus_config: Optional[Dict[str, Any]] = None
 
 class RemediationRequest(BaseModel):
     issues: List[Dict[str, Any]]
@@ -1059,29 +1062,45 @@ async def analyze_document(document_id: str, request: AnalysisRequest):
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         
-        # Perform multi-agent analysis
+        analysis_start = datetime.now()
         metadata = {"document_id": document_id, "content_type": document.content_type}
         results = await claude_service.multi_agent_analysis(
             document_content=document.text,
             document_metadata=metadata,
-            agents=request.agents
+            agents=request.agents,
+            claude_config=request.claude_config,
+            parallel=request.parallel
         )
+        total_elapsed = (datetime.now() - analysis_start).total_seconds()
         
-        # Convert results to serializable format
-        analysis_results = {}
+        analysis_results: Dict[str, Any] = {}
+        claude_commands: Dict[str, Optional[str]] = {}
         for agent, result in results.items():
             analysis_results[agent] = {
                 "success": result.success,
                 "confidence": result.confidence,
-                "analysis": result.analysis
+                "analysis": result.analysis,
+                "processing_time_seconds": result.processing_time,
+                "claude_command": result.claude_command,
+                "metadata": result.metadata
             }
+            if result.claude_command:
+                claude_commands[agent] = result.claude_command
         
-        return {
+        response = {
             "document_id": document_id,
             "analysis": analysis_results,
             "agent_count": len(results),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "processing_time_seconds": total_elapsed,
+            "parallel_execution": request.parallel
         }
+        if claude_commands:
+            response["claude_commands"] = claude_commands
+        if request.claude_config:
+            response["claude_config"] = request.claude_config
+        
+        return response
         
     except HTTPException:
         raise
@@ -1105,22 +1124,28 @@ async def synthesize_issues(document_id: str, request: ConsensusRequest):
                 success=data.get("success", True),
                 analysis=data.get("analysis", {}),
                 agent_used=agent,
-                confidence=data.get("confidence", 0.5)
+                confidence=data.get("confidence", 0.5),
+                metadata=data.get("metadata"),
+                processing_time=data.get("processing_time_seconds"),
+                claude_command=data.get("claude_command")
             )
         
         # Perform consensus validation
         consensus = await claude_service.consensus_validation(
             analysis_results=analysis_results,
             document_id=document_id,
-            models=request.models
+            models=request.models,
+            consensus_config=request.consensus_config
         )
-        
+
         return {
             "document_id": document_id,
             "consensus": consensus.consensus,
             "agreement_score": consensus.agreement_score,
             "models_used": consensus.models_used,
-            "timestamp": datetime.now().isoformat()
+            "agreement_details": consensus.agreement_details,
+            "timestamp": datetime.now().isoformat(),
+            "metadata": consensus.metadata
         }
         
     except Exception as e:

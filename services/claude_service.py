@@ -12,7 +12,7 @@ import yaml
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from enum import Enum
 from jinja2 import Template
@@ -33,6 +33,8 @@ class AnalysisResult:
     agent_used: Optional[str] = None
     confidence: float = 0.0
     metadata: Optional[Dict[str, Any]] = None
+    processing_time: Optional[float] = None
+    claude_command: Optional[str] = None
 
 @dataclass
 class ConsensusResult:
@@ -42,6 +44,7 @@ class ConsensusResult:
     models_used: List[str]
     agreement_score: float
     metadata: Optional[Dict[str, Any]] = None
+    agreement_details: Optional[List[Dict[str, Any]]] = None
 
 @dataclass
 class RemediationResult:
@@ -109,7 +112,9 @@ class ClaudeService:
     async def multi_agent_analysis(self, 
                                   document_content: str,
                                   document_metadata: Dict[str, Any],
-                                  agents: Optional[List[str]] = None) -> Dict[str, AnalysisResult]:
+                                  agents: Optional[List[str]] = None,
+                                  claude_config: Optional[Dict[str, Any]] = None,
+                                  parallel: bool = True) -> Dict[str, AnalysisResult]:
         """
         Perform multi-agent analysis on document
         
@@ -117,6 +122,8 @@ class ClaudeService:
             document_content: Document text content
             document_metadata: Document metadata
             agents: List of agents to use (if None, uses default set)
+            claude_config: Optional configuration modifiers for Claude execution
+            parallel: Whether to execute agent analyses concurrently
             
         Returns:
             Dictionary mapping agent name to analysis results
@@ -133,22 +140,34 @@ class ClaudeService:
         
         results = {}
         
-        # Create analysis tasks for each agent
-        tasks = []
-        for agent in agents:
-            task = self._analyze_with_agent(
-                agent, 
-                document_content, 
-                document_metadata
+        # Create analysis coroutines for each agent
+        tasks = [
+            (agent, self._analyze_with_agent(
+                agent,
+                document_content,
+                document_metadata,
+                claude_config=claude_config
+            ))
+            for agent in agents
+        ]
+        
+        logger.info(
+            f"Starting {'parallel' if parallel else 'sequential'} analysis with {len(agents)} agents"
+        )
+        start_time = datetime.now(timezone.utc)
+        
+        if parallel:
+            task_results = await asyncio.gather(
+                *[task for _, task in tasks],
+                return_exceptions=True
             )
-            tasks.append((agent, task))
-        
-        # Execute all analyses in parallel using asyncio.gather
-        logger.info(f"Starting parallel analysis with {len(agents)} agents")
-        start_time = datetime.now()
-        
-        # Execute all tasks in parallel
-        task_results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
+        else:
+            task_results = []
+            for _, coroutine in tasks:
+                try:
+                    task_results.append(await coroutine)
+                except Exception as exc:
+                    task_results.append(exc)
         
         # Process results
         for i, (agent, _) in enumerate(tasks):
@@ -165,15 +184,26 @@ class ClaudeService:
                 results[agent] = result
                 logger.info(f"Agent {agent} completed with confidence {result.confidence:.2f}")
         
-        elapsed = (datetime.now() - start_time).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
         logger.info(f"Multi-agent analysis completed in {elapsed:.2f}s")
+        
+        # Attach elapsed timing metadata
+        for result in results.values():
+            if result.metadata is None:
+                result.metadata = {}
+            result.metadata.setdefault("analysis_started_at", start_time.isoformat())
+            result.metadata["analysis_completed_at"] = datetime.now(timezone.utc).isoformat()
+            result.metadata["execution_mode"] = "parallel" if parallel else "sequential"
+            if result.processing_time is None:
+                result.processing_time = elapsed
         
         return results
     
     async def _analyze_with_agent(self,
                                  agent: str,
                                  content: str,
-                                 metadata: Dict[str, Any]) -> AnalysisResult:
+                                 metadata: Dict[str, Any],
+                                 claude_config: Optional[Dict[str, Any]] = None) -> AnalysisResult:
         """
         Analyze document with specific agent
         
@@ -181,6 +211,7 @@ class ClaudeService:
             agent: Agent name
             content: Document content
             metadata: Document metadata
+            claude_config: Optional configuration modifiers
             
         Returns:
             Analysis result from agent
@@ -195,6 +226,20 @@ class ClaudeService:
         }
         
         base_prompt = prompts.get(agent, "Perform comprehensive analysis")
+        prompt_overrides = (claude_config or {}).get("prompt_overrides", {})
+        agent_overrides = (prompt_overrides.get(agent) if prompt_overrides else None)
+        if agent_overrides:
+            base_prompt = agent_overrides
+        
+        command_flags: List[str] = []
+        if claude_config:
+            command_flags.extend(claude_config.get("flags", []))
+            modes = claude_config.get("superclaude_modes", [])
+            if modes:
+                command_flags.extend(modes)
+            agent_flag_overrides = (claude_config.get("agent_flags", {}) or {}).get(agent, [])
+            if agent_flag_overrides:
+                command_flags.extend(agent_flag_overrides)
         
         # Prepare full prompt with context
         prompt = f"""
@@ -242,29 +287,55 @@ Please provide structured analysis with:
         }
         
         try:
+            agent_start = datetime.now(timezone.utc)
             # Execute analysis using Claude CLI
             result = await self.cli.analyze_text_async(
                 text=content,
                 prompt=prompt,
                 schema=schema
             )
+            elapsed = (datetime.now(timezone.utc) - agent_start).total_seconds()
             
             return AnalysisResult(
                 success=True,
                 analysis=result,
                 agent_used=agent,
                 confidence=result.get("confidence", 0.5),
-                metadata={"document_id": metadata.get("document_id")}
+                metadata={
+                    "document_id": metadata.get("document_id"),
+                    "analysis_prompt": prompt,
+                    "command_flags": command_flags
+                },
+                processing_time=elapsed,
+                claude_command=" ".join(command_flags) if command_flags else None
             )
             
         except Exception as e:
             logger.error(f"Analysis failed for agent {agent}: {e}")
             raise
+
+    def _parse_consensus_output(self, raw_output: Optional[str]) -> Dict[str, Any]:
+        """Safely parse consensus JSON output."""
+        if not raw_output:
+            return {}
+        raw = raw_output.strip()
+        if not raw:
+            return {}
+        try:
+            if raw.startswith("{") or raw.startswith("["):
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+                return {"raw": parsed}
+        except json.JSONDecodeError as exc:
+            logger.warning(f"Failed to parse consensus JSON (len={len(raw)}): {exc}")
+        return {}
     
     async def consensus_validation(self,
                                   analysis_results: Dict[str, AnalysisResult],
                                   document_id: str,
-                                  models: Optional[List[str]] = None) -> ConsensusResult:
+                                  models: Optional[List[str]] = None,
+                                  consensus_config: Optional[Dict[str, Any]] = None) -> ConsensusResult:
         """
         Perform multi-model consensus validation on analysis results
         
@@ -278,6 +349,9 @@ Please provide structured analysis with:
         """
         if models is None:
             models = ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+        consensus_config = consensus_config or {}
+        additional_flags = consensus_config.get("flags", [])
+        agreement_threshold = consensus_config.get("agreement_threshold", 0.6)
         
         # Prepare consolidated findings for consensus
         all_issues = []
@@ -309,49 +383,118 @@ Please provide consensus on:
 Use multi-model consensus with models: {', '.join(models)}
 """
         
-        # Execute consensus using Zen MCP
-        try:
-            result = await self.cli.use_mcp_server_async(
-                prompt=prompt,
-                mcp=SuperClaudeMCP.ZEN,
-                additional_flags=["--consensus", "--model", models[0]]
+        agreement_details: List[Dict[str, Any]] = []
+        issues_votes: Dict[str, Dict[str, Any]] = {}
+        recommendation_votes: Dict[str, Dict[str, Any]] = {}
+        quality_scores: List[float] = []
+        overall_success = True
+        
+        for model in models:
+            flags = ["--consensus"]
+            flags.extend(additional_flags)
+            flags.extend(["--model", model])
+            
+            try:
+                call_started = datetime.now(timezone.utc)
+                result = await self.cli.use_mcp_server_async(
+                    prompt=prompt,
+                    mcp=SuperClaudeMCP.ZEN,
+                    additional_flags=flags
+                )
+                latency = (datetime.now(timezone.utc) - call_started).total_seconds()
+                parsed = self._parse_consensus_output(result.output if result.success else None)
+                success = result.success
+            except Exception as exc:
+                logger.error(f"Consensus request failed for model {model}: {exc}")
+                parsed = {}
+                latency = None
+                success = False
+                overall_success = False
+            
+            quality = parsed.get("overall_quality_score") or parsed.get("quality_score")
+            if isinstance(quality, (int, float)):
+                quality_scores.append(float(quality))
+            
+            issues = parsed.get("critical_issues") or parsed.get("issues") or []
+            normalized_issues: List[Dict[str, Any]] = []
+            for issue in issues:
+                if isinstance(issue, dict):
+                    normalized = issue.copy()
+                else:
+                    normalized = {"issue": issue}
+                normalized_issues.append(normalized)
+                issue_key = json.dumps(normalized, sort_keys=True)
+                entry = issues_votes.setdefault(issue_key, {"issue": normalized, "models": []})
+                entry["models"].append(model)
+            
+            recommendations = parsed.get("recommendations") or []
+            normalized_recs: List[Dict[str, Any]] = []
+            for rec in recommendations:
+                if isinstance(rec, dict):
+                    normalized_rec = rec.copy()
+                else:
+                    normalized_rec = {"recommendation": rec}
+                normalized_recs.append(normalized_rec)
+                rec_key = json.dumps(normalized_rec, sort_keys=True)
+                entry = recommendation_votes.setdefault(rec_key, {"recommendation": normalized_rec, "models": []})
+                entry["models"].append(model)
+            
+            agreement_details.append({
+                "model": model,
+                "success": success,
+                "latency_seconds": latency,
+                "flags": flags,
+                "quality_score": quality,
+                "issues": normalized_issues,
+                "recommendations": normalized_recs,
+                "raw_output": parsed
+            })
+        
+        aggregated_issues: List[Dict[str, Any]] = []
+        for data in issues_votes.values():
+            support_ratio = len(data["models"]) / len(models)
+            issue_entry = data["issue"].copy()
+            issue_entry["agreed_by"] = data["models"]
+            issue_entry["support"] = round(support_ratio, 2)
+            aggregated_issues.append(issue_entry)
+        
+        aggregated_recommendations: List[Dict[str, Any]] = []
+        for data in recommendation_votes.values():
+            support_ratio = len(data["models"]) / len(models)
+            rec_entry = data["recommendation"].copy()
+            rec_entry["supported_by"] = data["models"]
+            rec_entry["support"] = round(support_ratio, 2)
+            aggregated_recommendations.append(rec_entry)
+        
+        overall_quality = round(sum(quality_scores) / len(quality_scores), 2) if quality_scores else None
+        if aggregated_issues:
+            agreement_score = round(
+                sum(issue["support"] for issue in aggregated_issues) / len(aggregated_issues),
+                2
             )
-            
-            # Parse consensus result with robust JSON handling
-            if result.success and result.output:
-                raw = result.output.strip()
-                try:
-                    if raw.startswith("{") or raw.startswith("["):
-                        consensus_data = json.loads(raw)
-                    else:
-                        logger.warning(f"Non-JSON consensus output (len={len(raw)}): {raw[:200]}...")
-                        consensus_data = {}
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse consensus JSON (len={len(raw)}): {raw[:200]}... Error: {e}")
-                    consensus_data = {}
-            else:
-                consensus_data = {}
-            
-            # Calculate agreement score based on model responses
-            agreement_score = consensus_data.get("agreement_score", 0.7)
-            
-            return ConsensusResult(
-                success=result.success,
-                consensus=consensus_data,
-                models_used=models,
-                agreement_score=agreement_score,
-                metadata={"document_id": document_id}
-            )
-            
-        except Exception as e:
-            logger.error(f"Consensus validation failed: {e}")
-            return ConsensusResult(
-                success=False,
-                consensus={"error": str(e)},
-                models_used=models,
-                agreement_score=0.0,
-                metadata={"document_id": document_id}
-            )
+        else:
+            agreement_score = 0.0
+        
+        consensus_payload = {
+            "overall_quality_score": overall_quality,
+            "critical_issues": aggregated_issues,
+            "recommendations": aggregated_recommendations,
+            "models_used": models,
+            "agreement_threshold": agreement_threshold
+        }
+        
+        return ConsensusResult(
+            success=overall_success,
+            consensus=consensus_payload,
+            models_used=models,
+            agreement_score=agreement_score,
+            metadata={
+                "document_id": document_id,
+                "issues_considered": len(all_issues),
+                "recommendations_considered": len(all_recommendations)
+            },
+            agreement_details=agreement_details
+        )
     
     async def generate_remediation(self,
                                  document_content: str,

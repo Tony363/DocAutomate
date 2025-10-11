@@ -20,7 +20,11 @@ from datetime import datetime
 import pty
 import select
 import fcntl
-import PyPDF2
+
+try:
+    import PyPDF2  # type: ignore
+except ImportError:
+    PyPDF2 = None
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -50,6 +54,9 @@ class SuperClaudeAgent(str, Enum):
     BACKEND_ARCHITECT = "backend-architect"
     FINANCE_ENGINEER = "finance-engineer"
     QUALITY_ENGINEER = "quality-engineer"
+    REQUIREMENTS_ANALYST = "requirements-analyst"
+    SYSTEM_ARCHITECT = "system-architect"
+    LEGAL_REVIEW = "legal-review"
 
 class SuperClaudeMCP(str, Enum):
     """SuperClaude Framework MCP servers"""
@@ -343,6 +350,8 @@ class ClaudeCLI:
         Returns:
             Extracted text from PDF
         """
+        if PyPDF2 is None:
+            raise ImportError("PyPDF2 is not installed; PDF fallback unavailable")
         try:
             logger.info(f"Using PyPDF2 fallback for PDF extraction: {file_path}")
             
