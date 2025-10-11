@@ -458,6 +458,9 @@ OUTPUT THE FULL REMEDIATED DOCUMENT NOW:
                 # Calculate quality score based on issues resolved
                 quality_score = min(1.0, 0.5 + (0.1 * len(issues)))
                 
+                # Cache latest remediation content for downstream retrieval
+                self._last_remediation_result = output
+                
                 return RemediationResult(
                     success=True,
                     remediated_content=output,

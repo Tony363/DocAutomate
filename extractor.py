@@ -58,6 +58,7 @@ class ExtractedEntity(BaseModel):
 
 class ExtractedAction(BaseModel):
     """Represents an actionable item extracted from a document"""
+    action_id: Optional[str] = Field(default=None, description="Unique identifier for the extracted action")
     action_type: ActionType = Field(description="Type of action to be taken")
     workflow_name: str = Field(description="Name of the workflow to trigger")
     description: str = Field(description="Human-readable description of the action")

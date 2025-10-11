@@ -1063,7 +1063,7 @@ class WorkflowEngine:
             cli = AsyncClaudeCLI()
             
             # Use Zen MCP with thinkdeep
-            result = await cli.use_mcp_server(
+            result = await cli.use_mcp_server_async(
                 prompt=f"{prompt}\n\nData: {data[:2000]}...",
                 mcp=SuperClaudeMCP.ZEN,
                 additional_flags=['--thinkdeep', '--model', model]

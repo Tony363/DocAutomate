@@ -4,7 +4,7 @@ REST API for DocAutomate Framework
 Provides endpoints for document ingestion and workflow management
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,6 +22,7 @@ from extractor import ActionExtractor, ExtractedAction
 from workflow import WorkflowEngine, WorkflowRun, WorkflowStatus
 from workflow_matcher import WorkflowMatcher
 from services.claude_service import claude_service
+from claude_cli import SuperClaudeMCP
 from utils.file_operations import FileOperations
 from enum import Enum
 
@@ -103,6 +104,11 @@ class DocumentStatusResponse(BaseModel):
     filename: str
     status: str
     ingested_at: str
+    content_type: str
+    size_bytes: Optional[int]
+    claude_agent: Optional[str]
+    quality_score: Optional[float]
+    claude_analysis: Optional[Dict]
     workflow_runs: List[str]
     extracted_actions: Optional[List[Dict]]
 
@@ -114,6 +120,8 @@ class WorkflowRunStatusResponse(BaseModel):
     completed_at: Optional[str]
     current_step: Optional[str]
     outputs: Dict[str, Any]
+    steps_completed: Optional[List[Dict[str, Any]]]
+    duration_seconds: Optional[float]
     error: Optional[str]
 
 class OrchestrationRequest(BaseModel):
@@ -149,6 +157,7 @@ class ValidationRequest(BaseModel):
 
 class FolderCompressionRequest(BaseModel):
     folder_path: str
+    output_name: Optional[str] = None
     output_filename: Optional[str] = None
     include_patterns: Optional[List[str]] = None
     exclude_patterns: Optional[List[str]] = None
@@ -158,16 +167,32 @@ class FolderCompressionRequest(BaseModel):
 class FolderCompressionResponse(BaseModel):
     success: bool
     output_path: Optional[str]
+    archive_path: Optional[str]
     files_compressed: Optional[int]
+    files_included: Optional[int]
+    original_size_bytes: Optional[int]
+    compressed_size_bytes: Optional[int]
     compression_ratio: Optional[str]
+    duration_seconds: Optional[float]
     error: Optional[str]
     workflow_run_id: Optional[str]
+
+class ActionExtractionResponse(BaseModel):
+    document_id: str
+    status: str
+    extracted_actions: List[Dict[str, Any]]
+    auto_triggered_workflows: int
+    analysis_summary: Dict[str, Any]
+
+class ActionExtractionRequest(BaseModel):
+    auto_execute: bool = False
 
 class DocumentConversionRequest(BaseModel):
     document_id: Optional[str] = None
     input_path: Optional[str] = None
     output_path: Optional[str] = None
     output_format: str = "pdf"
+    target_format: Optional[str] = None
     quality: str = "high"
     preserve_formatting: bool = True
     use_dsl: bool = True
@@ -175,17 +200,190 @@ class DocumentConversionRequest(BaseModel):
 class DocumentConversionResponse(BaseModel):
     success: bool
     output_path: Optional[str]
+    archive_path: Optional[str]
     conversion_method: Optional[str]
+    original_file: Optional[str]
+    file_size_bytes: Optional[int]
+    conversion_time_seconds: Optional[float]
     error: Optional[str]
     workflow_run_id: Optional[str]
 
 class BatchConversionRequest(BaseModel):
     input_files: List[str]
+    document_ids: Optional[List[str]] = None
     output_directory: str
     conversion_type: str = "docx_to_pdf"
+    target_format: Optional[str] = None
     parallel: bool = True
     max_workers: int = 4
     use_dsl: bool = True
+
+EXTRACTION_ERROR_PHRASES = [
+    'i need your permission',
+    'please grant permission',
+    'permission to read',
+    'allow access',
+    'grant access',
+    'claude code is required'
+]
+
+
+async def _extract_actions_for_document(
+    document: Document,
+    request_id: str,
+    run_workflows: bool = True
+) -> Dict[str, Any]:
+    """Shared extraction workflow for background and synchronous requests"""
+    logger.info(f"[{request_id}] Extracting actions for document {document.id}")
+
+    text_content = document.text or ""
+    if len(text_content) < 50:
+        logger.error(f"[{request_id}] Document {document.id} has insufficient text content ({len(text_content)} chars)")
+        document.status = "failed"
+        document.error = "Insufficient text content extracted"
+        await document_ingester._store_document(document)
+        return {"actions": [], "auto_runs": 0, "analysis_summary": {}, "status": document.status}
+
+    text_lower = text_content.lower()
+    for phrase in EXTRACTION_ERROR_PHRASES:
+        if phrase in text_lower:
+            logger.error(f"[{request_id}] Document {document.id} contains extraction error: '{phrase}'")
+            document.status = "extraction_failed"
+            document.error = "Text extraction failed - permission or processing error detected"
+            await document_ingester._store_document(document)
+            return {"actions": [], "auto_runs": 0, "analysis_summary": {}, "status": document.status}
+
+    document_type = (document.metadata or {}).get('document_type', 'general')
+    actions = await action_extractor.extract_actions(
+        text_content,
+        document_type=document_type
+    )
+
+    actions_payload: List[Dict[str, Any]] = []
+    high_confidence = 0
+    for index, action in enumerate(actions, start=1):
+        if action.confidence_score >= 0.85:
+            high_confidence += 1
+
+        if not action.action_id:
+            action.action_id = f"{document.id}-act-{uuid.uuid4().hex[:8]}"
+
+        logger.debug(
+            f"[{request_id}] Action {index}: id={action.action_id}, type={action.action_type}, "
+            f"workflow={action.workflow_name}, confidence={action.confidence_score:.2f}"
+        )
+        actions_payload.append(action.dict())
+
+    analysis_summary = {
+        "total_actions": len(actions_payload),
+        "high_confidence": high_confidence,
+        "document_type": document_type
+    }
+
+    document.metadata = document.metadata or {}
+    document.metadata.setdefault('document_type', document_type)
+    document.metadata['last_extracted_at'] = datetime.utcnow().isoformat()
+    document.metadata['claude_analysis'] = analysis_summary
+    document.metadata['quality_score'] = max(
+        (action.confidence_score for action in actions),
+        default=0.0
+    )
+    document.metadata.setdefault('claude_agent', 'requirements-analyst')
+
+    document.extracted_actions = actions_payload
+    document.status = "processed" if len(text_content) > 100 else "partial"
+    if not actions_payload:
+        document.status = "processed_no_actions"
+
+    document.quality_score = document.metadata['quality_score']
+    document.primary_agent = document.metadata['claude_agent']
+    document.analysis_summary = analysis_summary
+
+    auto_executed_count = 0
+    if run_workflows and actions:
+        for action in actions:
+            if action.confidence_score < 0.85:
+                continue
+
+            try:
+                match_context = {
+                    'action_type': action.action_type,
+                    'parameters': action.parameters,
+                    'document_type': document.metadata.get('document_type', 'general')
+                }
+
+                match_result = await workflow_matcher.match(action.workflow_name, match_context)
+                resolved_workflow = match_result.matched_workflow
+
+                if resolved_workflow != action.workflow_name:
+                    logger.info(
+                        f"[{request_id}] Workflow matched: '{action.workflow_name}' -> '{resolved_workflow}' "
+                        f"(confidence: {match_result.confidence:.2f}, reason: {match_result.reason})"
+                    )
+                    if match_result.reasoning:
+                        logger.debug(f"[{request_id}] Match reasoning: {match_result.reasoning}")
+
+                if match_result.confidence < 0.3:
+                    logger.warning(
+                        f"[{request_id}] No suitable workflow match for '{action.workflow_name}' "
+                        f"(confidence: {match_result.confidence:.2f})"
+                    )
+                    continue
+
+                if match_result.confidence < 0.7:
+                    logger.warning(
+                        f"[{request_id}] Low confidence match: '{action.workflow_name}' -> '{resolved_workflow}' "
+                        f"(confidence: {match_result.confidence:.2f})"
+                    )
+
+                if resolved_workflow not in workflow_engine.workflows:
+                    logger.warning(f"[{request_id}] Resolved workflow '{resolved_workflow}' not found in engine")
+                    continue
+
+                params = dict(action.parameters)
+                params['document_id'] = document.id
+
+                if resolved_workflow == 'document_signature':
+                    if 'parties' not in params:
+                        if 'party1' in params and 'party2' in params:
+                            params['parties'] = [params.pop('party1'), params.pop('party2')]
+                        elif 'party' in params:
+                            params['parties'] = [params.pop('party')]
+
+                if 'document_type' not in params:
+                    params['document_type'] = document.metadata.get('document_type', 'general')
+
+                logger.info(
+                    f"[{request_id}] Auto-executing workflow {resolved_workflow} "
+                    f"(confidence: {action.confidence_score:.2f})"
+                )
+
+                run = await workflow_engine.execute_workflow(
+                    workflow_name=resolved_workflow,
+                    document_id=document.id,
+                    initial_parameters=params
+                )
+
+                if document.workflow_runs is None:
+                    document.workflow_runs = []
+                document.workflow_runs.append(run.run_id)
+                auto_executed_count += 1
+            except ValueError as e:
+                logger.warning(f"[{request_id}] Validation error for workflow {action.workflow_name}: {e}")
+                logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
+            except Exception as exc:
+                logger.error(f"[{request_id}] Failed to auto-execute workflow {action.workflow_name}: {exc}")
+                logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
+
+    document.metadata['auto_triggered_workflows'] = auto_executed_count
+    await document_ingester._store_document(document)
+
+    return {
+        "actions": actions_payload,
+        "auto_runs": auto_executed_count,
+        "analysis_summary": analysis_summary,
+        "status": document.status
+    }
 
 # Background task for processing document
 async def process_document_background(document: Document, request_id: str = None):
@@ -197,130 +395,12 @@ async def process_document_background(document: Document, request_id: str = None
     logger.debug(f"[{request_id}] Document details: filename={document.filename}, size={len(document.text) if document.text else 0} chars")
     
     try:
-        # First validate that we have actual content to process
-        if not document.text or len(document.text) < 50:
-            logger.error(f"[{request_id}] Document {document.id} has insufficient text content ({len(document.text) if document.text else 0} chars)")
-            document.status = "failed"
-            document.error = "Insufficient text content extracted"
-            await document_ingester._store_document(document)
-            return
-        
-        # Check for extraction error patterns
-        error_phrases = ['i need your permission', 'please grant permission', 'permission to read', 
-                        'allow access', 'grant access', 'claude code is required']
-        text_lower = document.text.lower()
-        
-        for phrase in error_phrases:
-            if phrase in text_lower:
-                logger.error(f"[{request_id}] Document {document.id} contains extraction error: '{phrase}'")
-                document.status = "extraction_failed"
-                document.error = f"Text extraction failed - permission or processing error detected"
-                await document_ingester._store_document(document)
-                return
-        
-        # Extract actions
-        logger.info(f"[{request_id}] Extracting actions from document {document.id} ({len(document.text)} chars)")
-        actions = await action_extractor.extract_actions(
-            document.text,
-            document_type='general'
-        )
-        
-        logger.info(f"[{request_id}] Extracted {len(actions)} actions from document {document.id}")
-        
-        # Log each extracted action
-        for i, action in enumerate(actions):
-            logger.debug(f"[{request_id}] Action {i+1}: type={action.action_type}, workflow={action.workflow_name}, confidence={action.confidence_score:.2f}")
-        
-        # Update document with extracted actions - only mark as processed if extraction was successful
-        document.extracted_actions = [action.dict() for action in actions]
-        document.status = "processed" if len(document.text) > 100 else "partial"
-        
-        # Save updated document
-        logger.debug(f"[{request_id}] Saving processed document {document.id}")
-        await document_ingester._store_document(document)
-        
+        result = await _extract_actions_for_document(document, request_id, run_workflows=True)
         processing_time = (datetime.now() - start_time).total_seconds()
-        logger.info(f"[{request_id}] Successfully processed document {document.id} in {processing_time:.2f}s: {len(actions)} actions extracted")
-        
-        # Auto-execute workflows if configured
-        auto_executed_count = 0
-        for action in actions:
-            if action.confidence_score >= 0.85:  # High confidence threshold for auto-execution
-                try:
-                    # Use intelligent workflow matching
-                    match_context = {
-                        'action_type': action.action_type,
-                        'parameters': action.parameters,
-                        'document_type': document.metadata.get('type', 'general') if document.metadata else 'general'
-                    }
-                    
-                    match_result = await workflow_matcher.match(action.workflow_name, match_context)
-                    resolved_workflow = match_result.matched_workflow
-                    
-                    # Log the matching decision
-                    if resolved_workflow != action.workflow_name:
-                        logger.info(f"[{request_id}] Workflow matched: '{action.workflow_name}' -> '{resolved_workflow}' "
-                                  f"(confidence: {match_result.confidence:.2f}, reason: {match_result.reason})")
-                        if match_result.reasoning:
-                            logger.debug(f"[{request_id}] Match reasoning: {match_result.reasoning}")
-                    
-                    # Check confidence threshold
-                    if match_result.confidence < 0.3:
-                        logger.error(f"[{request_id}] No suitable workflow match for '{action.workflow_name}' "
-                                   f"(confidence: {match_result.confidence:.2f})")
-                        continue
-                    
-                    # Warn on low confidence matches
-                    if match_result.confidence < 0.7:
-                        logger.warning(f"[{request_id}] Low confidence match: '{action.workflow_name}' -> '{resolved_workflow}' "
-                                     f"(confidence: {match_result.confidence:.2f})")
-                    
-                    # Check if resolved workflow exists (should always exist if confidence > 0)
-                    if resolved_workflow not in workflow_engine.workflows:
-                        logger.error(f"[{request_id}] Resolved workflow '{resolved_workflow}' not found in engine")
-                        continue
-                    
-                    logger.info(f"[{request_id}] Auto-executing workflow {resolved_workflow} (confidence: {action.confidence_score:.2f})")
-                    
-                    # Include document_id in parameters
-                    params = dict(action.parameters)
-                    params['document_id'] = document.id
-                    
-                    # Add parameter transformation for known issues
-                    if resolved_workflow == 'document_signature':
-                        # Transform party1/party2 to parties array if needed
-                        if 'parties' not in params:
-                            if 'party1' in params and 'party2' in params:
-                                params['parties'] = [params.pop('party1'), params.pop('party2')]
-                            elif 'party' in params:
-                                params['parties'] = [params.pop('party')]
-                    
-                    # Add missing document_type if not present
-                    if 'document_type' not in params:
-                        params['document_type'] = document.metadata.get('document_type', 'general')
-                    
-                    run = await workflow_engine.execute_workflow(
-                        workflow_name=resolved_workflow,
-                        document_id=document.id,
-                        initial_parameters=params
-                    )
-                    auto_executed_count += 1
-                    logger.info(f"[{request_id}] Auto-executed workflow {action.workflow_name}: run_id={run.run_id}")
-                except ValueError as e:
-                    # Handle missing parameter errors specifically
-                    if "Required parameter" in str(e):
-                        logger.warning(f"[{request_id}] Missing required parameters for {action.workflow_name}: {e}")
-                        # Log the parameters for debugging
-                        logger.debug(f"[{request_id}] Available parameters: {list(params.keys())}")
-                    else:
-                        logger.error(f"[{request_id}] Validation error in workflow {action.workflow_name}: {e}")
-                    logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
-                except Exception as e:
-                    logger.error(f"[{request_id}] Failed to auto-execute workflow {action.workflow_name}: {e}")
-                    logger.debug(f"[{request_id}] Stack trace:", exc_info=True)
-        
-        if auto_executed_count > 0:
-            logger.info(f"[{request_id}] Auto-executed {auto_executed_count} workflows for document {document.id}")
+        logger.info(
+            f"[{request_id}] Successfully processed document {document.id} in {processing_time:.2f}s: "
+            f"{len(result['actions'])} actions extracted (auto workflows: {result['auto_runs']})"
+        )
         
     except Exception as e:
         processing_time = (datetime.now() - start_time).total_seconds()
@@ -334,10 +414,24 @@ async def process_document_background(document: Document, request_id: str = None
 
 @app.get("/")
 async def root():
-    """Root endpoint with API information"""
+    """Root endpoint with API information aligned to README contract"""
+    api_port = int(os.getenv("API_PORT", "8000"))
+    base_url = f"http://localhost:{api_port}"
+
     return {
         "name": "DocAutomate API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "description": "Enterprise Document Processing via Claude Code Delegation",
+        "documentation": f"{base_url}/docs",
+        "health": f"{base_url}/health",
+        "features": [
+            "Universal document processing",
+            "Pure Claude Code delegation",
+            "Multi-agent orchestration",
+            "DSL-driven configuration",
+            "Multi-model consensus validation",
+            "Desktop GUI application"
+        ],
         "endpoints": {
             "upload": "/documents/upload",
             "list_documents": "/documents",
@@ -347,7 +441,8 @@ async def root():
             "workflow_status": "/workflows/runs/{run_id}",
             "compress_folder": "/documents/compress-folder",
             "convert_document": "/documents/convert/docx-to-pdf",
-            "batch_convert": "/documents/convert/batch"
+            "batch_convert": "/documents/convert/batch",
+            "orchestrate": "/orchestrate/workflow"
         }
     }
 
@@ -435,6 +530,11 @@ async def list_documents(status: Optional[str] = None):
                 filename=doc.filename,
                 status=doc.status,
                 ingested_at=doc.ingested_at,
+                content_type=doc.content_type,
+                size_bytes=(doc.metadata or {}).get('size_bytes'),
+                claude_agent=doc.primary_agent or (doc.metadata or {}).get('claude_agent'),
+                quality_score=doc.quality_score if doc.quality_score is not None else (doc.metadata or {}).get('quality_score'),
+                claude_analysis=doc.analysis_summary or (doc.metadata or {}).get('claude_analysis'),
                 workflow_runs=doc.workflow_runs or [],
                 extracted_actions=doc.extracted_actions
             )
@@ -454,11 +554,18 @@ async def get_document_status(document_id: str):
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         
+        metadata = document.metadata or {}
+        
         return DocumentStatusResponse(
             document_id=document.id,
             filename=document.filename,
             status=document.status,
             ingested_at=document.ingested_at,
+            content_type=document.content_type,
+            size_bytes=metadata.get('size_bytes'),
+            claude_agent=document.primary_agent or metadata.get('claude_agent'),
+            quality_score=document.quality_score if document.quality_score is not None else metadata.get('quality_score'),
+            claude_analysis=document.analysis_summary or metadata.get('claude_analysis'),
             workflow_runs=document.workflow_runs or [],
             extracted_actions=document.extracted_actions
         )
@@ -469,43 +576,93 @@ async def get_document_status(document_id: str):
         logger.error(f"Failed to get document status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/documents/{document_id}/extract")
-async def extract_actions(document_id: str, background_tasks: BackgroundTasks):
-    """Manually trigger action extraction for a document"""
+@app.post("/documents/{document_id}/extract", response_model=ActionExtractionResponse)
+async def extract_actions(document_id: str, request: Optional[ActionExtractionRequest] = None):
+    """Manually trigger action extraction for a document and return structured results"""
+    request_id = generate_request_id()
+    logger.info(f"[{request_id}] Manual action extraction requested for document {document_id}")
+
     try:
         document = document_ingester.get_document(document_id)
-        
+
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
-        
-        background_tasks.add_task(process_document_background, document)
-        
-        return {
-            "message": "Action extraction queued",
-            "document_id": document_id
-        }
-        
+
+        extraction_request = request or ActionExtractionRequest()
+
+        result = await _extract_actions_for_document(
+            document=document,
+            request_id=request_id,
+            run_workflows=extraction_request.auto_execute
+        )
+
+        return ActionExtractionResponse(
+            document_id=document.id,
+            status=result["status"],
+            extracted_actions=result["actions"],
+            auto_triggered_workflows=result["auto_runs"],
+            analysis_summary=result["analysis_summary"]
+        )
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to trigger extraction: {e}")
+        logger.error(f"[{request_id}] Failed to extract actions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/documents/{document_id}/actions", response_model=ActionExtractionResponse)
+async def get_document_actions(document_id: str):
+    """Retrieve previously extracted actions for a document"""
+    document = document_ingester.get_document(document_id)
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    actions = document.extracted_actions or []
+    analysis_summary = document.analysis_summary or (document.metadata or {}).get('claude_analysis') or {}
+    auto_runs = (document.metadata or {}).get('auto_triggered_workflows', 0)
+
+    return ActionExtractionResponse(
+        document_id=document.id,
+        status=document.status,
+        extracted_actions=actions,
+        auto_triggered_workflows=auto_runs,
+        analysis_summary=analysis_summary
+    )
 
 @app.get("/workflows")
 async def list_workflows():
     """List available workflows"""
     try:
-        workflows = []
+        workflow_details = []
         for name, workflow in workflow_engine.workflows.items():
-            workflows.append({
+            steps = workflow.get("steps", [])
+            metadata = workflow.get("metadata", {})
+
+            workflow_details.append({
                 "name": name,
                 "description": workflow.get("description", ""),
                 "version": workflow.get("version", "1.0.0"),
                 "parameters": workflow.get("parameters", []),
-                "steps": len(workflow.get("steps", []))
+                "step_count": len(steps),
+                "steps": [
+                    {
+                        "id": step.get("id"),
+                        "type": step.get("type"),
+                        "description": step.get("description", "")
+                    }
+                    for step in steps
+                ],
+                "metadata": metadata,
+                "tags": metadata.get("tags", []),
+                "sla_hours": metadata.get("sla_hours")
             })
         
-        return {"workflows": workflows}
+        return {
+            "workflows": workflow_details,
+            "total": len(workflow_details)
+        }
         
     except Exception as e:
         logger.error(f"Failed to list workflows: {e}")
@@ -518,7 +675,20 @@ async def get_workflow(workflow_name: str):
         if workflow_name not in workflow_engine.workflows:
             raise HTTPException(status_code=404, detail="Workflow not found")
         
-        return workflow_engine.workflows[workflow_name]
+        workflow = workflow_engine.workflows[workflow_name]
+        steps = workflow.get("steps", [])
+        metadata = workflow.get("metadata", {})
+        
+        return {
+            "name": workflow.get("name", workflow_name),
+            "description": workflow.get("description", ""),
+            "version": workflow.get("version", "1.0.0"),
+            "parameters": workflow.get("parameters", []),
+            "step_count": len(steps),
+            "steps": steps,
+            "metadata": metadata,
+            "tags": metadata.get("tags", [])
+        }
         
     except HTTPException:
         raise
@@ -661,23 +831,47 @@ async def execute_workflow(request: WorkflowExecutionRequest, background_tasks: 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/workflows/runs")
-async def list_workflow_runs(workflow_name: Optional[str] = None):
+async def list_workflow_runs(
+    workflow_name: Optional[str] = None,
+    status: Optional[str] = None,
+    document_id: Optional[str] = None
+):
     """List all workflow runs"""
     try:
         runs = workflow_engine.list_runs(workflow_name=workflow_name)
+        run_details = []
+
+        for run in runs:
+            if status and run.status.value != status:
+                continue
+            if document_id and run.document_id != document_id:
+                continue
+
+            duration_seconds = None
+            if run.started_at and run.completed_at:
+                try:
+                    duration_seconds = (
+                        datetime.fromisoformat(run.completed_at) -
+                        datetime.fromisoformat(run.started_at)
+                    ).total_seconds()
+                except ValueError:
+                    duration_seconds = None
+
+            run_details.append({
+                "run_id": run.run_id,
+                "workflow_name": run.workflow_name,
+                "document_id": run.document_id,
+                "status": run.status.value,
+                "started_at": run.started_at,
+                "completed_at": run.completed_at,
+                "current_step": run.current_step,
+                "duration_seconds": duration_seconds,
+                "result": run.outputs.get('final_result') if isinstance(run.outputs, dict) else None
+            })
         
         return {
-            "runs": [
-                {
-                    "run_id": run.run_id,
-                    "workflow_name": run.workflow_name,
-                    "document_id": run.document_id,
-                    "status": run.status.value,
-                    "started_at": run.started_at,
-                    "completed_at": run.completed_at
-                }
-                for run in runs
-            ]
+            "runs": run_details,
+            "total": len(run_details)
         }
         
     except Exception as e:
@@ -701,6 +895,21 @@ async def get_workflow_run_status(run_id: str):
             completed_at=run.completed_at,
             current_step=run.current_step,
             outputs=run.outputs,
+            steps_completed=[
+                {
+                    "step_id": step_id,
+                    "status": payload.get("status", "completed") if isinstance(payload, dict) else "completed",
+                    "result": payload
+                }
+                for step_id, payload in (run.outputs.items() if isinstance(run.outputs, dict) else [])
+            ],
+            duration_seconds=(
+                (
+                    datetime.fromisoformat(run.completed_at) -
+                    datetime.fromisoformat(run.started_at)
+                ).total_seconds()
+                if run.started_at and run.completed_at else None
+            ),
             error=run.error
         )
         
@@ -1044,7 +1253,11 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
             raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.folder_path}")
         
         # Generate output filename if not provided
-        output_filename = request.output_filename or f"{folder_path.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        output_filename = (
+            request.output_name
+            or request.output_filename
+            or f"{folder_path.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        )
         
         if request.use_dsl:
             # Execute via DSL workflow
@@ -1087,8 +1300,13 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
                 return FolderCompressionResponse(
                     success=True,
                     output_path=compression_result.get('output_path'),
+                    archive_path=compression_result.get('output_path'),
                     files_compressed=compression_result.get('files_compressed'),
+                    files_included=compression_result.get('files_compressed'),
+                    original_size_bytes=compression_result.get('original_size_bytes'),
+                    compressed_size_bytes=compression_result.get('compressed_size_bytes'),
                     compression_ratio=compression_result.get('compression_ratio'),
+                    duration_seconds=compression_result.get('duration_seconds'),
                     workflow_run_id=run.run_id
                 )
             else:
@@ -1114,8 +1332,13 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
             return FolderCompressionResponse(
                 success=result['success'],
                 output_path=result.get('output_path'),
+                archive_path=result.get('output_path'),
                 files_compressed=result.get('files_compressed'),
+                files_included=result.get('files_compressed'),
+                original_size_bytes=result.get('original_size_bytes'),
+                compressed_size_bytes=result.get('compressed_size_bytes'),
                 compression_ratio=result.get('compression_ratio'),
+                duration_seconds=result.get('duration_seconds'),
                 error=result.get('error')
             )
         
@@ -1127,7 +1350,10 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/documents/convert/docx-to-pdf", response_model=DocumentConversionResponse)
-async def convert_docx_to_pdf(request: DocumentConversionRequest):
+async def convert_docx_to_pdf(
+    request: Optional[DocumentConversionRequest] = Body(default=None),
+    file: UploadFile = File(None)
+):
     """Convert DOCX document to PDF using DSL workflow"""
     request_id = generate_request_id()
     start_time = datetime.now()
@@ -1136,11 +1362,28 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
     
     try:
         input_path = None
+        temp_file_path: Optional[str] = None
+        original_filename: Optional[str] = None
+        
+        request_payload = request.dict() if request else {}
+        
+        if file:
+            original_filename = file.filename or "uploaded_document.docx"
+            suffix = Path(original_filename).suffix or ".docx"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                file_contents = await file.read()
+                tmp_file.write(file_contents)
+                temp_file_path = tmp_file.name
+            request_payload["input_path"] = temp_file_path
+            request_payload.setdefault("output_path", str(Path(temp_file_path).with_suffix('.pdf')))
+            logger.info(f"[{request_id}] Received upload for conversion: {original_filename} -> {request_payload['output_path']}")
+        
+        conversion_request = DocumentConversionRequest(**request_payload)
         
         # Determine input path
-        if request.document_id:
+        if conversion_request.document_id:
             # Get document from ingester
-            document = document_ingester.get_document(request.document_id)
+            document = document_ingester.get_document(conversion_request.document_id)
             if not document:
                 raise HTTPException(status_code=404, detail="Document not found")
             
@@ -1149,10 +1392,10 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
             if not input_path:
                 raise HTTPException(status_code=400, detail="Document does not have associated file path")
         
-        elif request.input_path:
-            input_path = request.input_path
+        elif conversion_request.input_path:
+            input_path = conversion_request.input_path
         else:
-            raise HTTPException(status_code=400, detail="Either document_id or input_path must be provided")
+            raise HTTPException(status_code=400, detail="Either document_id, input_path, or file upload must be provided")
         
         # Validate input file
         input_file = Path(input_path)
@@ -1163,9 +1406,10 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
             raise HTTPException(status_code=400, detail="Input file must be a Word document (.docx or .doc)")
         
         # Determine output path
-        output_path = request.output_path or str(input_file.with_suffix('.pdf'))
+        output_format = conversion_request.target_format or conversion_request.output_format or "pdf"
+        output_path = conversion_request.output_path or str(input_file.with_suffix(f".{output_format}"))
         
-        if request.use_dsl:
+        if conversion_request.use_dsl:
             # Execute via DSL workflow
             logger.info(f"[{request_id}] Executing conversion via DSL workflow")
             
@@ -1178,9 +1422,9 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
                     "operation_type": "document_conversion",
                     "input_path": input_path,
                     "output_path": output_path,
-                    "output_format": request.output_format,
-                    "quality": request.quality,
-                    "preserve_formatting": request.preserve_formatting
+                    "output_format": output_format,
+                    "quality": conversion_request.quality,
+                    "preserve_formatting": conversion_request.preserve_formatting
                 }
             )
             
@@ -1188,9 +1432,9 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
             workflow_params = {
                 "input_path": input_path,
                 "output_path": output_path,
-                "output_format": request.output_format,
-                "quality": request.quality,
-                "preserve_formatting": request.preserve_formatting,
+                "output_format": output_format,
+                "quality": conversion_request.quality,
+                "preserve_formatting": conversion_request.preserve_formatting,
                 "document_id": temp_document.id
             }
             
@@ -1206,7 +1450,11 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
                 return DocumentConversionResponse(
                     success=True,
                     output_path=conversion_result.get('output_path'),
+                    archive_path=conversion_result.get('output_path'),
                     conversion_method="dsl_workflow",
+                    original_file=original_filename or str(input_file),
+                    file_size_bytes=input_file.stat().st_size if input_file.exists() else None,
+                    conversion_time_seconds=(datetime.now() - start_time).total_seconds(),
                     workflow_run_id=run.run_id
                 )
             else:
@@ -1222,15 +1470,19 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
             result = await FileOperations.convert_docx_to_pdf(
                 input_path=input_path,
                 output_path=output_path,
-                quality=request.quality,
-                preserve_formatting=request.preserve_formatting,
+                quality=conversion_request.quality,
+                preserve_formatting=conversion_request.preserve_formatting,
                 use_claude=False  # Direct mode doesn't use Claude
             )
             
             return DocumentConversionResponse(
                 success=result['success'],
                 output_path=result.get('output_path'),
+                archive_path=result.get('output_path'),
                 conversion_method=result.get('method'),
+                original_file=original_filename or str(input_file),
+                file_size_bytes=input_file.stat().st_size if input_file.exists() else None,
+                conversion_time_seconds=result.get('duration_seconds'),
                 error=result.get('error')
             )
         
@@ -1240,6 +1492,12 @@ async def convert_docx_to_pdf(request: DocumentConversionRequest):
         total_time = (datetime.now() - start_time).total_seconds()
         logger.error(f"[{request_id}] Document conversion failed after {total_time:.2f}s: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if file and temp_file_path and Path(temp_file_path).exists():
+            try:
+                Path(temp_file_path).unlink()
+            except Exception:
+                logger.debug(f"[{request_id}] Failed to remove temporary file {temp_file_path}")
 
 @app.post("/documents/convert/batch")
 async def batch_convert_documents(request: BatchConversionRequest, background_tasks: BackgroundTasks):
@@ -1247,11 +1505,26 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
     request_id = generate_request_id()
     start_time = datetime.now()
     
-    logger.info(f"[{request_id}] Batch conversion requested: {len(request.input_files)} files")
+    input_files: List[str] = list(request.input_files or [])
+    
+    if request.document_ids:
+        for document_id in request.document_ids:
+            document = document_ingester.get_document(document_id)
+            if not document:
+                raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
+            file_path = (document.metadata or {}).get('file_path')
+            if not file_path:
+                raise HTTPException(status_code=400, detail=f"Document {document_id} has no associated file path")
+            input_files.append(file_path)
+    
+    if not input_files:
+        raise HTTPException(status_code=400, detail="No input files provided for batch conversion")
+    
+    logger.info(f"[{request_id}] Batch conversion requested: {len(input_files)} files")
     
     try:
         # Validate input files exist
-        for file_path in request.input_files:
+        for file_path in input_files:
             if not Path(file_path).exists():
                 raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
         
@@ -1271,11 +1544,11 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
                     # Create temporary document for batch operation
                     temp_document = Document(
                         id=f"batch_{request_id}",
-                        filename=f"batch_conversion_{len(request.input_files)}_files",
-                        text=f"Batch convert {len(request.input_files)} files",
+                        filename=f"batch_conversion_{len(input_files)}_files",
+                        text=f"Batch convert {len(input_files)} files",
                         metadata={
                             "operation_type": "batch_conversion",
-                            "input_files": request.input_files,
+                            "input_files": input_files,
                             "output_directory": str(output_dir),
                             "conversion_type": request.conversion_type,
                             "parallel": request.parallel,
@@ -1285,7 +1558,7 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
                     
                     # Execute batch conversion workflow
                     workflow_params = {
-                        "input_files": request.input_files,
+                        "input_files": input_files,
                         "output_directory": str(output_dir),
                         "conversion_type": request.conversion_type,
                         "parallel": request.parallel,
@@ -1309,14 +1582,14 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
             return {
                 "message": "Batch conversion queued for processing",
                 "request_id": request_id,
-                "files_queued": len(request.input_files),
+                "files_queued": len(input_files),
                 "output_directory": str(output_dir),
                 "processing_mode": "dsl_workflow"
             }
         else:
             # Direct batch conversion
             result = await FileOperations.batch_convert_documents(
-                input_files=request.input_files,
+                input_files=input_files,
                 output_dir=str(output_dir),
                 conversion_type=request.conversion_type,
                 parallel=request.parallel,
@@ -1342,15 +1615,55 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with component metadata as described in README"""
+    try:
+        documents = document_ingester.list_documents()
+    except Exception:
+        documents = []
+
+    total_workflows = len(workflow_engine.workflows)
+    runs = workflow_engine.list_runs()
+    active_runs = [run for run in runs if run.status == WorkflowStatus.RUNNING]
+
+    # Lazy import to avoid circular dependencies at module load
+    from agent_providers import agent_registry, AgentCapability  # type: ignore
+
+    available_agents = [provider["name"] for provider in agent_registry.list_providers()]
+    capabilities = sorted({cap for provider in agent_registry.list_providers() for cap in provider["capabilities"]})
+
+    claude_components = {
+        "status": "operational",
+        "dsl_loaded": bool(getattr(claude_service, "dsl_config", {})),
+        "agent_mappings_loaded": bool(getattr(claude_service, "agent_mappings", {})),
+        "default_timeout_seconds": getattr(claude_service.cli, "timeout", None)
+    }
+
     return {
         "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
         "components": {
-            "ingester": "operational",
-            "extractor": "operational",
-            "workflow_engine": "operational",
-            "api": "operational",
-            "claude_service": "operational"
+            "api": {"status": "operational"},
+            "ingester": {
+                "status": "operational",
+                "stored_documents": len(documents)
+            },
+            "extractor": {"status": "operational"},
+            "workflow_engine": {
+                "status": "operational",
+                "workflows_loaded": total_workflows,
+                "active_runs": len(active_runs)
+            },
+            "claude_service": claude_components,
+            "agent_registry": {
+                "status": "operational",
+                "registered_agents": available_agents,
+                "capabilities": capabilities
+            },
+            "mcp_servers": {
+                "status": "operational",
+                "available": [member.value for member in SuperClaudeMCP],
+                "active": []  # Real-time active MCP tracking not yet implemented
+            }
         }
     }
 

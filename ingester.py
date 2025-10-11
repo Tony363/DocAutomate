@@ -33,6 +33,9 @@ class Document:
     extracted_actions: Optional[List[Dict]] = None
     workflow_runs: Optional[List[str]] = None
     error: Optional[str] = None
+    quality_score: Optional[float] = None
+    primary_agent: Optional[str] = None
+    analysis_summary: Optional[Dict[str, Any]] = None
 
 class DocumentIngester:
     """

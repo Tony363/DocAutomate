@@ -54,6 +54,10 @@ class TestFileOperationsAPI:
         assert response.status_code == 200
         
         data = response.json()
+        assert data["version"] == "2.0.0"
+        assert "features" in data
+        assert "Multi-agent orchestration" in data["features"]
+        
         endpoints = data["endpoints"]
         
         assert "compress_folder" in endpoints
@@ -72,12 +76,15 @@ class TestFileOperationsAPI:
             'success': True,
             'output_path': str(self.temp_path / "test.zip"),
             'files_compressed': 3,
-            'compression_ratio': "25.5%"
+            'original_size_bytes': 10240,
+            'compressed_size_bytes': 5120,
+            'compression_ratio': "50.0%",
+            'duration_seconds': 1.2
         }
         
         request_data = {
             "folder_path": str(self.test_folder),
-            "output_filename": "test.zip",
+            "output_name": "test.zip",
             "include_patterns": ["*.txt", "*.docx"],
             "compression_level": 6,
             "use_dsl": False
@@ -89,8 +96,12 @@ class TestFileOperationsAPI:
         data = response.json()
         assert data["success"] == True
         assert "output_path" in data
+        assert data["archive_path"] == data["output_path"]
         assert data["files_compressed"] == 3
-        assert data["compression_ratio"] == "25.5%"
+        assert data["files_included"] == 3
+        assert data["compression_ratio"] == "50.0%"
+        assert data["original_size_bytes"] == 10240
+        assert data["compressed_size_bytes"] == 5120
         
         # Verify the mock was called correctly
         mock_compress.assert_called_once()
@@ -134,13 +145,15 @@ class TestFileOperationsAPI:
         mock_convert.return_value = {
             'success': True,
             'output_path': str(self.temp_path / "test.pdf"),
-            'method': 'docx2pdf_library'
+            'method': 'docx2pdf_library',
+            'duration_seconds': 2.1
         }
         
         request_data = {
             "input_path": str(test_docx),
             "output_path": str(self.temp_path / "test.pdf"),
             "output_format": "pdf",
+            "target_format": "pdf",
             "quality": "high",
             "preserve_formatting": True,
             "use_dsl": False
@@ -152,7 +165,11 @@ class TestFileOperationsAPI:
         data = response.json()
         assert data["success"] == True
         assert "output_path" in data
+        assert data["archive_path"] == data["output_path"]
         assert data["conversion_method"] == "docx2pdf_library"
+        assert data["original_file"].endswith("test.docx")
+        assert data["file_size_bytes"] == test_docx.stat().st_size
+        assert data["conversion_time_seconds"] == 2.1
         
         # Verify the mock was called correctly
         mock_convert.assert_called_once()

@@ -825,6 +825,64 @@ JSON OUTPUT (no other text):"""
         result.metadata["quality_loop"] = quality_loop
         
         return result
+
+    def execute_with_agent(self,
+                           agent: Union[SuperClaudeAgent, str],
+                           prompt: str,
+                           mode: Optional[Union[SuperClaudeMode, str]] = None,
+                           context_files: Optional[List[str]] = None,
+                           flags: Optional[List[str]] = None) -> CLIResult:
+        """
+        Execute a task with a specific SuperClaude agent and optional context
+        """
+        mode_str = mode.value if isinstance(mode, SuperClaudeMode) else mode
+        agent_str = agent.value if isinstance(agent, SuperClaudeAgent) else agent
+
+        # Build contextual information from files
+        context_sections = []
+        if context_files:
+            for context_path in context_files:
+                try:
+                    content = Path(context_path).read_text(encoding="utf-8")
+                    context_sections.append(
+                        f"File: {context_path}\n---\n{content[:2000]}\n---"
+                    )
+                except Exception as exc:
+                    logger.warning(f"Failed to read context file {context_path}: {exc}")
+
+        context_block = ""
+        if context_sections:
+            context_block = "Context Documents:\n" + "\n\n".join(context_sections) + "\n\n"
+
+        flag_block = ""
+        if flags:
+            flag_block = "\n".join(flags)
+
+        # Determine behavior flags
+        task_manage = mode_str == SuperClaudeMode.TASK_MANAGE.value if isinstance(mode_str, str) else False
+        quality_loop = (flags and "--loop" in flags) or (mode_str == SuperClaudeMode.LOOP.value if isinstance(mode_str, str) else False)
+
+        combined_prompt = f"{context_block}{prompt}"
+        if flag_block:
+            combined_prompt = f"{flag_block}\n\n{combined_prompt}"
+
+        result = self.delegate_to_agent(
+            prompt=combined_prompt,
+            agent=agent_str,
+            task_manage=task_manage,
+            quality_loop=quality_loop
+        )
+
+        if result.metadata is None:
+            result.metadata = {}
+
+        result.metadata.update({
+            "mode": mode_str,
+            "flags": flags or [],
+            "context_files": context_files or []
+        })
+
+        return result
     
     def use_mcp_server(self, 
                       prompt: str, 
@@ -1079,6 +1137,24 @@ class AsyncClaudeCLI(ClaudeCLI):
                                      quality_loop: bool = False) -> CLIResult:
         """Async wrapper for delegate_to_agent"""
         return await asyncio.to_thread(self.delegate_to_agent, prompt, agent, task_manage, quality_loop)
+
+    async def execute_with_agent_async(
+        self,
+        agent: Union[SuperClaudeAgent, str],
+        prompt: str,
+        mode: Optional[Union[SuperClaudeMode, str]] = None,
+        context_files: Optional[List[str]] = None,
+        flags: Optional[List[str]] = None
+    ) -> CLIResult:
+        """Async wrapper for execute_with_agent"""
+        return await asyncio.to_thread(
+            self.execute_with_agent,
+            agent,
+            prompt,
+            mode,
+            context_files,
+            flags
+        )
 
 # Example usage and testing
 if __name__ == "__main__":
