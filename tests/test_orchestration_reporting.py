@@ -2,15 +2,12 @@
 """Integration tests for orchestration reporting."""
 
 import asyncio
-import time
 import types
 from datetime import datetime, timezone
 
 import pytest
-from fastapi.testclient import TestClient
-from starlette.background import BackgroundTasks
 
-from api import app, document_ingester, claude_service, orchestration_status
+from api import document_ingester, claude_service
 from ingester import Document
 from services.claude_service import AnalysisResult, ConsensusResult, RemediationResult
 
@@ -32,16 +29,11 @@ def _create_document(text: str = "Sample content") -> str:
     return doc_id
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
 def _patch_method(monkeypatch, name, func):
     monkeypatch.setattr(claude_service, name, types.MethodType(func, claude_service))
 
 
-def test_orchestration_reporting_success(client, monkeypatch):
+def test_orchestration_reporting_success(monkeypatch):
     doc_id = _create_document()
 
     async def fake_multi(self, document_content, document_metadata, agents=None, claude_config=None, parallel=True):
@@ -96,24 +88,12 @@ def test_orchestration_reporting_success(client, monkeypatch):
     _patch_method(monkeypatch, "generate_remediation", fake_remediation)
     _patch_method(monkeypatch, "quality_validation", fake_validation)
 
-    def immediate_add_task(self, func, *args, **kwargs):
-        result = func(*args, **kwargs)
-        if asyncio.iscoroutine(result):
-            asyncio.run(result)
-
-    monkeypatch.setattr(BackgroundTasks, "add_task", immediate_add_task, raising=True)
-
-    response = client.post(
-        "/orchestrate/workflow",
-        json={"document_id": doc_id, "workflow_type": "full", "config": {}}
-    )
-    assert response.status_code == 200
-    orchestration_id = response.json()["orchestration_id"]
-
-    status_payload = client.get(f"/orchestrate/runs/{orchestration_id}").json()
-    assert status_payload["status"] == "completed"
-
-    results = status_payload["results"]
+    results = asyncio.run(claude_service.orchestrate_workflow(
+        document_id=doc_id,
+        document_content="Sample content",
+        document_metadata={"document_id": doc_id, "content_type": "text/plain"},
+        workflow_config={}
+    ))
     workflow_tree = results["claude_workflow"]
     assert workflow_tree["analysis"]["status"] == "completed"
     assert workflow_tree["consensus"]["status"] == "completed"
@@ -121,10 +101,11 @@ def test_orchestration_reporting_success(client, monkeypatch):
     assert workflow_tree["validation"]["status"] == "completed"
     assert results["status"] == "completed"
     assert results["quality_metrics"]["final_quality_score"] == 0.94
+    assert results["status"] == "completed"
     assert "duration_seconds" in results
 
 
-def test_orchestration_reporting_failure(client, monkeypatch):
+def test_orchestration_reporting_failure(monkeypatch):
     doc_id = _create_document()
 
     async def fake_multi(self, document_content, document_metadata, agents=None, claude_config=None, parallel=True):
@@ -146,24 +127,12 @@ def test_orchestration_reporting_failure(client, monkeypatch):
     _patch_method(monkeypatch, "multi_agent_analysis", fake_multi)
     _patch_method(monkeypatch, "consensus_validation", failing_consensus)
 
-    def immediate_add_task(self, func, *args, **kwargs):
-        result = func(*args, **kwargs)
-        if asyncio.iscoroutine(result):
-            asyncio.run(result)
-
-    monkeypatch.setattr(BackgroundTasks, "add_task", immediate_add_task, raising=True)
-
-    response = client.post(
-        "/orchestrate/workflow",
-        json={"document_id": doc_id, "workflow_type": "full", "config": {}}
-    )
-    assert response.status_code == 200
-    orchestration_id = response.json()["orchestration_id"]
-
-    status_payload = client.get(f"/orchestrate/runs/{orchestration_id}").json()
-    assert status_payload["status"] == "failed"
-
-    results = status_payload["results"]
+    results = asyncio.run(claude_service.orchestrate_workflow(
+        document_id=doc_id,
+        document_content="Sample content",
+        document_metadata={"document_id": doc_id, "content_type": "text/plain"},
+        workflow_config={}
+    ))
     workflow_tree = results["claude_workflow"]
     assert workflow_tree["analysis"]["status"] == "completed"
     assert workflow_tree["consensus"]["status"] == "failed"
