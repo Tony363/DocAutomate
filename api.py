@@ -24,6 +24,7 @@ from workflow_matcher import WorkflowMatcher
 from services.claude_service import claude_service
 from claude_cli import SuperClaudeMCP
 from utils.file_operations import FileOperations
+from utils.metrics import collect_health_metrics, format_duration
 from enum import Enum
 
 # Set up logging with more detail
@@ -36,23 +37,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-def format_duration(seconds: Optional[float]) -> Optional[str]:
-    if seconds is None:
-        return None
-    try:
-        total_seconds = int(round(float(seconds)))
-    except (TypeError, ValueError):
-        return None
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, secs = divmod(remainder, 60)
-    parts: List[str] = []
-    if hours:
-        parts.append(f"{hours}h")
-    if minutes or hours:
-        parts.append(f"{minutes}m")
-    parts.append(f"{secs}s")
-    return " ".join(parts)
 
 # Request tracking
 def generate_request_id():
@@ -1663,48 +1647,66 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
 @app.get("/health")
 async def health_check():
     """Health check endpoint with component metadata as described in README"""
-    try:
-        documents = document_ingester.list_documents()
-    except Exception:
-        documents = []
+    metrics_payload = collect_health_metrics(document_ingester, workflow_engine, claude_service)
+    document_counts = metrics_payload.get("document_counts", {})
+    workflow_metrics = metrics_payload.get("workflow_metrics", {})
+    claude_integration = metrics_payload.get("claude_integration", {})
+    system_metrics = metrics_payload.get("system_metrics", {})
 
     total_workflows = len(workflow_engine.workflows)
-    runs = workflow_engine.list_runs()
-    active_runs = [run for run in runs if run.status == WorkflowStatus.RUNNING]
 
     # Lazy import to avoid circular dependencies at module load
-    from agent_providers import agent_registry, AgentCapability  # type: ignore
+    from agent_providers import agent_registry  # type: ignore
 
-    available_agents = [provider["name"] for provider in agent_registry.list_providers()]
-    capabilities = sorted({cap for provider in agent_registry.list_providers() for cap in provider["capabilities"]})
+    providers = agent_registry.list_providers()
+    available_agents = [provider["name"] for provider in providers]
+    capabilities = sorted({cap for provider in providers for cap in provider.get("capabilities", [])})
 
     claude_components = {
         "status": "operational",
         "dsl_loaded": bool(getattr(claude_service, "dsl_config", {})),
         "agent_mappings_loaded": bool(getattr(claude_service, "agent_mappings", {})),
-        "default_timeout_seconds": getattr(claude_service.cli, "timeout", None)
+        "default_timeout_seconds": getattr(claude_service.cli, "timeout", None),
+        "default_model": claude_integration.get("default_model"),
+        "models_available": claude_integration.get("models_available"),
     }
 
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
+        "uptime": metrics_payload.get("uptime"),
+        "uptime_seconds": metrics_payload.get("uptime_seconds"),
+        "document_counts": document_counts,
+        "workflow_metrics": workflow_metrics,
+        "claude_integration": claude_integration,
+        "system_metrics": system_metrics,
         "components": {
-            "api": {"status": "operational"},
+            "api": {
+                "status": "operational",
+                "response_time_ms": None
+            },
             "ingester": {
                 "status": "operational",
-                "stored_documents": len(documents)
+                "stored_documents": document_counts.get("total", 0),
+                "pending_documents": document_counts.get("pending", 0),
+                "failed_documents": document_counts.get("failed", 0)
             },
             "extractor": {"status": "operational"},
             "workflow_engine": {
                 "status": "operational",
                 "workflows_loaded": total_workflows,
-                "active_runs": len(active_runs)
+                "active_runs": workflow_metrics.get("running", 0),
+                "successful_runs": workflow_metrics.get("successful_runs", 0),
+                "failed_runs": workflow_metrics.get("failed_runs", 0),
+                "success_rate": workflow_metrics.get("success_rate")
             },
             "claude_service": claude_components,
             "agent_registry": {
                 "status": "operational",
-                "registered_agents": available_agents,
-                "capabilities": capabilities
+                "registered_agents": len(available_agents),
+                "available_agents": available_agents,
+                "capabilities": capabilities,
+                "active_agents": []
             },
             "mcp_servers": {
                 "status": "operational",
