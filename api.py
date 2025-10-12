@@ -36,6 +36,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def format_duration(seconds: Optional[float]) -> Optional[str]:
+    if seconds is None:
+        return None
+    try:
+        total_seconds = int(round(float(seconds)))
+    except (TypeError, ValueError):
+        return None
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts: List[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or hours:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s")
+    return " ".join(parts)
+
 # Request tracking
 def generate_request_id():
     """Generate unique request ID for tracking"""
@@ -120,8 +138,10 @@ class WorkflowRunStatusResponse(BaseModel):
     completed_at: Optional[str]
     current_step: Optional[str]
     outputs: Dict[str, Any]
-    steps_completed: Optional[List[Dict[str, Any]]]
+    step_history: List[Dict[str, Any]]
     duration_seconds: Optional[float]
+    duration_formatted: Optional[str]
+    summary: Optional[Dict[str, Any]]
     error: Optional[str]
 
 class OrchestrationRequest(BaseModel):
@@ -642,6 +662,31 @@ async def list_workflows():
         for name, workflow in workflow_engine.workflows.items():
             steps = workflow.get("steps", [])
             metadata = workflow.get("metadata", {})
+            metrics = workflow_engine.get_workflow_metrics(name)
+            step_metrics_map = {m["step_id"]: m for m in metrics.get("step_metrics", [])}
+
+            enriched_steps = []
+            for step in steps:
+                step_id = step.get("id")
+                metric = step_metrics_map.get(step_id, {})
+                enriched_steps.append({
+                    "id": step_id,
+                    "type": step.get("type"),
+                    "description": step.get("description", ""),
+                    "average_duration_seconds": metric.get("average_duration_seconds"),
+                    "average_duration_formatted": metric.get("average_duration_formatted"),
+                    "runs": metric.get("runs"),
+                    "success_count": metric.get("success_count"),
+                    "failure_count": metric.get("failure_count")
+                })
+
+            metrics_with_sla = dict(metrics)
+            metrics_with_sla["sla_hours"] = metadata.get("sla_hours")
+            metrics_with_sla["average_duration_hours"] = (
+                metrics.get("average_duration_seconds") / 3600
+                if metrics.get("average_duration_seconds")
+                else None
+            )
 
             workflow_details.append({
                 "name": name,
@@ -649,17 +694,10 @@ async def list_workflows():
                 "version": workflow.get("version", "1.0.0"),
                 "parameters": workflow.get("parameters", []),
                 "step_count": len(steps),
-                "steps": [
-                    {
-                        "id": step.get("id"),
-                        "type": step.get("type"),
-                        "description": step.get("description", "")
-                    }
-                    for step in steps
-                ],
+                "steps": enriched_steps,
                 "metadata": metadata,
                 "tags": metadata.get("tags", []),
-                "sla_hours": metadata.get("sla_hours")
+                "metrics": metrics_with_sla
             })
         
         return {
@@ -681,7 +719,8 @@ async def get_workflow(workflow_name: str):
         workflow = workflow_engine.workflows[workflow_name]
         steps = workflow.get("steps", [])
         metadata = workflow.get("metadata", {})
-        
+        metrics = workflow_engine.get_workflow_metrics(workflow_name)
+
         return {
             "name": workflow.get("name", workflow_name),
             "description": workflow.get("description", ""),
@@ -690,7 +729,8 @@ async def get_workflow(workflow_name: str):
             "step_count": len(steps),
             "steps": steps,
             "metadata": metadata,
-            "tags": metadata.get("tags", [])
+            "tags": metadata.get("tags", []),
+            "metrics": metrics
         }
         
     except HTTPException:
@@ -850,16 +890,7 @@ async def list_workflow_runs(
             if document_id and run.document_id != document_id:
                 continue
 
-            duration_seconds = None
-            if run.started_at and run.completed_at:
-                try:
-                    duration_seconds = (
-                        datetime.fromisoformat(run.completed_at) -
-                        datetime.fromisoformat(run.started_at)
-                    ).total_seconds()
-                except ValueError:
-                    duration_seconds = None
-
+            duration_seconds = run.total_duration_seconds
             run_details.append({
                 "run_id": run.run_id,
                 "workflow_name": run.workflow_name,
@@ -869,6 +900,9 @@ async def list_workflow_runs(
                 "completed_at": run.completed_at,
                 "current_step": run.current_step,
                 "duration_seconds": duration_seconds,
+                "duration_formatted": format_duration(duration_seconds),
+                "step_history": run.step_history or [],
+                "summary": run.summary,
                 "result": run.outputs.get('final_result') if isinstance(run.outputs, dict) else None
             })
         
@@ -898,21 +932,10 @@ async def get_workflow_run_status(run_id: str):
             completed_at=run.completed_at,
             current_step=run.current_step,
             outputs=run.outputs,
-            steps_completed=[
-                {
-                    "step_id": step_id,
-                    "status": payload.get("status", "completed") if isinstance(payload, dict) else "completed",
-                    "result": payload
-                }
-                for step_id, payload in (run.outputs.items() if isinstance(run.outputs, dict) else [])
-            ],
-            duration_seconds=(
-                (
-                    datetime.fromisoformat(run.completed_at) -
-                    datetime.fromisoformat(run.started_at)
-                ).total_seconds()
-                if run.started_at and run.completed_at else None
-            ),
+            step_history=run.step_history or [],
+            duration_seconds=run.total_duration_seconds,
+            duration_formatted=format_duration(run.total_duration_seconds),
+            summary=run.summary,
             error=run.error
         )
         
@@ -976,32 +999,23 @@ async def orchestrate_workflow(request: OrchestrationRequest, background_tasks: 
                     workflow_config=request.config
                 )
                 
-                logger.info(f"[{orchestration_id}] Orchestration completed with quality score: {results.get('final_quality_score', 0)}")
+                logger.info(f"[{orchestration_id}] Orchestration finished with status: {results.get('status')}")
                 
                 # Save remediated document to filesystem if available
                 remediated_content = None
                 remediation_path = None
-                
-                # Extract remediated content from the orchestration results
-                remediation_step = results.get('steps', {}).get('remediation', {})
+                remediation_step = (results.get('claude_workflow', {}) or {}).get('remediation', {})
                 if remediation_step.get('status') == 'completed':
-                    # Get the actual remediated content from claude_service
-                    # This should be available in the orchestration workflow results
                     if 'remediated_content' in results:
                         remediated_content = results['remediated_content']
                     elif hasattr(claude_service, '_last_remediation_result'):
-                        # Fallback to get content from service if stored there
                         remediated_content = getattr(claude_service, '_last_remediation_result', None)
-                        
                     if remediated_content:
-                        # Save remediated document to filesystem
                         output_dir = Path(f"docs/generated/{document.id}")
                         output_dir.mkdir(parents=True, exist_ok=True)
-                        
                         output_file = output_dir / "remediated_document.md"
                         output_file.write_text(remediated_content, encoding='utf-8')
                         remediation_path = str(output_file)
-                        
                         logger.info(f"[{orchestration_id}] Saved remediated document to {remediation_path}")
                 
                 # Store results with remediation path
@@ -1015,15 +1029,23 @@ async def orchestrate_workflow(request: OrchestrationRequest, background_tasks: 
                 
                 await document_ingester._store_document(document)
                 
-                # Update final orchestration status
-                orchestration_status[orchestration_id].update({
-                    "status": OrchestrationStatus.COMPLETED.value,
-                    "current_step": "completed",
+                final_status = results.get('status', 'completed')
+                step_status_map = results.get('claude_workflow', {}) or {}
+                completed_steps = [
+                    name for name, data in step_status_map.items()
+                    if isinstance(data, dict) and data.get('status') == 'completed'
+                ]
+                status_payload = {
+                    "status": OrchestrationStatus.COMPLETED.value if final_status == 'completed' else OrchestrationStatus.FAILED.value,
+                    "current_step": "completed" if final_status == 'completed' else "failed",
                     "completed_at": datetime.now().isoformat(),
                     "results": results,
-                    "steps_completed": list(results.get('steps', {}).keys())
-                })
-                
+                    "steps_completed": completed_steps
+                }
+                if final_status != 'completed':
+                    status_payload["error"] = results.get('error')
+                orchestration_status[orchestration_id].update(status_payload)
+
             except Exception as e:
                 logger.error(f"[{orchestration_id}] Orchestration failed: {e}")
                 orchestration_status[orchestration_id].update({

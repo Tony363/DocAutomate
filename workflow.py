@@ -10,8 +10,8 @@ import logging
 import asyncio
 from typing import Dict, Any, List, Optional, Callable
 from pathlib import Path
-from datetime import datetime
-from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 from jinja2 import Template
 import aiohttp
@@ -25,6 +25,25 @@ from utils.file_operations import FileOperations
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _format_seconds(seconds: Optional[float]) -> Optional[str]:
+    """Format duration seconds into human readable string."""
+    if seconds is None:
+        return None
+    try:
+        total_seconds = int(round(float(seconds)))
+    except (TypeError, ValueError):
+        return None
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts: List[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or hours:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s")
+    return " ".join(parts)
 
 class WorkflowStatus(str, Enum):
     """Workflow execution status"""
@@ -48,6 +67,9 @@ class WorkflowRun:
     completed_at: Optional[str]
     error: Optional[str]
     outputs: Dict[str, Any]
+    step_history: List[Dict[str, Any]] = field(default_factory=list)
+    total_duration_seconds: Optional[float] = None
+    summary: Optional[Dict[str, Any]] = None
 
 class WorkflowEngine:
     """
@@ -118,6 +140,7 @@ class WorkflowEngine:
             raise ValueError(f"Workflow '{workflow_name}' not found")
         
         workflow = self.workflows[workflow_name]
+        run_started_at = datetime.now(timezone.utc)
         
         # Create workflow run
         run = WorkflowRun(
@@ -128,10 +151,13 @@ class WorkflowEngine:
             current_step=None,
             parameters=initial_parameters,
             state={},
-            started_at=datetime.utcnow().isoformat(),
+            started_at=run_started_at.isoformat(),
             completed_at=None,
             error=None,
-            outputs={}
+            outputs={},
+            step_history=[],
+            total_duration_seconds=None,
+            summary=None
         )
         
         # Save initial state
@@ -154,47 +180,83 @@ class WorkflowEngine:
             for step in workflow.get('steps', []):
                 run.current_step = step['id']
                 await self._save_state(run)
-                
+
                 logger.info(f"Executing step: {step['id']} ({step.get('description', '')})")
-                
-                # Resolve template variables
+
                 resolved_config = self._resolve_templates(
                     step.get('config', {}),
                     initial_parameters,
                     run.state
                 )
-                
-                # Execute action
+
                 action_type = step['type']
                 if action_type not in self.action_registry:
                     raise ValueError(f"Unknown action type: {action_type}")
-                
+
                 action_handler = self.action_registry[action_type]
-                result = await action_handler(resolved_config, run.state)
-                
-                # Store step result in nested structure for template access
-                if "steps" not in run.state:
-                    run.state["steps"] = {}
-                run.state["steps"][step['id']] = result
-                run.outputs[step['id']] = result
-                
-                # Check for step failure
-                if isinstance(result, dict) and result.get('status') == 'failed':
-                    raise Exception(f"Step {step['id']} failed: {result.get('error', 'Unknown error')}")
+
+                step_start_dt = datetime.now(timezone.utc)
+                step_result: Any = None
+                step_status = "success"
+                step_error: Optional[str] = None
+                step_exception: Optional[Exception] = None
+
+                try:
+                    step_result = await action_handler(resolved_config, run.state)
+                    if isinstance(step_result, dict) and step_result.get('status') == 'failed':
+                        step_status = 'failed'
+                        step_error = step_result.get('error', f"Step {step['id']} failed")
+                        raise Exception(step_error)
+                except Exception as exc:
+                    step_status = 'failed'
+                    step_exception = exc
+                    if not step_error:
+                        step_error = str(exc)
+                    if step_result is None:
+                        step_result = {"status": "failed", "error": step_error}
+                finally:
+                    step_end_dt = datetime.now(timezone.utc)
+                    duration = (step_end_dt - step_start_dt).total_seconds()
+                    step_entry = {
+                        "step_id": step['id'],
+                        "name": step.get('name') or step.get('description', ''),
+                        "type": action_type,
+                        "status": step_status,
+                        "started_at": step_start_dt.isoformat(),
+                        "completed_at": step_end_dt.isoformat(),
+                        "duration_seconds": duration,
+                        "duration_formatted": _format_seconds(duration),
+                        "summary": self._summarize_step_result(step_result),
+                        "error": step_error
+                    }
+                    run.step_history.append(step_entry)
+
+                    if "steps" not in run.state:
+                        run.state["steps"] = {}
+                    run.state["steps"][step['id']] = step_result
+                    run.outputs[step['id']] = step_result
+                    await self._save_state(run)
+
+                if step_exception:
+                    raise step_exception
             
             # Workflow completed successfully
             run.status = WorkflowStatus.SUCCESS
-            run.completed_at = datetime.utcnow().isoformat()
+            run.completed_at = datetime.now(timezone.utc).isoformat()
             
         except Exception as e:
             # Workflow failed
             logger.error(f"Workflow {workflow_name} failed: {str(e)}")
             run.status = WorkflowStatus.FAILED
             run.error = str(e)
-            run.completed_at = datetime.utcnow().isoformat()
-        
-        # Save final state
-        await self._save_state(run)
+            if not run.completed_at:
+                run.completed_at = datetime.now(timezone.utc).isoformat()
+        finally:
+            run.total_duration_seconds = (datetime.now(timezone.utc) - run_started_at).total_seconds()
+            if not run.completed_at:
+                run.completed_at = datetime.now(timezone.utc).isoformat()
+            run.summary = self._build_run_summary(run, workflow)
+            await self._save_state(run)
         
         return run
     
@@ -272,7 +334,6 @@ class WorkflowEngine:
                 transformed['action'] = [transformed['action']]
         
         # Handle date fields across all workflows
-        from datetime import datetime
         for key, value in list(transformed.items()):
             if isinstance(value, datetime):
                 transformed[key] = value.isoformat()
@@ -408,6 +469,37 @@ class WorkflowEngine:
             return value
         
         return resolve_value(config)
+
+    def _summarize_step_result(self, result: Any) -> Optional[str]:
+        """Extract a short summary string from a step result."""
+        if isinstance(result, dict):
+            for key in ("summary", "message", "status"):
+                value = result.get(key)
+                if isinstance(value, str) and value:
+                    return value[:200]
+            output = result.get("output")
+            if isinstance(output, str) and output:
+                return output[:200]
+        elif isinstance(result, str):
+            return result[:200]
+        return None
+
+    def _build_run_summary(self, run: WorkflowRun, workflow: Dict[str, Any]) -> Dict[str, Any]:
+        """Construct high-level metadata for a workflow run."""
+        total_steps = len(workflow.get('steps', []))
+        failed_steps = [step for step in (run.step_history or []) if step.get('status') != 'success']
+        return {
+            "workflow_name": run.workflow_name,
+            "run_id": run.run_id,
+            "status": run.status.value,
+            "total_steps": total_steps,
+            "completed_steps": len(run.step_history or []),
+            "failed_steps": [step.get('step_id') for step in failed_steps],
+            "duration_seconds": run.total_duration_seconds,
+            "duration_formatted": _format_seconds(run.total_duration_seconds),
+            "started_at": run.started_at,
+            "completed_at": run.completed_at
+        }
     
     async def _save_state(self, run: WorkflowRun):
         """Persist workflow run state"""
@@ -970,6 +1062,77 @@ class WorkflowEngine:
                     runs.append(run)
         
         return sorted(runs, key=lambda x: x.started_at, reverse=True)
+
+    def get_workflow_metrics(self, workflow_name: str) -> Dict[str, Any]:
+        """Aggregate run statistics for a workflow."""
+        runs = self.list_runs(workflow_name)
+        if not runs:
+            return {
+                "run_count": 0,
+                "success_rate": None,
+                "average_duration_seconds": None,
+                "average_duration_formatted": None,
+                "step_metrics": [],
+                "last_run_at": None
+            }
+
+        total_durations = [run.total_duration_seconds for run in runs if run.total_duration_seconds]
+        avg_total = sum(total_durations) / len(total_durations) if total_durations else None
+        success_count = sum(1 for run in runs if run.status == WorkflowStatus.SUCCESS)
+
+        step_metrics: Dict[str, Dict[str, Any]] = {}
+        order_map = {
+            step.get('id'): idx
+            for idx, step in enumerate(self.workflows.get(workflow_name, {}).get('steps', []))
+        }
+
+        for run in runs:
+            if not run.step_history:
+                continue
+            for entry in run.step_history:
+                step_id = entry.get("step_id")
+                if not step_id:
+                    continue
+                bucket = step_metrics.setdefault(step_id, {
+                    "name": entry.get("name"),
+                    "type": entry.get("type"),
+                    "durations": [],
+                    "success_count": 0,
+                    "failure_count": 0
+                })
+                duration = entry.get("duration_seconds")
+                if isinstance(duration, (int, float)):
+                    bucket["durations"].append(duration)
+                if entry.get("status") == "success":
+                    bucket["success_count"] += 1
+                else:
+                    bucket["failure_count"] += 1
+
+        step_metrics_list = []
+        for step_id, bucket in step_metrics.items():
+            durations = bucket["durations"]
+            avg_duration = sum(durations) / len(durations) if durations else None
+            step_metrics_list.append({
+                "step_id": step_id,
+                "name": bucket.get("name"),
+                "type": bucket.get("type"),
+                "average_duration_seconds": avg_duration,
+                "average_duration_formatted": _format_seconds(avg_duration),
+                "runs": len(durations),
+                "success_count": bucket["success_count"],
+                "failure_count": bucket["failure_count"]
+            })
+
+        step_metrics_list.sort(key=lambda item: (order_map.get(item["step_id"], 999), item["step_id"]))
+
+        return {
+            "run_count": len(runs),
+            "success_rate": round(success_count / len(runs), 2) if runs else None,
+            "average_duration_seconds": avg_total,
+            "average_duration_formatted": _format_seconds(avg_total),
+            "step_metrics": step_metrics_list,
+            "last_run_at": runs[0].completed_at if runs and runs[0].completed_at else None
+        }
 
     # Enhanced Claude Code Action Handlers
     

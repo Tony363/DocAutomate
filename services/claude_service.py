@@ -25,6 +25,24 @@ from claude_cli import AsyncClaudeCLI, SuperClaudeMode, SuperClaudeAgent, SuperC
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
+def _format_seconds(seconds: Optional[float]) -> Optional[str]:
+    if seconds is None:
+        return None
+    try:
+        total_seconds = int(round(float(seconds)))
+    except (TypeError, ValueError):
+        return None
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts: List[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or hours:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s")
+    return " ".join(parts)
+
 @dataclass
 class AnalysisResult:
     """Result from document analysis"""
@@ -766,92 +784,222 @@ Remediated: {remediated_content[:500]}...
             Complete workflow execution results
         """
         logger.info(f"Starting orchestration for document {document_id}")
-        start_time = datetime.now()
-        
-        results = {
+        orchestration_started = datetime.now(timezone.utc)
+
+        results: Dict[str, Any] = {
             "document_id": document_id,
-            "start_time": start_time.isoformat(),
-            "steps": {}
+            "started_at": orchestration_started.isoformat(),
+            "status": "running",
+            "claude_workflow": {
+                "analysis": {"status": "pending"},
+                "consensus": {"status": "pending"},
+                "remediation": {"status": "pending"},
+                "validation": {"status": "pending"}
+            },
+            "steps": {},
+            "metrics": {}
         }
-        
+
+        def record_step(step_name: str, payload: Dict[str, Any]) -> None:
+            entry = dict(payload)
+            results["claude_workflow"][step_name] = entry
+            results["steps"][step_name] = {
+                k: v for k, v in entry.items()
+                if k not in {"agents", "agreement_details", "critical_issues", "recommendations"}
+            }
+
+        def mark_skipped(step_name: str, reason: str) -> None:
+            record_step(step_name, {"status": "skipped", "reason": reason})
+
+        status = "completed"
+        error_message: Optional[str] = None
+        analysis_results: Dict[str, AnalysisResult] = {}
+        consensus_result: Optional[ConsensusResult] = None
+        remediation_result: Optional[RemediationResult] = None
+        validation_result: Optional[Dict[str, Any]] = None
+
+        # Analysis
         try:
-            # Step 1: Multi-agent analysis
-            logger.info("Step 1: Multi-agent analysis")
+            analysis_cfg = (workflow_config or {}).get("analysis", {})
+            analysis_start = datetime.now(timezone.utc)
             analysis_results = await self.multi_agent_analysis(
                 document_content,
-                document_metadata
+                document_metadata,
+                agents=analysis_cfg.get("agents"),
+                claude_config=analysis_cfg.get("claude_config") or analysis_cfg,
+                parallel=analysis_cfg.get("parallel", True)
             )
-            results["steps"]["analysis"] = {
+            analysis_end = datetime.now(timezone.utc)
+            duration = (analysis_end - analysis_start).total_seconds()
+            agent_details = {
+                agent: {
+                    "success": res.success,
+                    "confidence": res.confidence,
+                    "processing_time_seconds": res.processing_time,
+                    "claude_command": res.claude_command,
+                    "metadata": res.metadata
+                }
+                for agent, res in analysis_results.items()
+            }
+            record_step("analysis", {
                 "status": "completed",
+                "started_at": analysis_start.isoformat(),
+                "completed_at": analysis_end.isoformat(),
+                "duration_seconds": duration,
+                "duration_formatted": _format_seconds(duration),
                 "agent_count": len(analysis_results),
-                "agents": list(analysis_results.keys())
+                "agents": agent_details
+            })
+            results["metrics"]["analysis"] = {
+                "agent_count": len(analysis_results),
+                "average_confidence": round(
+                    sum(res.confidence for res in analysis_results.values()) / len(analysis_results),
+                    2
+                ) if analysis_results else None
             }
-            
-            # Step 2: Consensus validation
-            logger.info("Step 2: Consensus validation")
-            consensus = await self.consensus_validation(
-                analysis_results,
-                document_id
-            )
-            results["steps"]["consensus"] = {
-                "status": "completed" if consensus.success else "failed",
-                "agreement_score": consensus.agreement_score,
-                "models_used": consensus.models_used
-            }
-            
-            # Step 3: Generate remediation
-            logger.info("Step 3: Generate remediation")
-            # Extract issues from analysis
-            all_issues = []
-            for agent, result in analysis_results.items():
-                if result.success:
-                    all_issues.extend(result.analysis.get("issues", []))
-            
-            remediation = await self.generate_remediation(
-                document_content,
-                all_issues,
-                document_id
-            )
-            results["steps"]["remediation"] = {
-                "status": "completed" if remediation.success else "failed",
-                "issues_resolved": len(remediation.issues_resolved),
-                "quality_score": remediation.quality_score
-            }
-            
-            # Store remediated content in results for filesystem saving
-            if remediation.success and remediation.remediated_content:
-                results["remediated_content"] = remediation.remediated_content
-                logger.info(f"Stored remediated content ({len(remediation.remediated_content)} chars) in orchestration results")
-            
-            # Step 4: Quality validation
-            logger.info("Step 4: Quality validation")
-            validation = await self.quality_validation(
-                remediation.remediated_content,
-                document_content,
-                document_id
-            )
-            results["steps"]["validation"] = {
-                "status": "completed" if validation.get("success") else "failed",
-                "quality_score": validation.get("quality_score", 0),
-                "improvements": len(validation.get("improvements", []))
-            }
-            
-            # Calculate overall metrics
-            elapsed = (datetime.now() - start_time).total_seconds()
-            results["completed_at"] = datetime.now().isoformat()
-            results["duration_seconds"] = elapsed
-            results["overall_status"] = "completed"
-            results["final_quality_score"] = validation.get("quality_score", 0)
-            
-            logger.info(f"Orchestration completed in {elapsed:.2f}s with quality score {results['final_quality_score']}")
-            
-            return results
-            
-        except Exception as e:
-            logger.error(f"Orchestration failed: {e}")
-            results["overall_status"] = "failed"
-            results["error"] = str(e)
-            return results
+        except Exception as exc:
+            status = "failed"
+            error_message = str(exc)
+            record_step("analysis", {"status": "failed", "error": error_message})
+            mark_skipped("consensus", "analysis_failed")
+            mark_skipped("remediation", "analysis_failed")
+            mark_skipped("validation", "analysis_failed")
+
+        # Consensus
+        if status == "completed":
+            try:
+                consensus_cfg = (workflow_config or {}).get("consensus", {})
+                consensus_start = datetime.now(timezone.utc)
+                consensus_result = await self.consensus_validation(
+                    analysis_results,
+                    document_id,
+                    models=consensus_cfg.get("models"),
+                    consensus_config=consensus_cfg
+                )
+                consensus_end = datetime.now(timezone.utc)
+                duration = (consensus_end - consensus_start).total_seconds()
+                record_step("consensus", {
+                    "status": "completed" if consensus_result.success else "failed",
+                    "started_at": consensus_start.isoformat(),
+                    "completed_at": consensus_end.isoformat(),
+                    "duration_seconds": duration,
+                    "duration_formatted": _format_seconds(duration),
+                    "agreement_score": consensus_result.agreement_score,
+                    "models_used": consensus_result.models_used,
+                    "critical_issues": (consensus_result.consensus or {}).get("critical_issues", []),
+                    "recommendations": (consensus_result.consensus or {}).get("recommendations", []),
+                    "agreement_details": consensus_result.agreement_details
+                })
+                results["metrics"]["consensus"] = {
+                    "agreement_score": consensus_result.agreement_score,
+                    "models_used": consensus_result.models_used
+                }
+                if not consensus_result.success:
+                    status = "failed"
+                    error_message = (consensus_result.consensus or {}).get("error", "Consensus validation failed")
+                    mark_skipped("remediation", "consensus_failed")
+                    mark_skipped("validation", "consensus_failed")
+            except Exception as exc:
+                status = "failed"
+                error_message = str(exc)
+                record_step("consensus", {"status": "failed", "error": error_message})
+                mark_skipped("remediation", "consensus_failed")
+                mark_skipped("validation", "consensus_failed")
+
+        # Remediation
+        if status == "completed":
+            try:
+                remediation_start = datetime.now(timezone.utc)
+                aggregated_issues: List[Dict[str, Any]] = []
+                for result in analysis_results.values():
+                    if result.success:
+                        aggregated_issues.extend(result.analysis.get("issues", []))
+                remediation_result = await self.generate_remediation(
+                    document_content,
+                    aggregated_issues,
+                    document_id
+                )
+                remediation_end = datetime.now(timezone.utc)
+                duration = (remediation_end - remediation_start).total_seconds()
+                record_step("remediation", {
+                    "status": "completed" if remediation_result.success else "failed",
+                    "started_at": remediation_start.isoformat(),
+                    "completed_at": remediation_end.isoformat(),
+                    "duration_seconds": duration,
+                    "duration_formatted": _format_seconds(duration),
+                    "issues_resolved": remediation_result.issues_resolved,
+                    "quality_score": remediation_result.quality_score
+                })
+                if remediation_result.success and remediation_result.remediated_content:
+                    results["remediated_content"] = remediation_result.remediated_content
+                else:
+                    status = "failed"
+                    error_message = "Remediation failed"
+                    mark_skipped("validation", "remediation_failed")
+            except Exception as exc:
+                status = "failed"
+                error_message = str(exc)
+                record_step("remediation", {"status": "failed", "error": error_message})
+                mark_skipped("validation", "remediation_failed")
+
+        # Validation
+        if status == "completed":
+            try:
+                validation_start = datetime.now(timezone.utc)
+                validation_result = await self.quality_validation(
+                    original_content=document_content,
+                    remediated_content=remediation_result.remediated_content if remediation_result else document_content,
+                    document_id=document_id
+                )
+                validation_end = datetime.now(timezone.utc)
+                duration = (validation_end - validation_start).total_seconds()
+                success = validation_result.get("success", True)
+                record_step("validation", {
+                    "status": "completed" if success else "failed",
+                    "started_at": validation_start.isoformat(),
+                    "completed_at": validation_end.isoformat(),
+                    "duration_seconds": duration,
+                    "duration_formatted": _format_seconds(duration),
+                    "quality_score": validation_result.get("quality_score"),
+                    "improvements": validation_result.get("improvements", []),
+                    "remaining_issues": validation_result.get("remaining_issues", [])
+                })
+                results.setdefault("quality_metrics", {})
+                results["quality_metrics"].update({
+                    "final_quality_score": validation_result.get("quality_score"),
+                    "improvements": validation_result.get("improvements", [])
+                })
+                validation_result.setdefault("quality_score", validation_result.get("quality_score"))
+                if not success:
+                    status = "failed"
+                    error_message = validation_result.get("error", "Validation failed")
+            except Exception as exc:
+                status = "failed"
+                error_message = str(exc)
+                record_step("validation", {"status": "failed", "error": error_message})
+
+        completed_at = datetime.now(timezone.utc)
+        results["completed_at"] = completed_at.isoformat()
+        results["duration_seconds"] = (completed_at - orchestration_started).total_seconds()
+        results["duration_formatted"] = _format_seconds(results["duration_seconds"])
+        results["status"] = status
+        if error_message:
+            results["error"] = error_message
+
+        if consensus_result:
+            results.setdefault("quality_metrics", {})
+            results["quality_metrics"].update({
+                "agreement_score": consensus_result.agreement_score,
+                "overall_quality_score": (consensus_result.consensus or {}).get("overall_quality_score")
+            })
+        if remediation_result:
+            results.setdefault("quality_metrics", {})
+            results["quality_metrics"].update({
+                "remediation_quality_score": remediation_result.quality_score,
+                "issues_resolved": len(remediation_result.issues_resolved)
+            })
+
+        return results
     
     async def delegate_to_agent(self,
                                task_description: str,
