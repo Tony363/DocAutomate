@@ -136,7 +136,7 @@ class TestFileOperationsAPI:
         assert response.status_code == 400
         assert "not a directory" in response.json()["detail"]
     
-    @patch('utils.file_operations.FileOperations.convert_docx_to_pdf')
+    @patch('utils.file_operations.FileOperations.convert_docx_to_pdf', new_callable=AsyncMock)
     def test_convert_document_endpoint_direct(self, mock_convert):
         """Test document conversion endpoint in direct mode"""
         # Create a mock DOCX file
@@ -174,7 +174,7 @@ class TestFileOperationsAPI:
         assert data["conversion_time_seconds"] == 2.1
         
         # Verify the mock was called correctly
-        mock_convert.assert_called_once()
+        mock_convert.assert_awaited_once()
     
     def test_convert_document_invalid_file(self):
         """Test conversion with invalid input file"""
@@ -202,7 +202,7 @@ class TestFileOperationsAPI:
         assert response.status_code == 400
         assert "must be a Word document" in response.json()["detail"]
     
-    @patch('utils.file_operations.FileOperations.convert_docx_to_pdf')
+    @patch('utils.file_operations.FileOperations.convert_docx_to_pdf', new_callable=AsyncMock)
     def test_convert_document_file_upload(self, mock_convert):
         """Test document conversion endpoint via multipart upload"""
         mock_convert.return_value = {

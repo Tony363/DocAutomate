@@ -56,6 +56,9 @@ def format_processing_time(seconds: Optional[float]) -> Optional[str]:
         return None
     return f"{value:.2f}s"
 
+
+ 
+
 # Initialize FastAPI app
 app = FastAPI(
     title="DocAutomate API",
@@ -1508,8 +1511,8 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
 
 @app.post("/documents/convert/docx-to-pdf", response_model=DocumentConversionResponse)
 async def convert_docx_to_pdf(
-    request: Optional[DocumentConversionRequest] = Body(default=None),
     raw_request: Request,
+    request: Optional[DocumentConversionRequest] = Body(default=None),
     file: Optional[UploadFile] = File(None),
 ):
     """Convert DOCX document to PDF using DSL workflow"""
