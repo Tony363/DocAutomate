@@ -4,13 +4,11 @@ REST API for DocAutomate Framework
 Provides endpoints for document ingestion and workflow management
 """
 
-from typing import Annotated
-
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from typing import List, Dict, Any, Optional, Union
 import asyncio
 import logging
@@ -18,6 +16,7 @@ import os
 from pathlib import Path
 import tempfile
 import shutil
+import json
 
 # Import our modules
 from ingester import DocumentIngester, Document
@@ -65,8 +64,6 @@ app = FastAPI(
 )
 
 templates = Jinja2Templates(directory="templates/web")
-
-RequestDependency = Annotated[Optional[Request], Depends(lambda request: request)]
 
 # Add CORS middleware
 app.add_middleware(
@@ -1511,8 +1508,9 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
 
 @app.post("/documents/convert/docx-to-pdf", response_model=DocumentConversionResponse)
 async def convert_docx_to_pdf(
-    request: Dict[str, Any] = Body(default_factory=dict),
-    raw_request: RequestDependency = None,
+    request: Optional[DocumentConversionRequest] = Body(default=None),
+    raw_request: Request,
+    file: Optional[UploadFile] = File(None),
 ):
     """Convert DOCX document to PDF using DSL workflow"""
     request_id = generate_request_id()
@@ -1520,33 +1518,71 @@ async def convert_docx_to_pdf(
     
     logger.info(f"[{request_id}] DOCX to PDF conversion requested")
     
+    uploaded_input_path: Optional[Path] = None
     try:
-        input_path = None
-        original_filename: Optional[str] = None
-        
+        payload: Dict[str, Any] = {}
+
         if isinstance(request, DocumentConversionRequest):
-            request_payload = request.model_dump()
+            payload = request.model_dump()
+        elif request is not None:
+            payload = dict(request)
         else:
-            request_payload = dict(request or {})
-        if not request_payload and raw_request is not None:
-            try:
-                request_payload = await raw_request.json()
-            except Exception:
-                request_payload = {}
-        
-        if request is not None and file is None:
-            conversion_request = request
-        else:
-            conversion_request = DocumentConversionRequest(**request_payload)
+            payload = {}
 
-        logger.debug(
-            "[%s] conversion request parsed payload: %s",
-            request_id,
-            conversion_request.model_dump() if hasattr(conversion_request, "model_dump") else conversion_request.__dict__,
-        )
+        if not payload and raw_request is not None:
+            content_type = raw_request.headers.get("content-type", "")
+            if content_type.startswith("application/json"):
+                try:
+                    payload = await raw_request.json()
+                except Exception:
+                    body = await raw_request.body()
+                    if body:
+                        try:
+                            payload = json.loads(body.decode() if isinstance(body, bytes) else body)
+                        except Exception:
+                            payload = {}
+            elif "multipart/form-data" in content_type:
+                form = await raw_request.form()
+                for key, value in form.items():
+                    if key == "file" and isinstance(value, UploadFile):
+                        file = file or value
+                    else:
+                        payload[key] = value
+            elif raw_request is not None:
+                body = await raw_request.body()
+                if body:
+                    try:
+                        payload = json.loads(body.decode() if isinstance(body, bytes) else body)
+                    except Exception:
+                        payload = {}
 
-        
-        # Determine input path
+        original_filename: Optional[str] = None
+        if file is not None:
+            original_filename = file.filename or "uploaded.docx"
+            suffix = Path(original_filename).suffix or ".docx"
+            storage_dir = Path("storage/uploads")
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            uploaded_input_path = storage_dir / f"{request_id}_{Path(original_filename).stem}{suffix}"
+            file.file.seek(0)
+            with uploaded_input_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            payload.setdefault("input_path", str(uploaded_input_path))
+            payload.setdefault("use_dsl", False)
+            logger.debug("[%s] Saved uploaded file to %s", request_id, uploaded_input_path)
+
+        if not payload:
+            raise HTTPException(status_code=400, detail="Request payload required")
+
+        try:
+            conversion_request = DocumentConversionRequest(**payload)
+        except ValidationError as exc:
+            logger.debug("[%s] request validation failed: %s", request_id, exc)
+            raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+
+        logger.debug("[%s] conversion request payload: %s", request_id, conversion_request.model_dump())
+
+        input_path: Optional[str] = None
+
         if conversion_request.document_id:
             # Get document from ingester
             document = document_ingester.get_document(conversion_request.document_id)
@@ -1559,8 +1595,6 @@ async def convert_docx_to_pdf(
                 raise HTTPException(status_code=400, detail="Document does not have associated file path")
         elif conversion_request.input_path:
             input_path = conversion_request.input_path
-        elif request_payload.get("input_path"):
-            input_path = request_payload["input_path"]
         else:
             raise HTTPException(status_code=400, detail="Either document_id, input_path, or file upload must be provided")
 
@@ -1710,6 +1744,12 @@ async def convert_docx_to_pdf(
         total_time = (datetime.now() - start_time).total_seconds()
         logger.error(f"[{request_id}] Document conversion failed after {total_time:.2f}s: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if uploaded_input_path and uploaded_input_path.exists():
+            try:
+                uploaded_input_path.unlink()
+            except Exception:
+                logger.debug("[%s] Failed to remove temporary upload %s", request_id, uploaded_input_path)
 
 @app.post("/documents/convert/batch")
 async def batch_convert_documents(request: BatchConversionRequest, background_tasks: BackgroundTasks):

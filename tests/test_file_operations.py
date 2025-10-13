@@ -202,6 +202,39 @@ class TestFileOperationsAPI:
         assert response.status_code == 400
         assert "must be a Word document" in response.json()["detail"]
     
+    @patch('utils.file_operations.FileOperations.convert_docx_to_pdf')
+    def test_convert_document_file_upload(self, mock_convert):
+        """Test document conversion endpoint via multipart upload"""
+        mock_convert.return_value = {
+            'success': True,
+            'output_path': str(self.temp_path / "upload.pdf"),
+            'method': 'docx2pdf_library',
+            'duration_seconds': 1.5,
+            'output_size_bytes': 2048
+        }
+
+        response = self.client.post(
+            "/documents/convert/docx-to-pdf",
+            files={
+                "file": (
+                    "upload.docx",
+                    b"mock docx content",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={"use_dsl": "false"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["conversion_method"] == "docx2pdf_library"
+        assert data["results"][0]["status"] == "success"
+        mock_convert.assert_awaited_once()
+        awaited_call = mock_convert.await_args
+        assert awaited_call.args[0].endswith(".docx")
+        assert awaited_call.args[4] is False
+    
     @patch('utils.file_operations.FileOperations.batch_convert_documents')
     def test_batch_convert_endpoint_direct(self, mock_batch_convert):
         """Test batch conversion endpoint in direct mode"""

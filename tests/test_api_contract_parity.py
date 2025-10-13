@@ -143,7 +143,7 @@ async def test_conversion_response_includes_results_and_processing(monkeypatch, 
         quality="high",
     )
 
-    response = await api_module.convert_docx_to_pdf(request=request_body, file=None)
+    response = await api_module.convert_docx_to_pdf(request=request_body, raw_request=None, file=None)
     response_payload = response.model_dump()
 
     for key in contract["required_keys"]:
