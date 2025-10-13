@@ -16,9 +16,26 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import queue
 
+from claude_cli import AsyncClaudeCLI, LOCAL_FALLBACK_ENV_VAR
+from storage import (
+    init_db,
+    save_document as db_save_document,
+    list_documents as db_list_documents,
+    get_document as db_get_document,
+)
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
+def _local_fallbacks_enabled() -> bool:
+    raw = os.getenv(LOCAL_FALLBACK_ENV_VAR)
+    if raw is None:
+        return False
+    return raw.strip().lower() in _TRUTHY_VALUES
 
 @dataclass
 class Document:
@@ -37,6 +54,11 @@ class Document:
     primary_agent: Optional[str] = None
     analysis_summary: Optional[Dict[str, Any]] = None
 
+    @property
+    def document_id(self) -> str:
+        """Alias used in API contract fixtures."""
+        return self.id
+
 class DocumentIngester:
     """
     Handles document ingestion from various sources
@@ -44,6 +66,7 @@ class DocumentIngester:
     """
     
     def __init__(self, storage_dir: str = "./storage", max_workers: int = 4):
+        init_db()
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
@@ -65,6 +88,55 @@ class DocumentIngester:
     def generate_document_id(self, content: str) -> str:
         """Generate unique document ID based on content hash"""
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def _document_payload(self, doc: Document) -> Dict[str, Any]:
+        """Transform Document dataclass into DB payload."""
+        metadata = doc.metadata or {}
+        storage_path = str(self.storage_dir / doc.id / "content.txt")
+        return {
+            "id": doc.id,
+            "filename": doc.filename,
+            "content_type": doc.content_type,
+            "status": doc.status,
+            "ingested_at": datetime.fromisoformat(doc.ingested_at) if doc.ingested_at else datetime.utcnow(),
+            "size_bytes": metadata.get("size_bytes"),
+            "storage_path": storage_path,
+            "metadata": metadata,
+            "extracted_actions": doc.extracted_actions,
+            "workflow_runs": doc.workflow_runs,
+            "quality_score": doc.quality_score,
+            "claude_agent": doc.primary_agent,
+            "analysis_summary": doc.analysis_summary,
+        }
+
+    def _document_from_record(self, record: Dict[str, Any]) -> Document:
+        """Recreate Document dataclass from DB payload."""
+        text = ""
+        storage_path = record.get("storage_path")
+        if storage_path and Path(storage_path).exists():
+            try:
+                text = Path(storage_path).read_text()
+            except Exception:
+                text = ""
+
+        metadata = record.get("metadata") or {}
+        workflow_runs = record.get("workflow_runs") or []
+
+        return Document(
+            id=record["id"],
+            filename=record["filename"],
+            content_type=record["content_type"],
+            text=text,
+            metadata=metadata,
+            ingested_at=record.get("ingested_at") or datetime.utcnow().isoformat(),
+            status=record.get("status", "pending"),
+            extracted_actions=record.get("extracted_actions") or [],
+            workflow_runs=workflow_runs,
+            error=None,
+            quality_score=record.get("quality_score"),
+            primary_agent=record.get("claude_agent"),
+            analysis_summary=record.get("analysis_summary"),
+        )
     
     async def ingest_file(self, file_path: str) -> Document:
         """
@@ -169,7 +241,6 @@ class DocumentIngester:
         for attempt in range(max_retries):
             try:
                 # Try to use Claude Code for all document types
-                from claude_cli import AsyncClaudeCLI
                 cli = AsyncClaudeCLI()
                 
                 logger.info(f"Extraction attempt {attempt + 1}/{max_retries} for: {file_path}")
@@ -188,38 +259,46 @@ class DocumentIngester:
             except (ImportError, FileNotFoundError) as e:
                 # Fallback if Claude Code is not available
                 logger.warning(f"Claude Code not available on attempt {attempt + 1}: {e}")
+                last_error = e
                 
                 if file_path.suffix in ['.txt', '.md']:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         text = f.read()
                         if self._validate_extracted_text(text, file_path):
                             return text
-                else:
-                    # For PDF files, try PyPDF2 directly
-                    if file_path.suffix.lower() == '.pdf':
-                        try:
-                            import PyPDF2
-                            logger.info(f"Trying direct PyPDF2 extraction for: {file_path}")
-                            
-                            with open(file_path, 'rb') as f:
-                                pdf_reader = PyPDF2.PdfReader(f)
-                                text_parts = []
-                                for page in pdf_reader.pages:
-                                    text_parts.append(page.extract_text())
-                                text = '\n'.join(text_parts)
-                                
-                                if self._validate_extracted_text(text, file_path):
-                                    logger.info(f"PyPDF2 successfully extracted {len(text)} characters")
-                                    return text
-                        except Exception as pdf_error:
-                            logger.error(f"Direct PyPDF2 extraction failed: {pdf_error}")
-                            last_error = pdf_error
+                    continue
+                
+                if file_path.suffix.lower() == '.pdf':
+                    if not _local_fallbacks_enabled():
+                        error_message = (
+                            "Claude CLI is unavailable and local fallbacks are disabled. "
+                            f"Set {LOCAL_FALLBACK_ENV_VAR}=true to permit PyPDF2 extraction."
+                        )
+                        logger.error(error_message)
+                        raise RuntimeError(error_message) from e
                     
-                    # If all else fails, return error message
-                    if attempt == max_retries - 1:
-                        error_msg = f"Failed to extract text from {file_path.name} after {max_retries} attempts"
-                        logger.error(error_msg)
-                        return error_msg
+                    try:
+                        import PyPDF2
+                        logger.info(f"Trying direct PyPDF2 extraction for: {file_path}")
+                        
+                        with open(file_path, 'rb') as f:
+                            pdf_reader = PyPDF2.PdfReader(f)
+                            text_parts = []
+                            for page in pdf_reader.pages:
+                                text_parts.append(page.extract_text())
+                            text = '\n'.join(text_parts)
+                            
+                            if self._validate_extracted_text(text, file_path):
+                                logger.info(f"PyPDF2 successfully extracted {len(text)} characters")
+                                return text
+                    except Exception as pdf_error:
+                        logger.error(f"Direct PyPDF2 extraction failed: {pdf_error}")
+                        last_error = pdf_error
+                
+                if attempt == max_retries - 1:
+                    error_msg = f"Failed to extract text from {file_path.name} after {max_retries} attempts"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg) from last_error
                         
             except Exception as e:
                 logger.error(f"Extraction attempt {attempt + 1} failed: {e}")
@@ -228,7 +307,7 @@ class DocumentIngester:
                     await asyncio.sleep(2 ** attempt)
         
         # All attempts failed
-        raise Exception(f"Failed to extract text from {file_path} after {max_retries} attempts: {last_error}")
+        raise RuntimeError(f"Failed to extract text from {file_path} after {max_retries} attempts: {last_error}")
     
     async def _store_document(self, doc: Document):
         """Store document metadata and content"""
@@ -244,6 +323,9 @@ class DocumentIngester:
         text_file = doc_dir / "content.txt"
         with open(text_file, 'w') as f:
             f.write(doc.text)
+
+        payload = self._document_payload(doc)
+        await asyncio.to_thread(db_save_document, payload)
     
     async def ingest_directory(self, dir_path: str, recursive: bool = True) -> List[Document]:
         """Ingest all supported documents in a directory"""
@@ -267,28 +349,19 @@ class DocumentIngester:
     
     def get_document(self, doc_id: str) -> Optional[Document]:
         """Retrieve document by ID"""
-        doc_dir = self.storage_dir / doc_id
-        metadata_file = doc_dir / "metadata.json"
-        
-        if not metadata_file.exists():
+        record = db_get_document(doc_id)
+        if not record:
             return None
-        
-        with open(metadata_file, 'r') as f:
-            data = json.load(f)
-            return Document(**data)
+        return self._document_from_record(record)
     
     def list_documents(self, status: Optional[str] = None) -> List[Document]:
         """List all documents, optionally filtered by status"""
+        records = db_list_documents()
         documents = []
-        
-        for doc_dir in self.storage_dir.iterdir():
-            if doc_dir.is_dir():
-                metadata_file = doc_dir / "metadata.json"
-                if metadata_file.exists():
-                    doc = self.get_document(doc_dir.name)
-                    if doc and (status is None or doc.status == status):
-                        documents.append(doc)
-        
+        for record in records:
+            if status and (record.get("status") != status):
+                continue
+            documents.append(self._document_from_record(record))
         return documents
     
     def get_pending_jobs(self) -> List[str]:

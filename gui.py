@@ -12,6 +12,7 @@ import httpx
 import json
 import os
 import sys
+import logging
 from datetime import datetime
 from pathlib import Path
 import asyncio
@@ -20,6 +21,15 @@ from typing import Optional, Dict, Any, List
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from claude_cli import ClaudeCLI, SuperClaudeMode
+
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD  # type: ignore
+
+    DND_SUPPORTED = True
+except ImportError:
+    TkinterDnD = None
+    DND_FILES = None
+    DND_SUPPORTED = False
 
 
 class DocAutomateGUI:
@@ -35,6 +45,7 @@ class DocAutomateGUI:
         
         # Queue for thread communication
         self.queue = queue.Queue()
+        self.dnd_enabled = DND_SUPPORTED and hasattr(self.root, "drop_target_register")
         
         # API configuration
         self.api_base = "http://localhost:8000"
@@ -62,6 +73,8 @@ class DocAutomateGUI:
         # Welcome message
         self.append_claude_output("Welcome to DocAutomate Desktop Client!\n", "system")
         self.append_claude_output("Claude CLI is ready. Try '--brainstorm' or '--help'\n", "system")
+        if self.dnd_enabled:
+            self.append_claude_output("Drag and drop files into the Documents panel to upload.\n", "system")
         
     def setup_styles(self):
         """Configure ttk styles for modern look"""
@@ -176,6 +189,15 @@ class DocAutomateGUI:
         
         # Bind document selection
         self.doc_tree.bind('<<TreeviewSelect>>', self.on_document_select)
+
+        if self.dnd_enabled:
+            try:
+                self.doc_tree.drop_target_register(DND_FILES)
+                self.doc_tree.dnd_bind('<<Drop>>', self.on_file_drop)
+            except Exception as exc:
+                logger = logging.getLogger(__name__)
+                logger.warning("Drag-and-drop registration failed: %s", exc)
+                self.dnd_enabled = False
         
         # Results area
         results_frame = ttk.LabelFrame(left_frame, text="Results", padding="5")
@@ -435,6 +457,22 @@ class DocAutomateGUI:
             self.history_index += 1
             self.command_input.delete(0, tk.END)
             self.command_input.insert(0, self.command_history[self.history_index])
+
+    def on_file_drop(self, event):
+        """Handle drag-and-drop uploads."""
+        if not event.data:
+            return
+        paths = self.root.tk.splitlist(event.data)
+        for raw_path in paths:
+            path = raw_path.strip()
+            if path.startswith("{") and path.endswith("}"):
+                path = path[1:-1]
+            if not path:
+                continue
+            if os.path.isfile(path):
+                self._start_upload(path)
+            else:
+                self.queue.put(('status', f"Drop ignored (not a file): {path}"))
             
     def clear_chat(self):
         """Clear chat display"""
@@ -466,15 +504,18 @@ class DocAutomateGUI:
         
         if not file_path:
             return
-            
-        # Start upload in thread
+        
+        self._start_upload(file_path)
+
+    def _start_upload(self, file_path: str):
+        """Spawn a worker thread to upload a file."""
         self.queue.put(('progress_start', None))
         self.queue.put(('status', f"Uploading {Path(file_path).name}..."))
-        
+
         thread = threading.Thread(target=self._upload_worker, args=(file_path,))
         thread.daemon = True
         thread.start()
-        
+
     def _upload_worker(self, file_path):
         """Worker thread for document upload"""
         try:
@@ -687,7 +728,10 @@ Built with Python and tkinter"""
 
 def main():
     """Main entry point"""
-    root = tk.Tk()
+    if DND_SUPPORTED and TkinterDnD is not None:
+        root = TkinterDnD.Tk()
+    else:
+        root = tk.Tk()
     
     # Set icon if available
     try:

@@ -4,11 +4,14 @@ REST API for DocAutomate Framework
 Provides endpoints for document ingestion and workflow management
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body
-from fastapi.responses import JSONResponse
+from typing import Annotated
+
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request, Depends
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import asyncio
 import logging
 import os
@@ -43,12 +46,27 @@ def generate_request_id():
     """Generate unique request ID for tracking"""
     return str(uuid.uuid4())[:8]
 
+
+def format_processing_time(seconds: Optional[float]) -> Optional[str]:
+    """Return a consistent string (e.g. '5.20s') for processing durations."""
+    if seconds is None:
+        return None
+    try:
+        value = float(seconds)
+    except (TypeError, ValueError):
+        return None
+    return f"{value:.2f}s"
+
 # Initialize FastAPI app
 app = FastAPI(
     title="DocAutomate API",
     description="Enterprise Document Ingestion and Action Automation Framework",
     version="1.0.0"
 )
+
+templates = Jinja2Templates(directory="templates/web")
+
+RequestDependency = Annotated[Optional[Request], Depends(lambda request: request)]
 
 # Add CORS middleware
 app.add_middleware(
@@ -182,7 +200,7 @@ class FolderCompressionResponse(BaseModel):
     compression_ratio: Optional[str]
     duration_seconds: Optional[float]
     error: Optional[str]
-    workflow_run_id: Optional[str]
+    workflow_run_id: Optional[str] = None
 
 class ActionExtractionResponse(BaseModel):
     document_id: str
@@ -213,7 +231,10 @@ class DocumentConversionResponse(BaseModel):
     file_size_bytes: Optional[int]
     conversion_time_seconds: Optional[float]
     error: Optional[str]
-    workflow_run_id: Optional[str]
+    workflow_run_id: Optional[str] = None
+    results: Optional[List[Dict[str, Any]]] = None
+    processing_time: Optional[str] = None
+    processing_time_seconds: Optional[float] = None
 
 class BatchConversionRequest(BaseModel):
     input_files: List[str]
@@ -281,9 +302,64 @@ async def _extract_actions_for_document(
         )
         actions_payload.append(action.dict())
 
+    score_values = [payload.get('confidence_score', 0.0) for payload in actions_payload]
+    avg_quality = sum(score_values) / len(score_values) if score_values else 0.0
+    quality_score = round(avg_quality, 2) if score_values else 0.0
+
+    def _confidence_to_severity(score: float) -> str:
+        if score >= 0.9:
+            return "high"
+        if score >= 0.75:
+            return "medium"
+        return "low"
+
+    issues_found: List[Dict[str, Any]] = []
+    for payload in actions_payload:
+        parameters = payload.get('parameters') or {}
+        location: Optional[Any] = parameters.get('location')
+
+        if not location:
+            location_details: Dict[str, Any] = {}
+            for key in ("section", "page", "page_number", "lines", "paragraph"):
+                if key in parameters and parameters[key]:
+                    normalized_key = "page" if key == "page_number" else key
+                    location_details[normalized_key] = parameters[key]
+            if location_details:
+                location = location_details
+
+        if not location:
+            for entity in payload.get('entities', []):
+                entity_location = entity.get('location')
+                if entity_location:
+                    location = entity_location
+                    break
+
+        issues_found.append({
+            "type": payload.get("action_type"),
+            "severity": _confidence_to_severity(payload.get("confidence_score", 0.0)),
+            "description": payload.get("description"),
+            "location": location
+        })
+
+    recommendations: List[str] = []
+    for payload in actions_payload:
+        description = payload.get("description")
+        if description and description not in recommendations:
+            recommendations.append(description)
+
+    primary_agent = (
+        (document.metadata or {}).get('claude_agent')
+        or document.primary_agent
+        or 'requirements-analyst'
+    )
+
     analysis_summary = {
+        "primary_agent": primary_agent,
+        "quality_score": quality_score if score_values else None,
+        "issues_found": issues_found,
+        "recommendations": recommendations,
         "total_actions": len(actions_payload),
-        "high_confidence": high_confidence,
+        "high_confidence_actions": high_confidence,
         "document_type": document_type
     }
 
@@ -291,11 +367,8 @@ async def _extract_actions_for_document(
     document.metadata.setdefault('document_type', document_type)
     document.metadata['last_extracted_at'] = datetime.utcnow().isoformat()
     document.metadata['claude_analysis'] = analysis_summary
-    document.metadata['quality_score'] = max(
-        (action.confidence_score for action in actions),
-        default=0.0
-    )
-    document.metadata.setdefault('claude_agent', 'requirements-analyst')
+    document.metadata['quality_score'] = quality_score if score_values else None
+    document.metadata['claude_agent'] = primary_agent
 
     document.extracted_actions = actions_payload
     document.status = "processed" if len(text_content) > 100 else "partial"
@@ -303,7 +376,7 @@ async def _extract_actions_for_document(
         document.status = "processed_no_actions"
 
     document.quality_score = document.metadata['quality_score']
-    document.primary_agent = document.metadata['claude_agent']
+    document.primary_agent = primary_agent
     document.analysis_summary = analysis_summary
 
     auto_executed_count = 0
@@ -452,6 +525,62 @@ async def root():
             "orchestrate": "/orchestrate/workflow"
         }
     }
+
+
+def _doc_to_view(doc: Document) -> Dict[str, Any]:
+    metadata = doc.metadata or {}
+    return {
+        "id": doc.id,
+        "filename": doc.filename,
+        "status": doc.status,
+        "ingested_at": doc.ingested_at,
+        "content_type": doc.content_type,
+        "quality_score": doc.quality_score if doc.quality_score is not None else metadata.get("quality_score"),
+        "primary_agent": doc.primary_agent or metadata.get("claude_agent"),
+        "workflow_runs": (doc.workflow_runs or []),
+    }
+
+
+def _run_to_view(run: WorkflowRun) -> Dict[str, Any]:
+    status = run.status.value if isinstance(run.status, WorkflowStatus) else run.status
+    return {
+        "run_id": run.run_id,
+        "workflow_name": run.workflow_name,
+        "document_id": run.document_id,
+        "status": status,
+        "started_at": run.started_at,
+        "completed_at": run.completed_at,
+        "duration": format_duration(run.total_duration_seconds),
+    }
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    documents = document_ingester.list_documents()
+    runs = workflow_engine.list_runs()[:50]
+    metrics_payload = collect_health_metrics(document_ingester, workflow_engine, claude_service)
+
+    workflow_overview = []
+    for name, definition in workflow_engine.workflows.items():
+        meta = definition.get("metadata", {})
+        metrics = workflow_engine.get_workflow_metrics(name)
+        workflow_overview.append({
+            "name": name,
+            "description": definition.get("description", ""),
+            "tags": meta.get("tags", []),
+            "run_count": metrics.get("run_count"),
+            "success_rate": metrics.get("success_rate"),
+            "average_duration": metrics.get("average_duration_formatted"),
+        })
+
+    context = {
+        "request": request,
+        "documents": [_doc_to_view(doc) for doc in documents],
+        "workflow_runs": [_run_to_view(run) for run in runs],
+        "metrics": metrics_payload,
+        "workflows": workflow_overview,
+    }
+    return templates.TemplateResponse("index.html", context)
 
 @app.post("/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(
@@ -1382,8 +1511,8 @@ async def compress_folder(request: FolderCompressionRequest, background_tasks: B
 
 @app.post("/documents/convert/docx-to-pdf", response_model=DocumentConversionResponse)
 async def convert_docx_to_pdf(
-    request: Optional[DocumentConversionRequest] = Body(default=None),
-    file: UploadFile = File(None)
+    request: Dict[str, Any] = Body(default_factory=dict),
+    raw_request: RequestDependency = None,
 ):
     """Convert DOCX document to PDF using DSL workflow"""
     request_id = generate_request_id()
@@ -1393,23 +1522,29 @@ async def convert_docx_to_pdf(
     
     try:
         input_path = None
-        temp_file_path: Optional[str] = None
         original_filename: Optional[str] = None
         
-        request_payload = request.dict() if request else {}
+        if isinstance(request, DocumentConversionRequest):
+            request_payload = request.model_dump()
+        else:
+            request_payload = dict(request or {})
+        if not request_payload and raw_request is not None:
+            try:
+                request_payload = await raw_request.json()
+            except Exception:
+                request_payload = {}
         
-        if file:
-            original_filename = file.filename or "uploaded_document.docx"
-            suffix = Path(original_filename).suffix or ".docx"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-                file_contents = await file.read()
-                tmp_file.write(file_contents)
-                temp_file_path = tmp_file.name
-            request_payload["input_path"] = temp_file_path
-            request_payload.setdefault("output_path", str(Path(temp_file_path).with_suffix('.pdf')))
-            logger.info(f"[{request_id}] Received upload for conversion: {original_filename} -> {request_payload['output_path']}")
-        
-        conversion_request = DocumentConversionRequest(**request_payload)
+        if request is not None and file is None:
+            conversion_request = request
+        else:
+            conversion_request = DocumentConversionRequest(**request_payload)
+
+        logger.debug(
+            "[%s] conversion request parsed payload: %s",
+            request_id,
+            conversion_request.model_dump() if hasattr(conversion_request, "model_dump") else conversion_request.__dict__,
+        )
+
         
         # Determine input path
         if conversion_request.document_id:
@@ -1417,17 +1552,21 @@ async def convert_docx_to_pdf(
             document = document_ingester.get_document(conversion_request.document_id)
             if not document:
                 raise HTTPException(status_code=404, detail="Document not found")
-            
+
             # For this example, assume document has a file_path in metadata
             input_path = document.metadata.get('file_path') if document.metadata else None
             if not input_path:
                 raise HTTPException(status_code=400, detail="Document does not have associated file path")
-        
         elif conversion_request.input_path:
             input_path = conversion_request.input_path
+        elif request_payload.get("input_path"):
+            input_path = request_payload["input_path"]
         else:
             raise HTTPException(status_code=400, detail="Either document_id, input_path, or file upload must be provided")
-        
+
+        if original_filename is None and input_path:
+            original_filename = Path(input_path).name
+
         # Validate input file
         input_file = Path(input_path)
         if not input_file.exists():
@@ -1476,45 +1615,93 @@ async def convert_docx_to_pdf(
             )
             
             if run.status == WorkflowStatus.SUCCESS:
-                conversion_result = run.outputs.get('convert_document', {})
-                
+                conversion_result = run.outputs.get('convert_document', {}) or {}
+                quality_result = run.outputs.get('validate_conversion_quality', {}) or {}
+                total_elapsed = (datetime.now() - start_time).total_seconds()
+                response_output_path = conversion_result.get('output_path') or output_path
+                results_payload = [{
+                    "status": "success",
+                    "output_path": response_output_path,
+                    "conversion_method": conversion_result.get('conversion_method', "dsl_workflow"),
+                    "duration_seconds": conversion_result.get('duration_seconds'),
+                    "quality_score": quality_result.get('quality_score'),
+                    "issues_found": quality_result.get('issues_found'),
+                    "recommendations": quality_result.get('recommendations'),
+                    "workflow_run_id": run.run_id
+                }]
+
                 return DocumentConversionResponse(
                     success=True,
-                    output_path=conversion_result.get('output_path'),
-                    archive_path=conversion_result.get('output_path'),
+                    output_path=response_output_path,
+                    archive_path=response_output_path,
                     conversion_method="dsl_workflow",
                     original_file=original_filename or str(input_file),
                     file_size_bytes=input_file.stat().st_size if input_file.exists() else None,
-                    conversion_time_seconds=(datetime.now() - start_time).total_seconds(),
-                    workflow_run_id=run.run_id
+                    conversion_time_seconds=conversion_result.get('duration_seconds') or total_elapsed,
+                    workflow_run_id=run.run_id,
+                    results=results_payload,
+                    processing_time=format_processing_time(total_elapsed),
+                    processing_time_seconds=total_elapsed
                 )
             else:
+                total_elapsed = (datetime.now() - start_time).total_seconds()
                 return DocumentConversionResponse(
                     success=False,
                     error=run.error or "Workflow execution failed",
-                    workflow_run_id=run.run_id
+                    workflow_run_id=run.run_id,
+                    processing_time=format_processing_time(total_elapsed),
+                    processing_time_seconds=total_elapsed
                 )
         else:
             # Direct execution using file operations
             logger.info(f"[{request_id}] Executing conversion directly")
             
             result = await FileOperations.convert_docx_to_pdf(
-                input_path=input_path,
-                output_path=output_path,
-                quality=conversion_request.quality,
-                preserve_formatting=conversion_request.preserve_formatting,
-                use_claude=False  # Direct mode doesn't use Claude
+                input_path,
+                output_path,
+                conversion_request.quality,
+                conversion_request.preserve_formatting,
+                False,  # Direct mode doesn't use Claude
             )
-            
+            result_data = result if isinstance(result, dict) else {}
+
+            total_elapsed = (datetime.now() - start_time).total_seconds()
+            response_output_path = result_data.get('output_path') or output_path
+            if not response_output_path:
+                response_output_path = str(input_file.with_suffix(f".{output_format}"))
+            output_size_bytes = result_data.get('output_size_bytes')
+            if output_size_bytes is None and response_output_path:
+                logger.debug("[%s] response_output_path=%r output_path=%r", request_id, response_output_path, output_path)
+                try:
+                    output_size_bytes = Path(response_output_path).stat().st_size
+                except Exception:
+                    output_size_bytes = None
+
+            if output_size_bytes is None and input_file.exists():
+                output_size_bytes = input_file.stat().st_size
+
+            results_payload = [{
+                "status": "success" if result_data.get('success') else "failed",
+                "input_path": result_data.get('input_path', input_path),
+                "output_path": response_output_path,
+                "conversion_method": result_data.get('method', 'direct'),
+                "duration_seconds": result_data.get('duration_seconds'),
+                "quality": result_data.get('quality'),
+                "error": result_data.get('error')
+            }]
+
             return DocumentConversionResponse(
-                success=result['success'],
-                output_path=result.get('output_path'),
-                archive_path=result.get('output_path'),
-                conversion_method=result.get('method'),
+                success=result_data.get('success', False),
+                output_path=response_output_path,
+                archive_path=response_output_path,
+                conversion_method=result_data.get('method', 'direct'),
                 original_file=original_filename or str(input_file),
-                file_size_bytes=input_file.stat().st_size if input_file.exists() else None,
-                conversion_time_seconds=result.get('duration_seconds'),
-                error=result.get('error')
+                file_size_bytes=output_size_bytes,
+                conversion_time_seconds=result_data.get('duration_seconds') or total_elapsed,
+                error=result_data.get('error'),
+                results=results_payload,
+                processing_time=format_processing_time(total_elapsed),
+                processing_time_seconds=total_elapsed
             )
         
     except HTTPException:
@@ -1523,12 +1710,6 @@ async def convert_docx_to_pdf(
         total_time = (datetime.now() - start_time).total_seconds()
         logger.error(f"[{request_id}] Document conversion failed after {total_time:.2f}s: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if file and temp_file_path and Path(temp_file_path).exists():
-            try:
-                Path(temp_file_path).unlink()
-            except Exception:
-                logger.debug(f"[{request_id}] Failed to remove temporary file {temp_file_path}")
 
 @app.post("/documents/convert/batch")
 async def batch_convert_documents(request: BatchConversionRequest, background_tasks: BackgroundTasks):
@@ -1634,7 +1815,10 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
                 "failed_conversions": result['failed_conversions'],
                 "output_directory": result['output_directory'],
                 "duration_seconds": result['duration_seconds'],
-                "processing_mode": "direct"
+                "processing_mode": "direct",
+                "processing_time": format_processing_time(result.get('duration_seconds')),
+                "processing_time_seconds": result.get('duration_seconds'),
+                "results": result.get('results', [])
             }
         
     except HTTPException:
@@ -1647,11 +1831,13 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
 @app.get("/health")
 async def health_check():
     """Health check endpoint with component metadata as described in README"""
+    started = datetime.utcnow()
     metrics_payload = collect_health_metrics(document_ingester, workflow_engine, claude_service)
     document_counts = metrics_payload.get("document_counts", {})
     workflow_metrics = metrics_payload.get("workflow_metrics", {})
     claude_integration = metrics_payload.get("claude_integration", {})
     system_metrics = metrics_payload.get("system_metrics", {})
+    response_time_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
 
     total_workflows = len(workflow_engine.workflows)
 
@@ -1662,13 +1848,29 @@ async def health_check():
     available_agents = [provider["name"] for provider in providers]
     capabilities = sorted({cap for provider in providers for cap in provider.get("capabilities", [])})
 
+    dsl_config = getattr(claude_service, "dsl_config", {}) or {}
+    agent_mappings = getattr(claude_service, "agent_mappings", {}) or {}
+
     claude_components = {
-        "status": "operational",
-        "dsl_loaded": bool(getattr(claude_service, "dsl_config", {})),
-        "agent_mappings_loaded": bool(getattr(claude_service, "agent_mappings", {})),
+        "status": "operational" if dsl_config else "degraded",
+        "dsl_loaded": bool(dsl_config),
+        "agent_mappings_loaded": bool(agent_mappings),
         "default_timeout_seconds": getattr(claude_service.cli, "timeout", None),
         "default_model": claude_integration.get("default_model"),
         "models_available": claude_integration.get("models_available"),
+    }
+
+    dsl_component = {
+        "status": "operational" if dsl_config else "degraded",
+        "configurations_loaded": len(dsl_config.get("prompt_templates", {})),
+        "version": dsl_config.get("version", "1.0.0"),
+    }
+
+    claude_cli_component = {
+        "status": "operational" if claude_service.cli.validate_installation() else "degraded",
+        "version": os.getenv("CLAUDE_CLI_VERSION", "direct"),
+        "path": os.getenv("CLAUDE_CLI_PATH", "n/a"),
+        "superclaude_framework": True,
     }
 
     return {
@@ -1683,8 +1885,9 @@ async def health_check():
         "components": {
             "api": {
                 "status": "operational",
-                "response_time_ms": None
+                "response_time_ms": response_time_ms
             },
+            "dsl_engine": dsl_component,
             "ingester": {
                 "status": "operational",
                 "stored_documents": document_counts.get("total", 0),
@@ -1701,6 +1904,7 @@ async def health_check():
                 "success_rate": workflow_metrics.get("success_rate")
             },
             "claude_service": claude_components,
+            "claude_cli": claude_cli_component,
             "agent_registry": {
                 "status": "operational",
                 "registered_agents": len(available_agents),

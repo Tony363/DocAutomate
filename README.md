@@ -1581,6 +1581,8 @@ services:
     network_mode: host
 ```
 
+> ℹ️ Set `CLAUDE_ENABLE_LOCAL_FALLBACKS=true` only if you need the legacy PyPDF2/docx2pdf fallbacks. Without this opt-in, CLI extraction failures surface directly to the caller.
+
 ## 📊 Performance & Monitoring
 
 ### Key Metrics

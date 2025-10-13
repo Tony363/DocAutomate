@@ -1,0 +1,14 @@
+{
+  "required_keys": [
+    "success",
+    "output_path",
+    "results",
+    "processing_time",
+    "processing_time_seconds"
+  ],
+  "results_required_keys": [
+    "status",
+    "output_path",
+    "conversion_method"
+  ]
+}

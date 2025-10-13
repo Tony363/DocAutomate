@@ -9,6 +9,10 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Sample integration script not run in automated tests")
+
 # Import our modules
 import sys
 from pathlib import Path

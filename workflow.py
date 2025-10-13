@@ -21,6 +21,11 @@ from agent_providers import agent_registry, AgentProvider
 
 # Import file operations utilities
 from utils.file_operations import FileOperations
+from storage import (
+    save_workflow_run as db_save_workflow_run,
+    list_workflow_runs as db_list_workflow_runs,
+    get_workflow_run as db_get_workflow_run,
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -125,6 +130,34 @@ class WorkflowEngine:
                 logger.error(f"Failed to load workflow {yaml_file}: {e}")
         
         return workflows
+
+    def _workflow_run_from_record(self, record: Dict[str, Any]) -> WorkflowRun:
+        """Convert a DB payload into a WorkflowRun dataclass."""
+        status_value = record.get("status", WorkflowStatus.RUNNING.value)
+        if isinstance(status_value, WorkflowStatus):
+            status = status_value
+        else:
+            try:
+                status = WorkflowStatus(status_value)
+            except ValueError:
+                status = WorkflowStatus.RUNNING
+
+        return WorkflowRun(
+            run_id=record["run_id"],
+            workflow_name=record["workflow_name"],
+            document_id=record["document_id"],
+            status=status,
+            current_step=record.get("current_step"),
+            parameters=record.get("parameters") or {},
+            state=record.get("state") or {},
+            started_at=record.get("started_at"),
+            completed_at=record.get("completed_at"),
+            error=record.get("error"),
+            outputs=record.get("outputs") or {},
+            step_history=record.get("step_history") or [],
+            total_duration_seconds=record.get("total_duration_seconds"),
+            summary=record.get("summary"),
+        )
     
     async def execute_workflow(
         self,
@@ -504,8 +537,10 @@ class WorkflowEngine:
     async def _save_state(self, run: WorkflowRun):
         """Persist workflow run state"""
         state_file = self.state_dir / f"{run.run_id}.json"
+        payload = asdict(run)
         with open(state_file, 'w') as f:
-            json.dump(asdict(run), f, indent=2)
+            json.dump(payload, f, indent=2)
+        await asyncio.to_thread(db_save_workflow_run, payload)
     
     # Action Handlers
     
@@ -1042,6 +1077,10 @@ class WorkflowEngine:
     
     def get_run_status(self, run_id: str) -> Optional[WorkflowRun]:
         """Get status of a workflow run"""
+        record = db_get_workflow_run(run_id)
+        if record:
+            return self._workflow_run_from_record(record)
+
         state_file = self.state_dir / f"{run_id}.json"
         if not state_file.exists():
             return None
@@ -1052,16 +1091,21 @@ class WorkflowEngine:
     
     def list_runs(self, workflow_name: Optional[str] = None) -> List[WorkflowRun]:
         """List all workflow runs, optionally filtered by workflow name"""
-        runs = []
-        
+        records = db_list_workflow_runs(workflow_name)
+        runs = [self._workflow_run_from_record(record) for record in records]
+
+        if runs:
+            return sorted(runs, key=lambda x: x.started_at or "", reverse=True)
+
+        # Fallback to legacy filesystem storage if database empty
+        legacy_runs: List[WorkflowRun] = []
         for state_file in self.state_dir.glob("*.json"):
             with open(state_file, 'r') as f:
                 data = json.load(f)
                 run = WorkflowRun(**data)
                 if workflow_name is None or run.workflow_name == workflow_name:
-                    runs.append(run)
-        
-        return sorted(runs, key=lambda x: x.started_at, reverse=True)
+                    legacy_runs.append(run)
+        return sorted(legacy_runs, key=lambda x: x.started_at or "", reverse=True)
 
     def get_workflow_metrics(self, workflow_name: str) -> Dict[str, Any]:
         """Aggregate run statistics for a workflow."""

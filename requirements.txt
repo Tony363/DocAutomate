@@ -36,6 +36,7 @@ Pillow==10.1.0  # For image processing
 python-docx==1.1.0  # For Word documents
 openpyxl==3.1.2  # For Excel files
 python-docx2pdf==0.1.8  # For DOCX to PDF conversion
+tkinterdnd2==0.3.0  # Desktop drag-and-drop support
 
 # Optional: Database support
 sqlalchemy==2.0.23  # For future database integration

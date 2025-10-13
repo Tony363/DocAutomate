@@ -205,6 +205,7 @@ def build_system_metrics(
         "workflow_success_rate": workflow_metrics.get("success_rate"),
         "average_workflow_duration_seconds": workflow_metrics.get("average_duration_seconds"),
         "average_workflow_duration": workflow_metrics.get("average_duration_formatted"),
+        "average_processing_time": workflow_metrics.get("average_duration_formatted"),
     }
 
 
@@ -246,4 +247,3 @@ def collect_health_metrics(
         "uptime": uptime["uptime"],
         "uptime_seconds": uptime["uptime_seconds"],
     }
-

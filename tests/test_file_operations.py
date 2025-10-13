@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 import json
+from types import SimpleNamespace
 
 # Import test dependencies
 from fastapi.testclient import TestClient
@@ -22,6 +23,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from api import app
 from utils.file_operations import FileOperations
+from claude_cli import LOCAL_FALLBACK_ENV_VAR
 
 
 class TestFileOperationsAPI:
@@ -333,26 +335,48 @@ class TestFileOperationsUtils:
         assert 'error' in result
         assert "not found" in result['error'].lower()
     
-    @pytest.mark.asyncio 
-    async def test_convert_docx_to_pdf_mock(self):
-        """Test DOCX to PDF conversion (mocked)"""
-        # Create a mock DOCX file
+    @pytest.mark.asyncio
+    async def test_convert_docx_to_pdf_requires_opt_in(self, monkeypatch):
+        """Ensure conversion errors when local fallback disabled"""
         docx_path = str(self.temp_path / "test.docx")
         Path(docx_path).write_text("Mock DOCX content")
-        
         pdf_path = str(self.temp_path / "test.pdf")
         
-        # Since we don't have actual conversion libraries in test environment,
-        # this will test the error handling path
+        monkeypatch.delenv(LOCAL_FALLBACK_ENV_VAR, raising=False)
+        
         result = await FileOperations.convert_docx_to_pdf(
             input_path=docx_path,
             output_path=pdf_path,
             use_claude=False
         )
         
-        # Should return success=True for DSL workflow placeholder
-        # or fail with import error for library-based conversion
-        assert 'success' in result
+        assert result['success'] is False
+        assert LOCAL_FALLBACK_ENV_VAR in result['error']
+    
+    @pytest.mark.asyncio
+    async def test_convert_docx_to_pdf_fallback_opt_in(self, monkeypatch):
+        """Allow docx2pdf fallback when explicitly enabled"""
+        docx_path = str(self.temp_path / "test.docx")
+        Path(docx_path).write_text("Mock DOCX content")
+        pdf_path = str(self.temp_path / "test.pdf")
+        
+        monkeypatch.setenv(LOCAL_FALLBACK_ENV_VAR, "true")
+        
+        def fake_convert(input_file, output_file):
+            Path(output_file).write_text("PDF content")
+        
+        fake_module = SimpleNamespace(convert=fake_convert)
+        monkeypatch.setitem(sys.modules, "docx2pdf", fake_module)
+        
+        result = await FileOperations.convert_docx_to_pdf(
+            input_path=docx_path,
+            output_path=pdf_path,
+            use_claude=False
+        )
+        
+        assert result['success'] is True
+        assert result['method'] == 'docx2pdf_library'
+        assert Path(pdf_path).exists()
     
     @pytest.mark.asyncio
     async def test_convert_nonexistent_file(self):

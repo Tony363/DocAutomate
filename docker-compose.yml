@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  docautomate:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_PORT=8000
+      - CLAUDE_TIMEOUT=600
+      - CLAUDE_API_BASE=${CLAUDE_API_BASE:-}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - CLAUDE_ENABLE_LOCAL_FALLBACKS=${CLAUDE_ENABLE_LOCAL_FALLBACKS:-false}
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - ./dsl:/app/dsl
+      - ./workflows:/app/workflows
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gui:
+    build: .
+    command: python gui.py
+    environment:
+      - API_PORT=8000
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - docautomate
+    network_mode: host

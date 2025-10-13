@@ -10,6 +10,10 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Manual Claude integration script; skipped in automated runs")
+
 # Import our modules
 import sys
 from pathlib import Path

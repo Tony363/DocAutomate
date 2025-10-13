@@ -17,8 +17,19 @@ import aiofiles
 from datetime import datetime
 import json
 
+from claude_cli import LOCAL_FALLBACK_ENV_VAR
+
 # Configure logging
 logger = logging.getLogger(__name__)
+
+_TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
+def _local_fallbacks_enabled() -> bool:
+    raw = os.getenv(LOCAL_FALLBACK_ENV_VAR)
+    if raw is None:
+        return False
+    return raw.strip().lower() in _TRUTHY_VALUES
 
 class FileOperations:
     """
@@ -188,6 +199,11 @@ class FileOperations:
                 }
             else:
                 # Fallback to library-based conversion
+                if not _local_fallbacks_enabled():
+                    raise RuntimeError(
+                        "Local DOCX conversion fallback is disabled. "
+                        f"Set {LOCAL_FALLBACK_ENV_VAR}=true to allow docx2pdf usage."
+                    )
                 try:
                     from docx2pdf import convert
                     

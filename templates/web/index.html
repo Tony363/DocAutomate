@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DocAutomate Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f8; color: #222; }
+        header { background: #2f4fbb; color: white; padding: 1.5rem 2rem; }
+        main { padding: 2rem; }
+        h1, h2 { margin: 0 0 1rem 0; }
+        section { margin-bottom: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); padding: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.65rem; }
+        th { background: #eef2ff; font-weight: 600; }
+        tr:nth-child(even) { background: #fafbff; }
+        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+        .metric-card { background: #2f4fbb; color: #fff; border-radius: 8px; padding: 1rem; }
+        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; background: #eef2ff; color: #2f4fbb; margin-right: 0.25rem; }
+        .status-success { color: #0a8a2a; font-weight: 600; }
+        .status-failed { color: #d13438; font-weight: 600; }
+        .status-running { color: #ca5010; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DocAutomate Operational Dashboard</h1>
+        <p>Unified view of documents, workflows, and Claude integration health.</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>System Metrics</h2>
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <strong>Uptime</strong>
+                    <div>{{ metrics['system_metrics']['uptime'] or 'n/a' }}</div>
+                </div>
+                <div class="metric-card">
+                    <strong>Documents Processed</strong>
+                    <div>{{ metrics['system_metrics']['documents_processed'] }}</div>
+                </div>
+                <div class="metric-card">
+                    <strong>Pending Documents</strong>
+                    <div>{{ metrics['document_counts']['pending'] }}</div>
+                </div>
+                <div class="metric-card">
+                    <strong>Workflow Success Rate</strong>
+                    <div>
+                        {% if metrics['workflow_metrics']['success_rate'] %}
+                            {{ (metrics['workflow_metrics']['success_rate'] * 100) | round(1) }}%
+                        {% else %}
+                            n/a
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Recent Documents</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Status</th>
+                        <th>Agent</th>
+                        <th>Quality</th>
+                        <th>Ingested</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents[:15] %}
+                        <tr>
+                            <td>{{ doc.filename }}</td>
+                            <td class="status-{{ doc.status }}">{{ doc.status }}</td>
+                            <td>{{ doc.primary_agent or '—' }}</td>
+                            <td>
+                                {% if doc.quality_score %}
+                                    {{ (doc.quality_score * 100) | round(1) }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ doc.ingested_at }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5">No documents ingested yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Workflow Runs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Run</th>
+                        <th>Workflow</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Completed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in workflow_runs %}
+                        <tr>
+                            <td>{{ run.run_id }}</td>
+                            <td>{{ run.workflow_name }}</td>
+                            <td class="status-{{ run.status }}">{{ run.status }}</td>
+                            <td>{{ run.duration or '—' }}</td>
+                            <td>{{ run.completed_at or '—' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5">No workflow runs recorded.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Configured Workflows</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Workflow</th>
+                        <th>Description</th>
+                        <th>Tags</th>
+                        <th>Runs</th>
+                        <th>Success Rate</th>
+                        <th>Avg. Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for workflow in workflows %}
+                        <tr>
+                            <td>{{ workflow.name }}</td>
+                            <td>{{ workflow.description }}</td>
+                            <td>
+                                {% for tag in workflow.tags %}
+                                    <span class=\"badge\">{{ tag }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ workflow.run_count or 0 }}</td>
+                            <td>
+                                {% if workflow.success_rate %}
+                                    {{ (workflow.success_rate * 100) | round(1) }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ workflow.average_duration or '—' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan=\"6\">No workflows configured.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>

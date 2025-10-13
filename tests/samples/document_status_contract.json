@@ -1,0 +1,20 @@
+{
+  "required_root_keys": [
+    "document_id",
+    "filename",
+    "status",
+    "quality_score",
+    "claude_analysis"
+  ],
+  "required_analysis_keys": [
+    "primary_agent",
+    "quality_score",
+    "issues_found",
+    "recommendations"
+  ],
+  "issue_required_keys": [
+    "type",
+    "severity",
+    "description"
+  ]
+}

@@ -1,7 +1,13 @@
-"""
-Services package for DocAutomate
-"""
+"""Services package for DocAutomate."""
 
-from .claude_service import claude_service, ClaudeService
+from . import claude_service as claude_service_module
 
-__all__ = ['claude_service', 'ClaudeService']
+claude_service = claude_service_module
+claude_service_instance = claude_service_module.claude_service
+ClaudeService = claude_service_module.ClaudeService
+
+__all__ = [
+    "claude_service",
+    "claude_service_instance",
+    "ClaudeService",
+]
