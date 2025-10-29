@@ -1,0 +1,12 @@
+[
+  {
+    "path": "samples/sample_invoice.txt",
+    "document_type": "general",
+    "expected": {}
+  },
+  {
+    "path": "samples/sample_submission.csv",
+    "document_type": "spreadsheet",
+    "expected": {}
+  }
+]

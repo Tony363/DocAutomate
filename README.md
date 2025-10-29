@@ -223,6 +223,30 @@ sequenceDiagram
 - Run `python scripts/accuracy_benchmark.py --dataset datasets/benchmark.json` to replay labelled submissions and compute per-field accuracy.
 - Benchmark output lists delegation status for each document so drift investigations can focus on fallback scenarios.
 
+## API Quickstart
+
+Upload a document:
+```bash
+curl -X POST "http://localhost:8000/documents/upload" \
+  -H "X-API-Key: $DOC_AUTOMATE_API_KEY" \
+  -F "file=@samples/sample_submission.csv" \
+  -F "auto_process=true"
+```
+
+Ingest a broker email:
+```bash
+curl -X POST "http://localhost:8000/emails/ingest" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $DOC_AUTOMATE_API_KEY" \
+  -d @samples/sample_email.json
+```
+
+Check document status:
+```bash
+curl -H "X-API-Key: $DOC_AUTOMATE_API_KEY" \
+  "http://localhost:8000/documents/<document_id>"
+```
+
 ## 🖥️ Desktop GUI Application
 
 ### Native GUI Features
