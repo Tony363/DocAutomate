@@ -105,6 +105,8 @@ class DocumentUploadResponse(BaseModel):
     status: str
     message: str
     extracted_actions: Optional[List[Dict]]
+    delegation_status: str
+    delegation_details: Optional[Dict[str, Any]] = None
 
 class WorkflowExecutionRequest(BaseModel):
     document_id: str
@@ -131,6 +133,8 @@ class DocumentStatusResponse(BaseModel):
     claude_analysis: Optional[Dict]
     workflow_runs: List[str]
     extracted_actions: Optional[List[Dict]]
+    delegation_status: str
+    delegation_details: Optional[Dict[str, Any]] = None
 
 class WorkflowRunStatusResponse(BaseModel):
     run_id: str
@@ -614,7 +618,10 @@ async def upload_document(
         ingestion_start = datetime.now()
         document = await document_ingester.ingest_file(tmp_path)
         ingestion_time = (datetime.now() - ingestion_start).total_seconds()
-        logger.info(f"[{request_id}] Document ingested in {ingestion_time:.2f}s: id={document.id}, status={document.status}")
+        logger.info(
+            f"[{request_id}] Document ingested in {ingestion_time:.2f}s: id={document.id}, "
+            f"status={document.status}, delegation={document.delegation_status}"
+        )
         
         # Clean up temp file
         logger.debug(f"[{request_id}] Cleaning up temporary file: {tmp_path}")
@@ -638,7 +645,9 @@ async def upload_document(
             filename=document.filename,
             status=document.status,
             message=message,
-            extracted_actions=None
+            extracted_actions=None,
+            delegation_status=document.delegation_status,
+            delegation_details=document.delegation_details,
         )
         
     except Exception as e:
@@ -672,7 +681,9 @@ async def list_documents(status: Optional[str] = None):
                 quality_score=doc.quality_score if doc.quality_score is not None else (doc.metadata or {}).get('quality_score'),
                 claude_analysis=doc.analysis_summary or (doc.metadata or {}).get('claude_analysis'),
                 workflow_runs=doc.workflow_runs or [],
-                extracted_actions=doc.extracted_actions
+                extracted_actions=doc.extracted_actions,
+                delegation_status=doc.delegation_status,
+                delegation_details=doc.delegation_details,
             )
             for doc in documents
         ]
@@ -703,7 +714,9 @@ async def get_document_status(document_id: str):
             quality_score=document.quality_score if document.quality_score is not None else metadata.get('quality_score'),
             claude_analysis=document.analysis_summary or metadata.get('claude_analysis'),
             workflow_runs=document.workflow_runs or [],
-            extracted_actions=document.extracted_actions
+            extracted_actions=document.extracted_actions,
+            delegation_status=document.delegation_status,
+            delegation_details=document.delegation_details,
         )
         
     except HTTPException:

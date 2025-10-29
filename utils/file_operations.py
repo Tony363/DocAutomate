@@ -207,6 +207,9 @@ class FileOperations:
                 try:
                     from docx2pdf import convert
                     
+                    logger.warning(
+                        "CLAUDE_ENABLE_LOCAL_FALLBACKS=true; using docx2pdf local fallback for DOCX conversion."
+                    )
                     logger.info(f"Converting with docx2pdf: {input_path} -> {output_path}")
                     convert(input_path, output_path)
                     

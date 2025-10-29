@@ -53,6 +53,8 @@ class Document:
     quality_score: Optional[float] = None
     primary_agent: Optional[str] = None
     analysis_summary: Optional[Dict[str, Any]] = None
+    delegation_status: str = "delegated"
+    delegation_details: Optional[Dict[str, Any]] = None
 
     @property
     def document_id(self) -> str:
@@ -91,7 +93,10 @@ class DocumentIngester:
 
     def _document_payload(self, doc: Document) -> Dict[str, Any]:
         """Transform Document dataclass into DB payload."""
-        metadata = doc.metadata or {}
+        metadata = dict(doc.metadata or {})
+        metadata.setdefault("delegation_status", doc.delegation_status)
+        if doc.delegation_details is not None:
+            metadata.setdefault("delegation_details", doc.delegation_details)
         storage_path = str(self.storage_dir / doc.id / "content.txt")
         return {
             "id": doc.id,
@@ -119,7 +124,10 @@ class DocumentIngester:
             except Exception:
                 text = ""
 
-        metadata = record.get("metadata") or {}
+        metadata_raw = record.get("metadata") or {}
+        metadata = dict(metadata_raw)
+        delegation_status = metadata.pop("delegation_status", "unknown")
+        delegation_details = metadata.pop("delegation_details", None)
         workflow_runs = record.get("workflow_runs") or []
 
         return Document(
@@ -136,8 +144,10 @@ class DocumentIngester:
             quality_score=record.get("quality_score"),
             primary_agent=record.get("claude_agent"),
             analysis_summary=record.get("analysis_summary"),
+            delegation_status=delegation_status,
+            delegation_details=delegation_details,
         )
-    
+
     async def ingest_file(self, file_path: str) -> Document:
         """
         Ingest a single document file
@@ -157,8 +167,8 @@ class DocumentIngester:
         try:
             # For this implementation, we'll simulate Claude's Read tool
             # In production, this would call the actual Claude Read API
-            text = await self._extract_text(path)
-            
+            text, delegation = await self._extract_text(path)
+
             # Create document object
             doc = Document(
                 id=self.generate_document_id(text),
@@ -171,9 +181,11 @@ class DocumentIngester:
                     'extension': file_ext
                 },
                 ingested_at=datetime.utcnow().isoformat(),
-                workflow_runs=[]
+                workflow_runs=[],
+                delegation_status=delegation.get("status", "unknown"),
+                delegation_details=delegation,
             )
-            
+
             # Store document
             await self._store_document(doc)
             
@@ -222,7 +234,7 @@ class DocumentIngester:
         
         return True
     
-    async def _extract_text(self, file_path: Path, max_retries: int = 3) -> str:
+    async def _extract_text(self, file_path: Path, max_retries: int = 3) -> tuple[str, Dict[str, Any]]:
         """
         Extract text from document with validation and retry logic
         
@@ -249,7 +261,12 @@ class DocumentIngester:
                 # Validate the extracted text
                 if self._validate_extracted_text(text, file_path):
                     logger.info(f"Successfully extracted and validated {len(text)} characters from {file_path.name}")
-                    return text
+                    return text, {
+                        "status": "delegated",
+                        "provider": "claude_cli",
+                        "attempt": attempt + 1,
+                        "fallback_used": False,
+                    }
                 else:
                     logger.warning(f"Attempt {attempt + 1} produced invalid text for {file_path.name}")
                     if attempt < max_retries - 1:
@@ -257,7 +274,7 @@ class DocumentIngester:
                         await asyncio.sleep(2 ** attempt)
                     
             except (ImportError, FileNotFoundError) as e:
-                # Fallback if Claude Code is not available
+                # Claude CLI module not available – optionally fall back if explicitly enabled
                 logger.warning(f"Claude Code not available on attempt {attempt + 1}: {e}")
                 last_error = e
                 
@@ -265,36 +282,57 @@ class DocumentIngester:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         text = f.read()
                         if self._validate_extracted_text(text, file_path):
-                            return text
+                            return text, {
+                                "status": "local_fallback",
+                                "provider": "filesystem",
+                                "reason": "plain_text_read",
+                                "fallback_used": True,
+                            }
                     continue
-                
+
+                if not _local_fallbacks_enabled():
+                    error_message = (
+                        "Claude CLI is unavailable and local fallbacks are disabled. "
+                        f"Set {LOCAL_FALLBACK_ENV_VAR}=true to permit limited local extraction."
+                    )
+                    logger.error(error_message)
+                    raise RuntimeError(error_message) from e
+
                 if file_path.suffix.lower() == '.pdf':
-                    if not _local_fallbacks_enabled():
-                        error_message = (
-                            "Claude CLI is unavailable and local fallbacks are disabled. "
-                            f"Set {LOCAL_FALLBACK_ENV_VAR}=true to permit PyPDF2 extraction."
-                        )
-                        logger.error(error_message)
-                        raise RuntimeError(error_message) from e
-                    
                     try:
                         import PyPDF2
                         logger.info(f"Trying direct PyPDF2 extraction for: {file_path}")
-                        
+
                         with open(file_path, 'rb') as f:
                             pdf_reader = PyPDF2.PdfReader(f)
                             text_parts = []
                             for page in pdf_reader.pages:
                                 text_parts.append(page.extract_text())
                             text = '\n'.join(text_parts)
-                            
+
                             if self._validate_extracted_text(text, file_path):
                                 logger.info(f"PyPDF2 successfully extracted {len(text)} characters")
-                                return text
+                                return text, {
+                                    "status": "local_fallback",
+                                    "provider": "pypdf2",
+                                    "fallback_used": True,
+                                    "attempt": attempt + 1,
+                                }
                     except Exception as pdf_error:
                         logger.error(f"Direct PyPDF2 extraction failed: {pdf_error}")
                         last_error = pdf_error
-                
+                        if attempt == max_retries - 1:
+                            raise RuntimeError(
+                                "Local PyPDF2 fallback failed after explicit opt-in."
+                            ) from pdf_error
+                else:
+                    error_message = (
+                        f"Local fallback requested for unsupported format {file_path.suffix}. "
+                        "Only PDF fallback is available."
+                    )
+                    logger.error(error_message)
+                    raise RuntimeError(error_message) from e
+
                 if attempt == max_retries - 1:
                     error_msg = f"Failed to extract text from {file_path.name} after {max_retries} attempts"
                     logger.error(error_msg)
