@@ -1,0 +1,47 @@
+name: "spreadsheet_ingestion"
+description: "Normalize broker spreadsheets and extract property attributes"
+version: "2025-10-29"
+inputs:
+  - name: "document_id"
+    type: "string"
+    description: "Identifier of the spreadsheet document"
+
+steps:
+  - id: "load_document"
+    type: "data_transform"
+    description: "Load spreadsheet document content"
+    params:
+      transformer: "load_document"
+
+  - id: "analyze_spreadsheet"
+    type: "agent_task"
+    description: "Delegate analysis to requirements analyst"
+    params:
+      agent: "requirements-analyst"
+      prompt: |
+        Analyze the normalized spreadsheet content and extract structured building attributes.
+        Highlight missing fields and confidence scores for each value.
+
+  - id: "consensus_validation"
+    type: "claude_consensus"
+    description: "Validate extracted fields across multiple models"
+    params:
+      models: ["gpt-5", "claude-opus-4.1"]
+      agreement_threshold: 0.75
+    depends_on: ["analyze_spreadsheet"]
+
+  - id: "quality_gate"
+    type: "quality_check"
+    description: "Ensure extraction meets accuracy threshold"
+    params:
+      target_score: 0.9
+    depends_on: ["consensus_validation"]
+
+outputs:
+  - id: "extraction"
+    source: "consensus_validation"
+    description: "Consensus-adjusted spreadsheet extraction results"
+
+quality_gates:
+  - step: "quality_gate"
+    fail_action: "raise"

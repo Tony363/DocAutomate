@@ -9,7 +9,17 @@
 
 ## 🚀 Executive Overview
 
-DocAutomate is a **revolutionary document processing framework** that operates as a pure API orchestration layer, delegating ALL document processing to Claude Code agents through the SuperClaude Framework. With **ZERO local processing logic**, it serves as a universal document processor that generalizes to ANY document type through Claude's multi-modal understanding capabilities.
+DocAutomate is a **delegation-first document processing framework** that keeps business logic in Claude Code agents while FastAPI provides orchestration, storage, and workflow control. By default all heavy lifting is delegated to Claude; when the `CLAUDE_ENABLE_LOCAL_FALLBACKS` flag is set, the system can fall back to lightweight local extractors (e.g., PyPDF2) for resilience.
+
+### Current Capabilities (October 2025)
+- FastAPI surface area implemented: `/documents`, `/workflows`, `/orchestrate`, `/health`, `/documents/convert`.
+- Claude-driven ingestion for PDFs, images, plain text/Markdown, and DOCX (other formats require roadmap work).
+- DSL-backed workflows with agent delegation (3 production-ready workflows, 15 backlog items).
+- SQLite persistence for documents and workflow runs, surfaced through `storage/database.py`.
+- Delegation metadata exposed on every document (API responses show delegated vs. fallback execution).
+
+### Near-Term Roadmap
+The next four-week alignment effort is tracked in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) and the longer-term vision lives in [ROADMAP.md](ROADMAP.md). Highlights include: widening workflow coverage, hardening consensus validation, adding API-key authentication, and packaging Dockerized deployments.
 
 ### Key Innovation: Complete Claude Code Delegation
 
@@ -18,25 +28,24 @@ Traditional Systems: Document → Local Processing → Output
 DocAutomate:        Document → Claude Code → Intelligent Processing → Enhanced Output
 ```
 
-**Universal Document Support:**
-- 📋 Medical Records (HIPAA-Compatible Design)
-- 📄 Legal Contracts (Signature Workflows)
-- 💰 Financial Reports (SOX Compliance)
-- 📖 Technical Documentation (API Specs)
-- 🧾 Invoices (Data Extraction)
-- 🖼️ Images/Screenshots (Visual Analysis)
-- 🔧 Any Custom Domain (via DSL Configuration)
+**Document Support (Today):**
+- ✅ PDF (Claude Read API with optional PyPDF2 fallback)
+- ✅ DOCX/Word (delegated conversion, optional docx2pdf fallback)
+- ✅ Text / Markdown
+- ✅ Images (Claude multimodal extraction)
+- ✅ Spreadsheets (normalized to markdown prior to extraction)
+- ✅ Email ingestion (body + attachments routed through DocumentIngester)
 
 **⚠️ Important Compliance Notice:**
 While DocAutomate is designed with HIPAA-compatible technical safeguards and can process medical records securely, **actual HIPAA compliance requires legal agreements** with all service providers in the processing chain (including Anthropic for Claude Code). HIPAA, like SOC2, is a compliance process that involves legal, technical, and administrative safeguards. This system provides the technical foundation for HIPAA compliance but requires proper Business Associate Agreements (BAAs) and organizational policies to achieve full regulatory compliance.
 
 **Core Value Proposition:**
-- **Zero Code Changes**: Extend to new document types via YAML configuration
-- **Infinite Extensibility**: Add capabilities through DSL without programming
-- **Multi-Model Intelligence**: GPT-5, Claude Opus 4.1, GPT-4.1 consensus validation
-- **Production Ready**: Horizontally scalable, containerized architecture
-- **Quality Guaranteed**: Iterative improvement until quality thresholds met
-- **Desktop GUI**: Native tkinter application for easy interaction
+- **Delegation-first**: Business logic lives in Claude prompts/agents; FastAPI manages orchestration.
+- **Config-driven**: Extend to new document types via YAML workflows and prompts.
+- **Multi-model consensus**: GPT-5 + Claude Opus voting (currently enabled for core workflows; expansion in progress).
+- **Persistence included**: SQLite-backed storage out of the box; BYO database through `DATABASE_URL`.
+- **Desktop GUI**: Native tkinter application for quick experiments.
+- **Transparency**: Delegation status & fallbacks surfaced via API metadata.
 
 ## 🏗️ System Architecture
 
@@ -51,7 +60,7 @@ graph TB
         WEB[Web Dashboard]
     end
 
-    subgraph "DocAutomate Core - Pure Orchestration Layer"
+    subgraph "DocAutomate Core - Delegation Layer"
         API[FastAPI Server<br/>Port 8000]
         
         subgraph "DSL Engine"
@@ -100,6 +109,10 @@ graph TB
         REMEDIATED[Enhanced Docs]
     end
 
+    subgraph "Opt-in Local Fallbacks"
+        FALLBACKS[Local Extractors<br/>(PyPDF2, docx2pdf)]
+    end
+
     %% Client connections
     GUI --> API
     REST --> API
@@ -131,6 +144,11 @@ graph TB
     CLAUDE --> FILES
     CLAUDE --> RESULTS
     CLAUDE --> REMEDIATED
+    FALLBACKS --> FILES
+    FALLBACKS --> RESULTS
+
+    %% Fallback decision
+    INGESTER --> FALLBACKS
 
     %% Styling
     classDef api fill:#06ffa5,stroke:#40916c,stroke-width:2px
@@ -190,6 +208,20 @@ sequenceDiagram
     A-->>G: Display Results
     G-->>C: Show Output
 ```
+
+### Delegation & Fallbacks
+- Delegation is **on by default**. If Claude APIs are reachable, all heavy processing routes through agents and multi-model consensus.
+- Local fallbacks require `CLAUDE_ENABLE_LOCAL_FALLBACKS=true`. When enabled, PyPDF2 (PDF) or docx2pdf (DOCX) activate only if Claude delegation fails; API responses surface this through `delegation_status` and `delegation_details`.
+- When fallbacks are disabled (default), failures bubble up with explicit errors so operators know delegation did not run.
+
+### Security & Configuration
+- Protect endpoints with `DOC_AUTOMATE_API_KEY`; include `X-API-Key` header on every request once set.
+- Change storage/database backends via `DATABASE_URL` (defaults to SQLite).
+- Toggle local fallbacks with `CLAUDE_ENABLE_LOCAL_FALLBACKS` (false by default).
+
+### Accuracy Harness
+- Run `python scripts/accuracy_benchmark.py --dataset datasets/benchmark.json` to replay labelled submissions and compute per-field accuracy.
+- Benchmark output lists delegation status for each document so drift investigations can focus on fallback scenarios.
 
 ## 🖥️ Desktop GUI Application
 

@@ -38,6 +38,8 @@ logging.basicConfig(
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 LOCAL_FALLBACK_ENV_VAR = "CLAUDE_ENABLE_LOCAL_FALLBACKS"
 
+from config import settings
+
 
 def _env_enabled(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
@@ -102,12 +104,12 @@ class ClaudeCLI:
         enable_local_fallbacks: Optional[bool] = None,
     ):
         self.timeout = timeout or int(os.getenv("CLAUDE_TIMEOUT", "120"))
-        self.api_base = os.getenv("CLAUDE_API_BASE")
-        self.api_key = os.getenv("CLAUDE_API_KEY")
+        self.api_base = settings.claude_api_base
+        self.api_key = settings.claude_api_key
         self.enable_local_fallbacks = (
             enable_local_fallbacks
             if enable_local_fallbacks is not None
-            else _env_enabled(LOCAL_FALLBACK_ENV_VAR, default=False)
+            else settings.enable_local_fallbacks
         )
         self._http_client: Optional[httpx.Client] = None
 

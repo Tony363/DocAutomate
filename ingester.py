@@ -4,7 +4,6 @@ Document Ingester Module
 Handles various document formats (PDF, images, text) and prepares them for processing
 """
 
-import os
 import json
 import hashlib
 import logging
@@ -17,12 +16,14 @@ from concurrent.futures import ThreadPoolExecutor
 import queue
 
 from claude_cli import AsyncClaudeCLI, LOCAL_FALLBACK_ENV_VAR
+from config import settings
 from storage import (
     init_db,
     save_document as db_save_document,
     list_documents as db_list_documents,
     get_document as db_get_document,
 )
+from utils.spreadsheet_adapter import spreadsheet_to_markdown
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -32,10 +33,7 @@ _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 
 def _local_fallbacks_enabled() -> bool:
-    raw = os.getenv(LOCAL_FALLBACK_ENV_VAR)
-    if raw is None:
-        return False
-    return raw.strip().lower() in _TRUTHY_VALUES
+    return settings.enable_local_fallbacks
 
 @dataclass
 class Document:
@@ -84,7 +82,10 @@ class DocumentIngester:
             '.jpeg': 'image/jpeg',
             '.txt': 'text/plain',
             '.md': 'text/markdown',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.csv': 'text/csv',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '.xls': 'application/vnd.ms-excel'
         }
     
     def generate_document_id(self, content: str) -> str:
@@ -163,12 +164,14 @@ class DocumentIngester:
         if file_ext not in self.supported_formats:
             raise ValueError(f"Unsupported file format: {file_ext}")
         
-        # Extract text based on file type
         try:
-            # For this implementation, we'll simulate Claude's Read tool
-            # In production, this would call the actual Claude Read API
-            text, delegation = await self._extract_text(path)
-
+            if file_ext in {'.csv', '.xlsx', '.xls'}:
+                text, delegation = await self._extract_spreadsheet(path, file_ext)
+            else:
+                # For this implementation, we'll simulate Claude's Read tool
+                # In production, this would call the actual Claude Read API
+                text, delegation = await self._extract_text(path)
+            
             # Create document object
             doc = Document(
                 id=self.generate_document_id(text),
@@ -178,7 +181,8 @@ class DocumentIngester:
                 metadata={
                     'size_bytes': path.stat().st_size,
                     'file_path': str(path.absolute()),
-                    'extension': file_ext
+                    'extension': file_ext,
+                    'document_type': 'spreadsheet' if file_ext in {'.csv', '.xlsx', '.xls'} else 'general'
                 },
                 ingested_at=datetime.utcnow().isoformat(),
                 workflow_runs=[],
@@ -346,6 +350,21 @@ class DocumentIngester:
         
         # All attempts failed
         raise RuntimeError(f"Failed to extract text from {file_path} after {max_retries} attempts: {last_error}")
+
+    async def _extract_spreadsheet(self, file_path: Path, extension: str) -> tuple[str, Dict[str, Any]]:
+        """
+        Normalize spreadsheets into markdown so downstream Claude extraction can operate on text.
+        """
+        try:
+            markdown = await asyncio.to_thread(spreadsheet_to_markdown, file_path)
+            return markdown, {
+                "status": "preprocessed",
+                "provider": "spreadsheet_adapter",
+                "extension": extension,
+            }
+        except Exception as exc:
+            logger.error(f"Spreadsheet conversion failed for {file_path}: {exc}")
+            raise
     
     async def _store_document(self, doc: Document):
         """Store document metadata and content"""

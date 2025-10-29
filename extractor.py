@@ -97,6 +97,8 @@ class ActionExtractor:
             'report': self._get_report_prompt(),
             'nda': self._get_nda_prompt(),
             'contract': self._get_contract_prompt(),
+            'spreadsheet': self._get_spreadsheet_prompt(),
+            'email_submission': self._get_email_submission_prompt(),
             'general': self._get_general_prompt()
         }
     
@@ -131,6 +133,17 @@ class ActionExtractor:
         Focus on: signature requirements, review deadlines, approval processes, obligations,
         deliverables, and compliance requirements.
         """
+
+    def _get_spreadsheet_prompt(self) -> str:
+        return """Analyze this spreadsheet content and extract structured building attributes or
+submission data. Each extracted action should capture the field name, value, units (if present),
+and any context such as sheet name or row number. Highlight missing or ambiguous values that
+require broker follow-up."""
+
+    def _get_email_submission_prompt(self) -> str:
+        return """Analyze this insurance submission email. Identify requested actions, missing
+information, referenced attachments, deadlines, and required follow-ups. Include structured
+entities for each building/property attribute mentioned in the body. Flag any manual review items."""
     
     def _detect_document_type(self, text: str) -> str:
         """Detect document type from content"""

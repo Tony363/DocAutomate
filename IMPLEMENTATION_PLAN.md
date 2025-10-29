@@ -1,30 +1,23 @@
-# Implementation Plan
+# Implementation Plan (Four-Week Alignment)
 
-1. **Complete Agent Coverage**
-   - Implement provider classes for every agent referenced in the DSL/README (system-architect, backend-architect, frontend-architect, requirements-analyst, refactoring-expert, etc.) using the `execute_with_agent_async` integration.
-   - Register the new providers in `AgentRegistry` and add smoke tests that confirm routing selects the correct agent for each mapped document type.
+## Week 1 – Truth & Fallback Hygiene
+- [x] Update README with “What Works Now” vs “Roadmap,” delegation metadata, and fallback flag documentation.
+- [x] Add `ROADMAP.md` capturing future ambitions and assumptions.
+- [x] Embed current architecture diagram (including Claude delegation plus optional local fallback path) in README/docs.
+- [x] Ensure delegation metadata is surfaced across API responses and document the `CLAUDE_ENABLE_LOCAL_FALLBACKS` flag.
 
-2. **Enhance Analysis/Consensus Pipelines**
-   - Extend `AnalysisRequest` and handlers to accept and forward `claude_config`, capturing runtime flags (e.g., `claude_command`) and timing metrics.
-   - Rework `consensus_validation` to iterate across the supplied model list, aggregate findings, and persist an `agreement_details` block mirroring the README examples; add unit tests covering multi-model consensus scenarios.
+## Week 2 – Core Execution Gaps
+- [x] Replace the Zen MCP consensus stub with working multi-model consensus for the three highest-impact workflows, including prompts and tests.
+- [x] Expand executable workflows from 3 to 6 by fleshing out DSL steps for the most common ingestion scenarios.
+- [x] Implement API-key authentication (FastAPI dependency/middleware) with sample `.env` configuration and tests.
 
-3. **Workflow Telemetry & Metadata**
-   - Capture per-step timings and outcomes inside `WorkflowRun` (augment `WorkflowEngine.execute_workflow`) and surface averages/SLA metadata when listing workflows.
-   - Update `/workflows`, `/workflows/runs`, and `/workflows/runs/{id}` responses to match the documented JSON structures, including formatted durations and final summary sections.
+## Week 3 – Production Foundations
+- [x] Harden SQLite persistence (route all write paths through `storage/database.py`, document migrations/initialization).
+- [x] Introduce environment-based configuration management for Claude credentials, persistence URLs, and fallback behaviour.
+- [x] Provide a minimal Docker Compose stack (API + SQLite) for local/CI runs.
+- [x] Add structured logging for delegation status, auth principal, and failure reasons.
 
-4. **Orchestration Reporting**
-   - Extend `claude_service.orchestrate_workflow` to build the detailed `claude_workflow` tree (analysis → consensus → remediation → validation) with quality metrics, then persist it so `/orchestrate/runs/{id}` returns the README-style payload.
-   - Add integration tests covering both success and failure paths for orchestration reporting.
-
-5. **Health & Metrics Alignment**
-   - Collect and expose the additional health data (document counts, uptime, Claude model defaults, system metrics) so `/health` matches the published schema.
-   - Introduce a lightweight metrics module with tests validating the presence and accuracy of required keys.
-
-6. **Eliminate Local Fallbacks (or Update Docs)**
-   - To honor the “pure delegation” promise, remove or gate the PyPDF2/docx2pdf fallbacks behind an opt-in flag, ensuring CLI failures surface to the caller rather than silently switching to local processing.
-   - Add regression tests verifying that unsupported formats trigger explicit errors instead of local processing.
-
-7. **API Contract Parity**
-   - Ensure batch and conversion endpoints return the richer result lists (`results[]`, `processing_time`) when running synchronously, or update the README to describe queued behaviour accurately.
-   - Reconcile document status storage so `claude_analysis`, issue lists, and quality scores align with the README examples; add fixtures to confirm the payload shape.
-
+## Week 4 – Polish & Examples
+- [ ] Finalize API reference (OpenAPI descriptions, curl snippets, FastAPI docs reflecting delegation metadata).
+- [ ] Create two end-to-end ingestion examples and store assets in `docs/examples/`.
+- [x] Publish a concise deployment guide (local Compose + BYO Claude credentials) with screenshots or terminal captures.

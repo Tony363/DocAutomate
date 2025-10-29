@@ -4,7 +4,8 @@ REST API for DocAutomate Framework
 Provides endpoints for document ingestion and workflow management
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request, Depends
+from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -28,6 +29,8 @@ from claude_cli import SuperClaudeMCP
 from utils.file_operations import FileOperations
 from utils.metrics import collect_health_metrics, format_duration
 from enum import Enum
+from email_ingester import ingest_email as ingest_email_message
+from config import settings
 
 # Set up logging with more detail
 import uuid
@@ -56,14 +59,24 @@ def format_processing_time(seconds: Optional[float]) -> Optional[str]:
         return None
     return f"{value:.2f}s"
 
+api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
- 
+
+async def require_api_key(provided_key: Optional[str] = Depends(api_key_header)) -> Optional[str]:
+    expected = settings.api_key
+    if expected:
+        if provided_key != expected:
+            logger.warning("Unauthorized request blocked", extra={"principal": provided_key})
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        logger.debug("API key accepted", extra={"principal": provided_key})
+    return provided_key
 
 # Initialize FastAPI app
 app = FastAPI(
     title="DocAutomate API",
     description="Enterprise Document Ingestion and Action Automation Framework",
-    version="1.0.0"
+    version="1.0.0",
+    dependencies=[Depends(require_api_key)]
 )
 
 templates = Jinja2Templates(directory="templates/web")
@@ -250,6 +263,23 @@ class BatchConversionRequest(BaseModel):
     max_workers: int = 4
     use_dsl: bool = True
 
+
+class EmailIngestionRequest(BaseModel):
+    raw_email: str
+    source: Optional[str] = "mailbox"
+    auto_process: bool = True
+
+
+class EmailAttachmentInfo(BaseModel):
+    document_id: str
+    filename: str
+    delegation_status: str
+
+
+class EmailIngestionResponse(BaseModel):
+    email_document: DocumentUploadResponse
+    attachments: List[EmailAttachmentInfo]
+
 EXTRACTION_ERROR_PHRASES = [
     'i need your permission',
     'please grant permission',
@@ -267,6 +297,13 @@ async def _extract_actions_for_document(
 ) -> Dict[str, Any]:
     """Shared extraction workflow for background and synchronous requests"""
     logger.info(f"[{request_id}] Extracting actions for document {document.id}")
+    logger.info(
+        f"[{request_id}] Delegation status: {document.delegation_status}",
+        extra={
+            "delegation_status": document.delegation_status,
+            "delegation_details": document.delegation_details,
+        },
+    )
 
     text_content = document.text or ""
     if len(text_content) < 50:
@@ -375,13 +412,18 @@ async def _extract_actions_for_document(
     document.metadata['claude_agent'] = primary_agent
 
     document.extracted_actions = actions_payload
-    document.status = "processed" if len(text_content) > 100 else "partial"
-    if not actions_payload:
-        document.status = "processed_no_actions"
-
     document.quality_score = document.metadata['quality_score']
     document.primary_agent = primary_agent
     document.analysis_summary = analysis_summary
+
+    if document.quality_score is not None and document.quality_score < 0.9:
+        document.status = "manual_review"
+        document.metadata['manual_review'] = True
+        document.metadata['manual_review_reason'] = "quality_below_threshold"
+    elif not actions_payload:
+        document.status = "processed_no_actions"
+    else:
+        document.status = "processed" if len(text_content) > 100 else "partial"
 
     auto_executed_count = 0
     if run_workflows and actions:
@@ -519,7 +561,8 @@ async def root():
         "endpoints": {
             "upload": "/documents/upload",
             "list_documents": "/documents",
-            "document_status": "/documents/{document_id}",
+        "document_status": "/documents/{document_id}",
+        "email_ingest": "/emails/ingest",
             "execute_workflow": "/workflows/execute",
             "list_workflows": "/workflows",
             "workflow_status": "/workflows/runs/{run_id}",
@@ -662,6 +705,49 @@ async def upload_document(
             Path(tmp_path).unlink()
         
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/emails/ingest", response_model=EmailIngestionResponse)
+async def ingest_email_endpoint(request: EmailIngestionRequest):
+    """Ingest a raw email payload (RFC822) and optional attachments."""
+    request_id = generate_request_id()
+    logger.info(f"[{request_id}] Email ingestion started (source={request.source})")
+
+    try:
+        result = await ingest_email_message(
+            document_ingester=document_ingester,
+            raw_email=request.raw_email,
+            source=request.source or "mailbox",
+            auto_process=request.auto_process,
+        )
+
+        email_doc_response = DocumentUploadResponse(
+            document_id=result.email_document.id,
+            filename=result.email_document.filename,
+            status=result.email_document.status,
+            message="Email ingested successfully",
+            extracted_actions=None,
+            delegation_status=result.email_document.delegation_status,
+            delegation_details=result.email_document.delegation_details,
+        )
+
+        attachment_infos = [
+            EmailAttachmentInfo(
+                document_id=attachment.id,
+                filename=attachment.filename,
+                delegation_status=attachment.delegation_status,
+            )
+            for attachment in result.attachment_documents
+        ]
+
+        logger.info(
+            f"[{request_id}] Email ingestion completed: email_doc={result.email_document.id}, "
+            f"attachments={len(attachment_infos)}"
+        )
+        return EmailIngestionResponse(email_document=email_doc_response, attachments=attachment_infos)
+    except Exception as exc:
+        logger.error(f"[{request_id}] Email ingestion failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.get("/documents", response_model=List[DocumentStatusResponse])
 async def list_documents(status: Optional[str] = None):
@@ -1884,7 +1970,7 @@ async def batch_convert_documents(request: BatchConversionRequest, background_ta
         logger.error(f"[{request_id}] Batch conversion failed after {total_time:.2f}s: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
+@app.get("/health", dependencies=[])
 async def health_check():
     """Health check endpoint with component metadata as described in README"""
     started = datetime.utcnow()

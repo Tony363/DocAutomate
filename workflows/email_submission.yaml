@@ -1,0 +1,46 @@
+name: "email_submission_ingestion"
+description: "Process broker email submissions and attachments"
+version: "2025-10-29"
+inputs:
+  - name: "document_id"
+    type: "string"
+    description: "Identifier of the ingested email document"
+
+steps:
+  - id: "analyze_email"
+    type: "agent_task"
+    description: "Analyze broker email and extract action items"
+    params:
+      agent: "general-purpose"
+      prompt: |
+        Review the submission email and extract required actions, missing information, and
+        referenced attachments. Produce structured entities for each field required by the
+        underwriting spreadsheet.
+
+  - id: "consensus_crosscheck"
+    type: "claude_consensus"
+    description: "Run consensus across models to validate extraction"
+    params:
+      models: ["gpt-5", "claude-opus-4.1", "gpt-4.1"]
+      agreement_threshold: 0.7
+    depends_on: ["analyze_email"]
+
+  - id: "flag_low_confidence"
+    type: "conditional"
+    description: "Flag email for manual review if confidence below threshold"
+    params:
+      condition: "{{ steps.consensus_crosscheck.overall_quality_score < 0.9 }}"
+      on_true:
+        - type: "mcp_task"
+          params:
+            server: "zen"
+            prompt: "Create a manual review ticket summarizing missing submission details."
+
+outputs:
+  - id: "email_analysis"
+    source: "consensus_crosscheck"
+    description: "Consensus-backed extraction of email submission"
+
+quality_gates:
+  - step: "consensus_crosscheck"
+    fail_action: "retry"
