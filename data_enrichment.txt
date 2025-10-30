@@ -1,0 +1,40 @@
+Engineering AI agent: property data enrichment
+The data that can be extracted from broker submissions has three major issues: (1) it is
+unstandardized, (2) unvetted, and (3) sometimes incorrect. Thus, property data
+enrichment is a critical value add that ResiQuant provides to its customers. To enrich the
+property data, ResiQuant is developing a multimodal AI model that should be very
+accurate at classification tasks that require structural engineering expertise, knowledge of
+constructing practices, and building code regulations. The classifications should be
+compatible with the inputs of catastrophe models (see "Required for CAT model" column
+in this list here).
+This multimodal AI model processes information about the specific building considering
+engineering context. The building-specific data is scraped from the internet and/or
+provided by the broker; this data usually includes street view images, satellite images,
+interior images, building permits, real estate listings, tax data, and other documents. The
+structural engineering context that the model shall account for includes:
+1. Historical building codes and timeline of applicability in each
+jurisdiction/municipality in the US.
+2. Documentation in the forms of papers and interviews with experienced structural
+engineers and contractors of the construction practices in the areas we operate.
+3. Manually labeled images of the building.
+4. Building drawings and associated exterior images.
+The short videos in this folder show a handful of cases where licensed engineers in
+California manually review building data and use their domain expertise to perform a
+series of classification tasks for each building.
+
+Questionnaire for property data enrichment
+5. Describe an AI pipeline that you will use to conduct the classification task for
+determining the construction class of a building considering structural
+engineering expertise. Feel free to respond with as much detail possible, include
+diagrams, or any other means to support your answer. Be specific with the model
+types and algorithms you will use. Document your design decisions including
+comments about other alternatives that you considered and how you would
+evaluate your design decisions during development.
+6. Describe all the data preparation work necessary for the structural engineering
+context data to use effectively in a multimodal AI model. What model
+architecture would you use?
+7. What data do you need for improving the accuracy of the classification
+algorithm?
+8. If you have another AI engineer supporting you in addition to building domain
+experts, how would you approach the implementation with this pipeline
+assuming you are the team leader?
