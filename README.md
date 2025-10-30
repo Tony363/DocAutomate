@@ -14,7 +14,7 @@ DocAutomate is a **delegation-first document processing framework** that keeps b
 ### Current Capabilities (October 2025)
 - FastAPI surface area implemented: `/documents`, `/workflows`, `/orchestrate`, `/health`, `/documents/convert`.
 - Claude-driven ingestion for PDFs, images, plain text/Markdown, and DOCX (other formats require roadmap work).
-- DSL-backed workflows with agent delegation (3 production-ready workflows, 15 backlog items).
+- DSL-backed workflows with agent delegation; 19 workflows ship in `workflows/`, with additional candidates captured in the public roadmap.
 - SQLite persistence for documents and workflow runs, surfaced through `storage/database.py`.
 - Delegation metadata exposed on every document (API responses show delegated vs. fallback execution).
 
@@ -30,7 +30,7 @@ DocAutomate:        Document → Claude Code → Intelligent Processing → Enha
 
 **Document Support (Today):**
 - ✅ PDF (Claude Read API with optional PyPDF2 fallback)
-- ✅ DOCX/Word (delegated conversion, optional docx2pdf fallback)
+- ✅ DOCX/Word (delegated conversion currently returns metadata stubs unless local `docx2pdf` fallback is enabled)
 - ✅ Text / Markdown
 - ✅ Images (Claude multimodal extraction)
 - ✅ Spreadsheets (normalized to markdown prior to extraction)
@@ -213,6 +213,7 @@ sequenceDiagram
 - Delegation is **on by default**. If Claude APIs are reachable, all heavy processing routes through agents and multi-model consensus.
 - Local fallbacks require `CLAUDE_ENABLE_LOCAL_FALLBACKS=true`. When enabled, PyPDF2 (PDF) or docx2pdf (DOCX) activate only if Claude delegation fails; API responses surface this through `delegation_status` and `delegation_details`.
 - When fallbacks are disabled (default), failures bubble up with explicit errors so operators know delegation did not run.
+- If no Claude API credentials are configured, the CLI returns clearly marked simulated responses; use them for local development only and wire real credentials before production runs.
 
 ### Security & Configuration
 - Protect endpoints with `DOC_AUTOMATE_API_KEY`; include `X-API-Key` header on every request once set.
@@ -379,7 +380,12 @@ curl -X POST "http://localhost:8000/documents/upload" \
   "filename": "document.pdf",
   "status": "processing",
   "message": "Document uploaded and queued for Claude Code processing",
-  "extracted_actions": null
+  "extracted_actions": null,
+  "delegation_status": "delegated",
+  "delegation_details": {
+    "provider": "claude_cli",
+    "fallback_used": false
+  }
 }
 ```
 
@@ -399,16 +405,25 @@ curl "http://localhost:8000/documents?status=processed"
     "status": "processed",
     "ingested_at": "2024-09-25T10:30:00Z",
     "content_type": "application/pdf",
-    "size": 1024000,
+    "size_bytes": 1024000,
     "claude_agent": "technical-writer",
     "quality_score": 0.92,
+    "claude_analysis": {
+      "summary": "Key risks resolved.",
+      "issues": []
+    },
     "workflow_runs": ["run_123", "run_456"],
     "extracted_actions": [
       {
         "action_type": "review",
         "description": "Technical review required"
       }
-    ]
+    ],
+    "delegation_status": "delegated",
+    "delegation_details": {
+      "provider": "claude_cli",
+      "fallback_used": false
+    }
   }
 ]
 ```
@@ -425,15 +440,16 @@ curl "http://localhost:8000/documents/doc_a1b2c3d4"
   "status": "processed",
   "ingested_at": "2024-09-25T10:30:00Z",
   "content_type": "application/pdf",
-  "size": 1024000,
+  "size_bytes": 1024000,
+  "claude_agent": "technical-writer",
+  "quality_score": 0.92,
   "claude_analysis": {
-    "primary_agent": "technical-writer",
-    "quality_score": 0.92,
-    "issues_found": [
+    "summary": "Document validated with minor follow-ups.",
+    "issues": [
       {
         "type": "clarity",
         "severity": "medium",
-        "description": "Section 3.2 needs clarification",
+        "note": "Section 3.2 needs clarification",
         "location": {"section": "3.2", "lines": [45, 60]}
       }
     ],
@@ -443,7 +459,17 @@ curl "http://localhost:8000/documents/doc_a1b2c3d4"
     ]
   },
   "workflow_runs": ["run_123"],
-  "extracted_actions": []
+  "extracted_actions": [
+    {
+      "action_type": "review",
+      "description": "Schedule deep-dive with engineering lead"
+    }
+  ],
+  "delegation_status": "delegated",
+  "delegation_details": {
+    "provider": "claude_cli",
+    "fallback_used": false
+  }
 }
 ```
 
@@ -979,14 +1005,29 @@ curl -X POST "http://localhost:8000/documents/convert/docx-to-pdf" \
 # Response
 {
   "success": true,
-  "pdf_path": "/converted/document.pdf",
+  "output_path": "/converted/document.pdf",
+  "archive_path": "/converted/document.pdf",
+  "conversion_method": "dsl_workflow",
   "original_file": "document.docx",
-  "conversion_time": "2.3s",
-  "file_size": {
-    "original": "2.5MB",
-    "converted": "1.8MB"
-  }
+  "file_size_bytes": 1887436,
+  "conversion_time_seconds": 2.3,
+  "workflow_run_id": "run_42b8e7b0",
+  "results": [
+    {
+      "status": "success",
+      "input_path": "/tmp/uploads/document.docx",
+      "output_path": "/converted/document.pdf",
+      "conversion_method": "dsl_workflow",
+      "duration_seconds": 2.3,
+      "quality": "high",
+      "error": null
+    }
+  ],
+  "processing_time": "2.30s",
+  "processing_time_seconds": 2.3
 }
+
+> Tip: When `use_dsl=false` and `CLAUDE_ENABLE_LOCAL_FALLBACKS=true`, the API switches to the direct `docx2pdf` fallback and returns `conversion_method: "direct"` in the `results` payload.
 ```
 
 #### 18. Batch Document Conversion
@@ -1002,28 +1043,11 @@ curl -X POST "http://localhost:8000/documents/convert/batch" \
 
 # Response
 {
-  "batch_id": "batch_123",
-  "total_documents": 3,
-  "successful": 3,
-  "failed": 0,
-  "results": [
-    {
-      "document_id": "doc_001",
-      "status": "success",
-      "output_path": "/converted/doc_001.pdf"
-    },
-    {
-      "document_id": "doc_002",
-      "status": "success",
-      "output_path": "/converted/doc_002.pdf"
-    },
-    {
-      "document_id": "doc_003",
-      "status": "success",
-      "output_path": "/converted/doc_003.pdf"
-    }
-  ],
-  "processing_time": "5.2s"
+  "message": "Batch conversion queued for processing",
+  "request_id": "req_7f6f19c0",
+  "files_queued": 3,
+  "output_directory": "/tmp/batch-outputs",
+  "processing_mode": "dsl_workflow"
 }
 ```
 
@@ -1709,6 +1733,8 @@ python -c "import tkinter; import httpx; print('Dependencies OK')"
 ```
 
 ## 📈 Recent Updates
+
+> Versioning note: The FastAPI application currently advertises `version="1.0.0"` in `api.py` while the root endpoint returns `2.0.0` metadata. The milestones below describe feature drops that are already merged in this repository even if formal release tags have not been cut yet.
 
 ### Version 2.1.0 - Desktop GUI Addition
 - 🖥️ Native tkinter desktop application
